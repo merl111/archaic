@@ -226,9 +226,18 @@ impl Controller {
             self.desktop_commands.borrow_mut().push(command);
         }
         bar.submenu(&self.tr.text("shortcut-navigation"), &navigation)?;
-        self.window.set_menu(Some(&bar))
+        // macOS owns the menu in the system menu bar. On other desktops the
+        // visible navigation belongs in the Daylight toolbar; shortcuts remain
+        // registered at the application level without an extra menu row.
+        if cfg!(target_os = "macos") {
+            self.window.set_menu(Some(&bar))?;
+        }
+        Ok(())
     }
     fn shortcut(&self, action: u8) -> Result<()> {
+        if self.view.ui.is_modal() || self.view.emoji.target.borrow().is_some() {
+            return Ok(());
+        }
         {
             let m = self.model.borrow();
             if m.phase != Phase::Connected
@@ -261,6 +270,7 @@ impl Controller {
             5 => self.toggle_organization()?,
             6 => self.open_security()?,
             7 => {
+                self.account_panel()?;
                 self.view.deep_link.focus()?;
             }
             _ => {}

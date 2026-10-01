@@ -3,13 +3,19 @@ mod activity;
 mod appearance;
 #[cfg(target_os = "macos")]
 mod apple_links;
+mod daylight;
+mod daylight_art;
+mod daylight_controller;
+mod daylight_forms;
 mod desktop;
+mod emoji_picker;
 mod history_controls;
 mod history_state;
 mod instance;
 mod join_form;
 mod login;
 mod message_controls;
+mod message_menu;
 mod message_state;
 mod model;
 mod new_conversation;
@@ -23,11 +29,13 @@ mod room_state;
 mod search_snippet;
 mod security;
 mod status_item;
+mod thread_pane;
 mod timeline_view;
 mod tool_controller;
 mod tool_controls;
 mod tool_state;
 mod view;
+mod visual_fixture;
 mod widgets;
 use archaic_i18n::Translator;
 use archaic_matrix::{Command, Event, Membership, RoomAction, Sender};
@@ -53,9 +61,9 @@ struct Controller {
     status_item: RefCell<Option<status_item::StatusItem>>,
     status_item_attempted: Cell<bool>,
     desktop_commands: RefCell<Vec<cui::Command>>,
+    message_menu: RefCell<Option<message_menu::Menus>>,
     notification_sender: notifications::Notifications,
     pending_profile: RefCell<Option<String>>,
-    room_labels: RefCell<Vec<String>>,
     fixture: bool,
     app: std::rc::Weak<App>,
     preference_path: Option<std::path::PathBuf>,
@@ -75,39 +83,6 @@ impl Controller {
             .set_visible(!model.temporary && !self.fixture)?;
         for command in self.desktop_commands.borrow().iter() {
             command.set_enabled(model.phase == Phase::Connected)?;
-        }
-        let visible = model.visible_rooms();
-        let labels = visible
-            .iter()
-            .map(|room| {
-                if room.membership == Membership::Invited {
-                    format!(
-                        "{} · {}",
-                        self.tr.text("invitation"),
-                        room.name.replace('\0', "�")
-                    )
-                } else {
-                    let name = room.name.replace('\0', "�");
-                    match model.activity.unread.get(&room.id) {
-                        Some(n) if *n > 0 => format!("{name} ({n})"),
-                        _ => name,
-                    }
-                }
-            })
-            .collect::<Vec<_>>();
-        if *self.room_labels.borrow() != labels {
-            self.view
-                .rooms
-                .set_items(&labels.iter().map(String::as_str).collect::<Vec<_>>())?;
-            *self.room_labels.borrow_mut() = labels;
-        }
-        let index = visible
-            .iter()
-            .position(|room| Some(&room.id) == model.selected.as_ref())
-            .map(|index| index as i32)
-            .unwrap_or(-1);
-        if self.view.rooms.get_selected()? != index {
-            self.view.rooms.set_selected(index)?;
         }
         self.view.render(&model, &self.tr, self.fixture)
     }
@@ -238,12 +213,25 @@ impl Controller {
     }
     fn remember_draft(&self) -> Result<()> {
         let text = self.view.composer.text()?;
-        let action_body = self.view.message_controls.body.text()?;
+        let inline = self
+            .model
+            .borrow()
+            .message_draft
+            .as_ref()
+            .is_some_and(|d| d.kind.inline());
+        let action_body = if inline {
+            text.clone()
+        } else {
+            self.view.message_controls.body.text()?
+        };
         let mut model = self.model.borrow_mut();
         if let Some(draft) = &mut model.message_draft
             && !draft.pending
         {
             draft.body = action_body;
+        }
+        if inline {
+            return Ok(());
         }
         let changed = model
             .selected
@@ -277,19 +265,12 @@ impl Controller {
             }
         }
     }
-    fn select(&self) -> Result<()> {
+    fn select_room(&self, id: String) -> Result<()> {
         if self.model.borrow().message_draft.is_some() || self.model.borrow().tools_busy() {
             return Ok(());
         }
         self.remember_draft()?;
-        let index = self.view.rooms.get_selected()?;
-        let id = usize::try_from(index).ok().and_then(|index| {
-            self.model
-                .borrow()
-                .visible_rooms()
-                .get(index)
-                .map(|room| room.id.clone())
-        });
+        let id = Some(id);
         if let Some(id) = id {
             if self.model.borrow().selected.as_ref() == Some(&id) {
                 return Ok(());
@@ -442,6 +423,7 @@ impl Controller {
             .preference_path
             .as_ref()
             .is_some_and(|path| appearance.save(path).is_err());
+        self.apply_daylight_theme(appearance)?;
         self.view.appearance_error.set_visible(failed)?;
         Ok(())
     }
@@ -682,14 +664,21 @@ impl Controller {
         }
         for (widget, action) in [
             (&self.view.sign_in, Self::login as fn(&Self) -> Result<()>),
+            (&self.view.ui.account_button, Self::account_panel),
+            (&self.view.thread_pane.close, Self::close_thread),
+            (&self.view.thread_pane.more, Self::thread_more),
+            (&self.view.ui.close, Self::close_panel),
+            (&self.view.ui.message_close, Self::close_panel),
+            (&self.view.emoji.close, Self::close_emoji),
+            (&self.view.emoji.query, Self::filter_emoji),
+            (&self.view.emoji.insert, Self::insert_typed_emoji),
+            (&self.view.ui.info_button, Self::toggle_inspector),
+            (&self.view.ui.room_button, Self::room_panel),
+            (&self.view.ui.history_button, Self::history_panel),
             (&self.view.browser_login, Self::browser_login),
             (&self.view.oauth_login, Self::oauth_login),
             (&self.view.cancel_login, Self::cancel_login),
             (&self.view.temporary, Self::temporary),
-            (&self.view.rooms, Self::select),
-            (&self.view.timeline.rows, Self::choose_timeline_message),
-            (&self.view.send, Self::send),
-            (&self.view.composer, Self::composer_input),
             (&self.view.outbox.retry, Self::retry_outbox),
             (&self.view.outbox.cancel, Self::cancel_outbox),
             (&self.view.security_toggle, Self::open_security),
@@ -728,13 +717,6 @@ impl Controller {
             (&self.view.tools.preview, Self::preview_file),
             (&self.view.tools.cancel_transfer, Self::cancel_transfer),
             (&self.view.tools.mark_read, Self::mark_read),
-            (&self.view.message_controls.select, Self::choose_message),
-            (&self.view.message_controls.reply, Self::reply_message),
-            (&self.view.message_controls.thread, Self::thread_message),
-            (&self.view.message_controls.forward, Self::forward_message),
-            (&self.view.message_controls.edit, Self::edit_message),
-            (&self.view.message_controls.delete, Self::delete_message),
-            (&self.view.message_controls.react, Self::react_message),
             (&self.view.message_controls.cancel, Self::cancel_message),
             (&self.view.message_controls.submit, Self::submit_message),
             (&self.view.sign_out, Self::logout),
@@ -755,7 +737,6 @@ impl Controller {
             (&self.view.refresh, Self::refresh),
             (&self.view.history_controls.older, Self::older_history),
             (&self.view.history_controls.newer, Self::newer_history),
-            (&self.view.message_controls.context, Self::message_context),
             (&self.view.history_controls.latest, Self::latest_history),
             (&self.view.search, Self::filter),
             (&self.view.new_toggle, Self::toggle_new),
@@ -784,17 +765,6 @@ impl Controller {
             })?;
         }
         Ok(())
-    }
-}
-
-fn fixture() -> Model {
-    use archaic_matrix::{Message, RoomSummary};
-    Model {
-        phase: Phase::Connected, user: "@alex:example.org".into(),
-        rooms: vec![RoomSummary { membership: archaic_matrix::Membership::Joined, inviter: None, id: "!design:example.org".into(), name: "Design studio".into() }, RoomSummary { membership: archaic_matrix::Membership::Joined, inviter: None, id: "!general:example.org".into(), name: "Archaic".into() }],
-        selected: Some("!design:example.org".into()),
-        messages: vec![Message { id: "1".into(), sender: "@maya:example.org".into(), body: Some("A place for thoughtful conversations.\nNative controls, a calm workspace, and room to focus.".into()), ..Message::default() }, Message { id: "2".into(), sender: "@alex:example.org".into(), body: Some("This is an explicit offline visual-test fixture.\nThe normal application starts at real Matrix sign-in.".into()), ..Message::default() }],
-        ..Model::default()
     }
 }
 
@@ -832,8 +802,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     });
     let app = Rc::new(App::new()?);
     app.theme(appearance.theme());
-    let window = app.window("Archaic", 1180, 800)?;
-    window.scrollable(true)?;
+    let window = app.window(options.window_title(), 1440, 900)?;
     let root = window.root()?;
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
@@ -855,7 +824,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         window: window.clone(),
         self_weak: RefCell::new(std::rc::Weak::new()),
         model: RefCell::new(if options.fixture_mode {
-            fixture()
+            visual_fixture::model()
         } else {
             Model {
                 temporary,
@@ -876,9 +845,9 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         status_item: Default::default(),
         status_item_attempted: Cell::new(false),
         desktop_commands: Default::default(),
+        message_menu: Default::default(),
         notification_sender: notifications::Notifications::new(),
         pending_profile: Default::default(),
-        room_labels: RefCell::new(Vec::new()),
         fixture: options.fixture_mode,
         app: Rc::downgrade(&app),
         preference_path,
@@ -894,7 +863,10 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         .view
         .appearance
         .set_selected(appearance.index())?;
+    controller.apply_daylight_theme(appearance)?;
     controller.bind()?;
+    controller.install_message_menu(&app)?;
+    let _escape = controller.install_dialog_shortcut(&app)?;
     controller.install_shortcuts(&app)?;
     controller.render()?;
     let instance = Rc::new(RefCell::new(instance));
@@ -907,6 +879,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let event_receiver = receiver.clone();
     // Bounded main-thread polling until CUI exposes a worker-safe dispatcher.
     let _pump = app.every(50, move || {
+        updates.chat_tick().expect("live chat controls");
         updates.status_item_tick().expect("live desktop controls");
         if updates.desktop_ready()
             && let Some(open) = updates.notification_sender.activation()

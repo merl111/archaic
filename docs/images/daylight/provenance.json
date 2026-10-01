@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-01",
+  "backend": "Native CUI GTK/X11 under Xvfb, cairo renderer",
+  "scale": 1,
+  "captures": {
+    "light.png": {
+      "source": "offline --fixture preview",
+      "sha256": "d8787b9fd2df674489a7b1f9482f46b2c53791a12c231e4c3b094c957d77c064"
+    },
+    "dark.png": {
+      "source": "offline --fixture preview",
+      "sha256": "6e7e9f366acb31291799ca7ddea9d768c29990ed853954a8151565861a3f0d2b"
+    },
+    "narrow.png": {
+      "source": "offline --fixture preview",
+      "sha256": "84a0ea990cd6d2a05b106bf3de8c4954ef3d9ed6b996dbf90e4c53aa425e9741"
+    },
+    "account.png": {
+      "source": "tools/test_daylight_ui.py private loopback Matrix fixture",
+      "sha256": "707086c87967fa4a8ca040425cccfe6df50f5ad857ecd1543dc18484dc665882"
+    },
+    "emoji.png": {
+      "source": "tools/test_daylight_ui.py private loopback Matrix fixture",
+      "sha256": "d2148789137cf7812a1a488f26f903cb74126f4ecd62447fc3d8695275ddd15a"
+    },
+    "thread.png": {
+      "source": "tools/test_daylight_ui.py private loopback Matrix fixture",
+      "sha256": "2836aaed3131303f939c6240e3fc6a145b1e257609da302b4c7ba0d86218a0d5"
+    },
+    "message-more.png": {
+      "source": "tools/test_daylight_ui.py private loopback Matrix fixture",
+      "sha256": "2b3d72584aeef24c4d24dc63a8a54369e5336012fd2db3e8f0e357bdf52d1627"
+    }
+  },
+  "popup_note": "The headless Xvfb display has no compositor; translucent native popup corners appear black in root captures."
+}

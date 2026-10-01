@@ -4,6 +4,7 @@ use archaic_i18n::Translator;
 use cui::{Result, Widget, sys};
 
 pub struct Login {
+    pub card: Widget,
     pub browser: Widget,
     pub oauth: Widget,
     pub cancel: Widget,
@@ -33,21 +34,22 @@ fn field(parent: &Widget, tr: &Translator, key: &str, secret: bool) -> Result<Wi
 impl Login {
     pub fn new(root: &Widget, tr: &Translator) -> Result<Self> {
         let background = root.box_layout(sys::CUI_VERTICAL, 0)?;
-        background.set_role(sys::CUI_ROLE_AMBIENT)?;
+        let theme = cui::chat::Theme::new(cui::chat::Appearance::Daylight);
+        crate::daylight::style(&background, &theme, theme.background, 0., 0)?;
         background.box_set_padding(40)?;
         background.expand(true)?;
         background.box_layout(sys::CUI_VERTICAL, 0)?.expand(true)?;
         let row = background.box_layout(sys::CUI_HORIZONTAL, 0)?;
         row.box_layout(sys::CUI_HORIZONTAL, 0)?.expand(true)?;
-        let card = row.box_layout(sys::CUI_VERTICAL, 18)?;
+        let card = row.box_layout(sys::CUI_VERTICAL, 12)?;
         card.box_set_padding(32)?;
-        card.set_role(sys::CUI_ROLE_CARD)?;
+        crate::daylight::style(&card, &theme, theme.surface, 24., 32)?;
         let brand = card.box_layout(sys::CUI_VERTICAL, 6)?;
         let title = brand.label("Archaic")?;
-        title.set_role(sys::CUI_ROLE_TITLE)?;
+        title.set_font("sans", 24., 800)?;
         label(&brand, &tr.text("app-tagline"), sys::CUI_ROLE_CAPTION)?;
         let welcome = card.label(&tr.text("welcome"))?;
-        welcome.set_role(sys::CUI_ROLE_HEADING)?;
+        welcome.set_font("sans", 15., 650)?;
         let server = field(&card, tr, "homeserver", false)?;
         server.set_placeholder("https://matrix.example.org")?;
         let username = field(&card, tr, "username", false)?;
@@ -69,6 +71,7 @@ impl Login {
         row.box_layout(sys::CUI_HORIZONTAL, 0)?.expand(true)?;
         background.box_layout(sys::CUI_VERTICAL, 0)?.expand(true)?;
         Ok(Self {
+            card,
             browser,
             oauth,
             cancel,

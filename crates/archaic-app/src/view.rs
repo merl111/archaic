@@ -5,6 +5,10 @@ use archaic_i18n::Translator;
 use cui::{Result, Widget, sys};
 
 pub struct View {
+    pub ui: crate::daylight::Shell,
+    pub emoji: crate::emoji_picker::Picker,
+    pub thread_pane: crate::thread_pane::ThreadPane,
+    dialogs: Dialogs,
     pub notifications: Widget,
     pub deep_link: Widget,
     pub open_link: Widget,
@@ -41,6 +45,7 @@ pub struct View {
     pub login_error: Widget,
     pub login_status: Widget,
     pub login: Widget,
+    pub login_card: Widget,
     pub server: Widget,
     pub username: Widget,
     pub password: Widget,
@@ -66,134 +71,129 @@ pub struct View {
     pub error: Widget,
 }
 
+struct Dialogs {
+    preferences: Widget,
+    security_host: Widget,
+    organization_host: Widget,
+    new_host: Widget,
+    join_host: Widget,
+    room_host: Widget,
+    history_host: Widget,
+    tools_host: Widget,
+    message_host: Widget,
+}
+
 impl View {
     pub fn new(root: &Widget, tr: &Translator) -> Result<Self> {
-        root.box_set_padding(0)?;
-        let header_group = root.box_layout(sys::CUI_VERTICAL, 0)?;
-        let header = header_group.box_layout(sys::CUI_HORIZONTAL, 20)?;
-        header.box_set_padding(12)?;
-        label(&header, "Archaic", sys::CUI_ROLE_HEADING)?;
-        let subtitle = label(&header, &tr.text("app-tagline"), sys::CUI_ROLE_CAPTION)?;
-        subtitle.expand(true)?;
-        let profile = header.entry("default")?;
-        profile.set_min_size(90, 0)?;
-        profile.accessibility(&tr.text("profile-name"), "")?;
-        let profiles = header.select(&[])?;
-        profiles.accessibility(&tr.text("profile-saved"), "")?;
-        let switch_profile = header.button(&tr.text("profile-switch"))?;
-        label(&header, &tr.text("appearance"), sys::CUI_ROLE_CAPTION)?;
-        let appearance = header.select(&[
-            &tr.text("theme-system"),
-            &tr.text("theme-light"),
-            &tr.text("theme-dark"),
-        ])?;
-        appearance.accessibility(&tr.text("appearance"), "")?;
-        let appearance_error = label(
-            &header_group,
-            &tr.text("appearance-save-failed"),
-            sys::CUI_ROLE_DANGER,
+        let ui = crate::daylight::Shell::new(root, tr)?;
+        let t = ui.theme.borrow().clone();
+        let emoji = crate::emoji_picker::Picker::new(&ui.layers, tr, &t)?;
+        let thread_pane = crate::thread_pane::ThreadPane::new(&ui.body, tr, &t)?;
+        let account_fields = AccountFields::new(&ui, tr)?;
+        let preferences = account_fields.root.clone();
+        let login = Login::new(&ui.login_host, tr)?;
+        let security_host = ui.card(&ui.sheet_body, 0., 0)?;
+        security_host.set_min_size(1, 440)?;
+        let security = crate::security::Controls::new(&security_host, tr)?;
+        let organization_host = ui.card(&ui.sheet_body, 0., 0)?;
+        organization_host.set_min_size(1, 440)?;
+        let organization = crate::organization::Controls::new(&organization_host, tr)?;
+        let new_host = ui.card(&ui.sheet_body, 0., 0)?;
+        new_host.expand(true)?;
+        let new_conversation = crate::new_conversation::NewConversationForm::new(&new_host, tr)?;
+        let join_host = ui.card(&ui.sheet_body, 0., 0)?;
+        let join = crate::join_form::JoinForm::new(&join_host, tr)?;
+        let sidebar_header = ui.sidebar.box_layout(sys::CUI_HORIZONTAL, 8)?;
+        let home = label(
+            &sidebar_header,
+            &tr.text("daylight-home"),
+            sys::CUI_ROLE_HEADING,
         )?;
-        appearance_error.set_visible(false)?;
-        header_group.separator()?;
-        let login = Login::new(root, tr)?;
-
-        let security = crate::security::Controls::new(root, tr)?;
-        let organization = crate::organization::Controls::new(root, tr)?;
-        let new_conversation = crate::new_conversation::NewConversationForm::new(root, tr)?;
-        let workspace = root.split(sys::CUI_HORIZONTAL, 0.26)?;
-        workspace.expand(true)?;
-        let sidebar = workspace.split_pane(0)?;
-        sidebar.box_set_padding(16)?;
-        sidebar.set_min_size(240, 260)?;
-        sidebar.set_role(sys::CUI_ROLE_PANEL)?;
-        let sidebar_header = sidebar.box_layout(sys::CUI_HORIZONTAL, 12)?;
-        label(&sidebar_header, &tr.text("rooms"), sys::CUI_ROLE_HEADING)?.expand(true)?;
-        let new_toggle = sidebar_header.button(&tr.text("new-short"))?;
-        new_toggle.accessibility(&tr.text("new-conversation"), "")?;
-        new_toggle.set_tooltip(&tr.text("new-conversation"))?;
+        home.set_font("sans", 16.5, 700)?;
+        home.expand(true)?;
+        let new_toggle =
+            sidebar_header.symbol_button(sys::CUI_SYMBOL_EDIT, &tr.text("new-conversation"))?;
         let join_toggle =
             sidebar_header.symbol_button(sys::CUI_SYMBOL_PLUS, &tr.text("join-room"))?;
-        join_toggle.set_tooltip(&tr.text("join-room"))?;
-        join_toggle.accessibility(&tr.text("join-room"), "")?;
-        let join = crate::join_form::JoinForm::new(&sidebar, tr)?;
-        let deep_link = sidebar.entry("")?;
-        deep_link.set_placeholder(&tr.text("matrix-link"))?;
-        deep_link.accessibility(&tr.text("matrix-link"), "")?;
-        let open_link = sidebar.button(&tr.text("open-link"))?;
-        let notifications = sidebar.checkbox(&tr.text("desktop-notifications"), false)?;
-        let search = sidebar.search(&tr.text("room-search"))?;
+        let search = ui.sidebar.search(&tr.text("room-search"))?;
         search.accessibility(&tr.text("room-search"), "")?;
-        let rooms = sidebar.list(&[])?;
-        rooms.expand(true)?;
-        rooms.accessibility(&tr.text("rooms"), "")?;
-        sidebar.separator()?;
-        label(&sidebar, &tr.text("signed-in-as"), sys::CUI_ROLE_CAPTION)?;
-        let account = label(&sidebar, "", sys::CUI_ROLE_CAPTION)?;
-        let organization_toggle = sidebar.button(&tr.text("organization"))?;
-        let security_toggle = sidebar.button(&tr.text("security-title"))?;
-        let reauth_group = sidebar.box_layout(sys::CUI_VERTICAL, 6)?;
-        let reauth_password = reauth_group.password("")?;
-        reauth_password.accessibility(&tr.text("password"), "")?;
-        let reauth = reauth_group.button(&tr.text("reauthenticate"))?;
-        let reauth_sso = reauth_group.button(&tr.text("sso-login"))?;
-        let reauth_oauth = reauth_group.button(&tr.text("oauth-login"))?;
-        let reauth_cancel = reauth_group.button(&tr.text("cancel"))?;
-        let sign_out = sidebar.button(&tr.text("sign-out"))?;
-        let conversation = workspace.split_pane(1)?;
-        conversation.box_set_padding(20)?;
-        let room_header = conversation.box_layout(sys::CUI_HORIZONTAL, 12)?;
-        let title = label(&room_header, &tr.text("choose-room"), sys::CUI_ROLE_HEADING)?;
-        title.expand(true)?;
-        let tools_toggle = room_header.button(&tr.text("room-tools"))?;
-        let refresh = room_header.symbol_button(sys::CUI_SYMBOL_REPEAT, &tr.text("refresh"))?;
-        let room_id = label(&conversation, "", sys::CUI_ROLE_CAPTION)?;
-        let room_controls = crate::room_controls::RoomControls::new(&conversation, tr)?;
-        conversation.separator()?;
-        let thread = conversation.box_layout(sys::CUI_VERTICAL, 8)?;
+        crate::daylight::style(&search, &t, t.selected, 12., 8)?;
+        let organization_toggle = ui
+            .top
+            .symbol_button(sys::CUI_SYMBOL_PEOPLE, &tr.text("organization"))?;
+        let security_toggle = ui
+            .top
+            .symbol_button(sys::CUI_SYMBOL_LOCK, &tr.text("security-title"))?;
+        security_toggle.set_icon_only(false)?;
+        crate::daylight::style(&security_toggle, &t, t.surface, 18., 8)?;
+        let tools_toggle = ui
+            .top
+            .symbol_button(sys::CUI_SYMBOL_SEARCH, &tr.text("room-tools"))?;
+        let refresh = ui
+            .top
+            .symbol_button(sys::CUI_SYMBOL_REPEAT, &tr.text("refresh"))?;
+        tools_toggle.set_visible(false)?;
+        refresh.set_visible(false)?;
+        let room_host = ui.card(&ui.sheet_body, 0., 0)?;
+        let title = label(&room_host, "", sys::CUI_ROLE_HEADING)?;
+        let room_id = label(&room_host, "", sys::CUI_ROLE_CAPTION)?;
+        let room_controls = crate::room_controls::RoomControls::new(&room_host, tr)?;
+        let thread = ui.main.box_layout(sys::CUI_VERTICAL, 0)?;
         thread.expand(true)?;
-        let tools = crate::tool_controls::ToolControls::new(&conversation, tr)?;
-        let history_controls = crate::history_controls::HistoryControls::new(&thread, tr)?;
-        let timeline = crate::timeline_view::Timeline::new(&thread, tr)?;
+        let timeline = crate::timeline_view::Timeline::new(&thread, tr, &t)?;
+        let history_host = ui.card(&ui.sheet_body, 0., 0)?;
+        let history_controls = crate::history_controls::HistoryControls::new(&history_host, tr)?;
         let outbox = crate::outbox::Controls::new(&thread, tr)?;
-        let message_controls = crate::message_controls::MessageControls::new(&conversation, tr)?;
-        let compose_group = conversation.box_layout(sys::CUI_VERTICAL, 10)?;
-        compose_group.box_set_padding(12)?;
-        compose_group.set_role(sys::CUI_ROLE_CARD)?;
-        let composer = compose_group.textarea("")?;
-        composer.set_min_size(300, 90)?;
+        let tools_host = ui.card(&ui.sheet_body, 0., 0)?;
+        tools_host.set_min_size(1, 440)?;
+        let tools = crate::tool_controls::ToolControls::new(&tools_host, tr)?;
+        let message_host = ui.card(&ui.message_body, 0., 0)?;
+        let message_controls = crate::message_controls::MessageControls::new(&message_host, tr)?;
+        let compose_group = ui.composer.root.clone();
+        let composer = ui.composer.part(0)?;
         composer.set_placeholder(&tr.text("composer"))?;
         composer.accessibility(&tr.text("composer"), "")?;
-        let typing_status = label(&compose_group, "", sys::CUI_ROLE_CAPTION)?;
-        let privacy = compose_group.box_layout(sys::CUI_HORIZONTAL, 12)?;
-        let typing_opt = privacy.checkbox(&tr.text("activity-share-typing"), false)?;
-        let read_opt = privacy.checkbox(&tr.text("activity-private-read"), false)?;
-        let composer_footer = compose_group.box_layout(sys::CUI_HORIZONTAL, 12)?;
-        let hint = label(
-            &composer_footer,
-            &tr.text("recent-only"),
-            sys::CUI_ROLE_CAPTION,
-        )?;
-        hint.expand(true)?;
-        let send = composer_footer.symbol_button(sys::CUI_SYMBOL_SEND, &tr.text("send"))?;
-        send.set_icon_only(false)?;
-        send.set_role(sys::CUI_ROLE_PRIMARY)?;
-        let error = label(root, "", sys::CUI_ROLE_DANGER)?;
-        let footer = root.box_layout(sys::CUI_HORIZONTAL, 12)?;
-        footer.box_set_padding(16)?;
-        let session_notice = label(&footer, &tr.text("preview"), sys::CUI_ROLE_CAPTION)?;
+        let send = ui.composer.part(1)?;
+        let mut presentation = ui.composer.presentation()?;
+        presentation.composer_tools = (1 << 5) | (1 << 6);
+        ui.composer.set_presentation(&presentation)?;
+        ui.composer
+            .part(5)?
+            .accessibility(&tr.text("choose-file"), "")?;
+        let typing_status = label(&thread, "", sys::CUI_ROLE_CAPTION)?;
+        let error = label(&ui.main, "", sys::CUI_ROLE_DANGER)?;
+        let footer = ui.main.box_layout(sys::CUI_HORIZONTAL, 8)?;
+        footer.box_set_padding(6)?;
+        let session_notice = label(&footer, "", sys::CUI_ROLE_CAPTION)?;
         session_notice.expand(true)?;
         let status = label(&footer, "", sys::CUI_ROLE_CAPTION)?;
+        let rooms = ui.nav.root.clone();
+        let workspace = ui.content.clone();
         Ok(Self {
-            notifications,
-            deep_link,
-            open_link,
-            profile,
-            switch_profile,
-            profiles,
+            ui,
+            thread_pane,
+            emoji,
+            dialogs: Dialogs {
+                preferences,
+                security_host,
+                organization_host,
+                new_host,
+                join_host,
+                room_host,
+                history_host,
+                tools_host,
+                message_host,
+            },
+            notifications: account_fields.notifications,
+            deep_link: account_fields.deep_link,
+            open_link: account_fields.open_link,
+            profile: account_fields.profile,
+            switch_profile: account_fields.switch_profile,
+            profiles: account_fields.profiles,
             organization,
             organization_toggle,
-            typing_opt,
-            read_opt,
+            typing_opt: account_fields.typing_opt,
+            read_opt: account_fields.read_opt,
             typing_status,
             browser_login: login.browser,
             oauth_login: login.oauth,
@@ -204,8 +204,8 @@ impl View {
             thread,
             tools_toggle,
             tools,
-            appearance,
-            appearance_error,
+            appearance: account_fields.appearance,
+            appearance_error: account_fields.appearance_error,
             new_toggle,
             new_conversation,
             join_toggle,
@@ -220,6 +220,7 @@ impl View {
             login_error: login.error,
             login_status: login.status,
             login: login.background,
+            login_card: login.card,
             server: login.server,
             username: login.username,
             password: login.password,
@@ -233,22 +234,23 @@ impl View {
             composer,
             send,
             refresh,
-            sign_out,
-            reauth_group,
-            reauth_password,
-            reauth,
-            reauth_sso,
-            reauth_oauth,
-            reauth_cancel,
-            account,
+            sign_out: account_fields.sign_out,
+            reauth_group: account_fields.reauth_group,
+            reauth_password: account_fields.reauth_password,
+            reauth: account_fields.reauth,
+            reauth_sso: account_fields.reauth_sso,
+            reauth_oauth: account_fields.reauth_oauth,
+            reauth_cancel: account_fields.reauth_cancel,
+            account: account_fields.account,
             status,
             error,
         })
     }
 
     fn render_login(&self, model: &Model, tr: &Translator, connected: bool) -> Result<()> {
-        self.footer.set_visible(connected)?;
+        self.footer.set_visible(false)?;
         self.login.set_visible(!connected)?;
+        self.ui.login_host.set_visible(!connected)?;
         self.oauth_login
             .set_visible(model.phase == Phase::SignedOut)?;
         self.browser_login
@@ -335,12 +337,9 @@ impl View {
             Phase::Connected | Phase::SigningOut | Phase::LogoutCleanup
         );
         self.render_login(model, tr, connected)?;
-        self.workspace.set_visible(
-            connected
-                && !((model.security.show || model.organization.show)
-                    && model.phase == Phase::Connected)
-                && !(model.show_new && model.phase == Phase::Connected),
-        )?;
+        self.workspace.set_visible(connected)?;
+        self.security_toggle.set_visible(connected)?;
+        self.organization_toggle.set_visible(connected)?;
         self.security.render(model, tr, fixture)?;
         self.security_toggle.set_enabled(
             model.phase == Phase::Connected
@@ -362,17 +361,134 @@ impl View {
             model.phase == Phase::Connected
                 && !model.joining
                 && model.message_draft.is_none()
+                && !model.message_draft.as_ref().is_some_and(|d| d.pending)
                 && !model.creating
                 && model.room_pending.is_none()
                 && !fixture,
         )?;
         self.join.render(model, tr, fixture)?;
+        let error = model
+            .error
+            .or_else(|| model.message_draft.as_ref().and_then(|d| d.error));
         set_text(
             &self.error,
-            &model.error.map(|key| tr.text(key)).unwrap_or_default(),
+            &error.map(|key| tr.text(key)).unwrap_or_default(),
         )?;
-        self.error.set_visible(connected && model.error.is_some())?;
-        self.render_conversation(model, tr, fixture)
+        self.error.set_visible(connected && error.is_some())?;
+        self.render_conversation(model, tr, fixture)?;
+        self.ui.render(model, tr)?;
+        self.render_dialogs(model, tr)?;
+        self.render_picker(model)
+    }
+
+    fn render_picker(&self, model: &Model) -> Result<()> {
+        let picker_open =
+            self.emoji.target.borrow().as_ref().is_some_and(|t| {
+                t.epoch == model.epoch && model.selected.as_ref() == Some(&t.room)
+            });
+        if !picker_open {
+            self.emoji.target.borrow_mut().take();
+        }
+        self.emoji.root.set_visible(picker_open)?;
+        if picker_open {
+            self.ui.base.set_enabled(false)?;
+            self.ui.scrim.set_visible(true)?;
+        }
+        Ok(())
+    }
+
+    fn render_dialogs(&self, m: &Model, tr: &Translator) -> Result<()> {
+        use crate::daylight::Panel;
+        let security = m.security.show;
+        let org = m.organization.show;
+        let new = m.show_new;
+        let join = m.show_join;
+        let tools = m.tools.show;
+        if security || org || new || join || tools || m.message_draft.is_some() {
+            self.ui.panel.set(Panel::None);
+        }
+        let panel = self.ui.panel.get();
+        if m.message_draft.is_none() {
+            self.ui.quick_reaction.set(false);
+        }
+        let message = m.message_draft.as_ref().is_some_and(|d| {
+            !d.kind.inline()
+                && !(d.kind == crate::message_state::ActionKind::Reaction
+                    && self.ui.quick_reaction.get()
+                    && d.error.is_none())
+                && !(d.kind == crate::message_state::ActionKind::Thread
+                    && self.thread_pane.open.get())
+        });
+        let dialogs = [
+            (security, &self.dialogs.security_host, "security-title"),
+            (org, &self.dialogs.organization_host, "organization"),
+            (new, &self.dialogs.new_host, "new-conversation"),
+            (join, &self.dialogs.join_host, "join-room"),
+            (
+                tools,
+                &self.dialogs.tools_host,
+                ["tool-files", "tool-search", "tool-details", "tool-receipts"]
+                    [m.tools.mode.clamp(0, 3) as usize],
+            ),
+            (
+                message,
+                &self.dialogs.message_host,
+                m.message_draft
+                    .as_ref()
+                    .map(|d| d.kind.key())
+                    .unwrap_or("daylight-message-actions"),
+            ),
+            (
+                panel == Panel::Account || m.reauthentication,
+                &self.dialogs.preferences,
+                "daylight-account",
+            ),
+            (panel == Panel::Room, &self.dialogs.room_host, "room-tools"),
+            (
+                panel == Panel::History,
+                &self.dialogs.history_host,
+                "timeline-messages",
+            ),
+        ];
+        // Async updates can leave several model workflows open. Keep one focused
+        // dialog visible; its host and title must always describe the same task.
+        let active = dialogs.iter().position(|(show, _, _)| *show);
+        for (index, (_, widget, _)) in dialogs.iter().enumerate() {
+            widget.set_visible(active == Some(index))?;
+        }
+        self.ui.modal(
+            active.is_some(),
+            &active.map(|i| tr.text(dialogs[i].2)).unwrap_or_default(),
+            active == Some(5),
+        )
+    }
+
+    fn render_inline_composer(&self, m: &Model, tr: &Translator) -> Result<()> {
+        let draft = m.message_draft.as_ref().filter(|d| d.kind.inline());
+        self.ui
+            .composer
+            .busy(m.sending || draft.is_some_and(|d| d.pending))?;
+        if let Some(d) = draft {
+            let original = m.selected_message();
+            self.ui.composer.context(
+                1,
+                &crate::daylight::text(original.map(|v| v.sender.as_str()).unwrap_or(""), 1024),
+                &crate::daylight::text(
+                    original.and_then(|v| v.body.as_deref()).unwrap_or(""),
+                    4096,
+                ),
+                d.kind == crate::message_state::ActionKind::Edit,
+            )?;
+            set_text(&self.composer, &d.body)?;
+        } else {
+            self.ui.composer.context(0, "", "", false)?;
+            set_text(&self.composer, m.draft())?;
+        }
+        self.ui
+            .composer
+            .part(4)?
+            .accessibility(&tr.text("cancel"), "")?;
+        Ok(())
     }
 
     fn render_conversation(&self, model: &Model, tr: &Translator, fixture: bool) -> Result<()> {
@@ -395,20 +511,23 @@ impl View {
         self.room_controls.render(model, tr, fixture)?;
         self.history_controls.render(model, tr, fixture)?;
         self.outbox.render(model, tr, fixture)?;
-        self.thread.set_visible(!model.tools.show)?;
+        self.thread.set_visible(true)?;
+        self.session_notice
+            .set_tooltip(&tr.text("preview-fixture"))?;
         self.tools.render(model, tr, fixture)?;
         self.tools_toggle
             .set_enabled(model.can_tool() && !fixture)?;
         self.message_controls.render(model, tr, fixture)?;
-        self.compose_group
-            .set_visible(joined && model.message_draft.is_none() && !model.tools.show)?;
+        self.compose_group.set_visible(joined)?;
         self.timeline.render(model, tr)?;
-        set_text(&self.composer, model.draft())?;
+        self.thread_pane.render(model, tr, fixture)?;
+        self.render_inline_composer(model, tr)?;
         self.composer.set_enabled(
             joined
                 && model.phase == Phase::Connected
                 && !fixture
                 && !model.tools_busy()
+                && !model.message_draft.as_ref().is_some_and(|d| d.pending)
                 && !model.creating
                 && model.room_pending.is_none()
                 && model.room_confirmation.is_none(),
@@ -418,6 +537,7 @@ impl View {
                 && !model.sending
                 && !fixture
                 && model.phase == Phase::Connected
+                && !model.message_draft.as_ref().is_some_and(|d| d.pending)
                 && !model.creating
                 && model.room_pending.is_none()
                 && model.room_confirmation.is_none(),
@@ -509,4 +629,94 @@ pub(crate) fn message_text(
         ));
     }
     text
+}
+
+struct AccountFields {
+    account: Widget,
+    root: Widget,
+    profile: Widget,
+    profiles: Widget,
+    switch_profile: Widget,
+    appearance: Widget,
+    appearance_error: Widget,
+    notifications: Widget,
+    typing_opt: Widget,
+    read_opt: Widget,
+    deep_link: Widget,
+    open_link: Widget,
+    sign_out: Widget,
+    reauth_group: Widget,
+    reauth_password: Widget,
+    reauth: Widget,
+    reauth_sso: Widget,
+    reauth_oauth: Widget,
+    reauth_cancel: Widget,
+}
+impl AccountFields {
+    fn new(ui: &crate::daylight::Shell, tr: &Translator) -> Result<Self> {
+        let preferences = ui.card(&ui.sheet_body, 0., 0)?;
+        label(
+            &preferences,
+            &tr.text("signed-in-as"),
+            sys::CUI_ROLE_CAPTION,
+        )?;
+        let account = label(&preferences, "", sys::CUI_ROLE_BODY)?;
+        let profile_row = preferences.box_layout(sys::CUI_HORIZONTAL, 12)?;
+        let profile = profile_row.entry("default")?;
+        profile.expand(true)?;
+        profile.accessibility(&tr.text("profile-name"), "")?;
+        let profiles = profile_row.select(&[])?;
+        profiles.expand(true)?;
+        profiles.accessibility(&tr.text("profile-saved"), "")?;
+        let switch_profile = profile_row.button(&tr.text("profile-switch"))?;
+        label(&preferences, &tr.text("appearance"), sys::CUI_ROLE_CAPTION)?;
+        let appearance = preferences.select(&[
+            &tr.text("theme-system"),
+            &tr.text("theme-light"),
+            &tr.text("theme-dark"),
+        ])?;
+        appearance.accessibility(&tr.text("appearance"), "")?;
+        let appearance_error = label(
+            &preferences,
+            &tr.text("appearance-save-failed"),
+            sys::CUI_ROLE_DANGER,
+        )?;
+        appearance_error.set_visible(false)?;
+        let notifications = preferences.checkbox(&tr.text("desktop-notifications"), false)?;
+        let typing_opt = preferences.checkbox(&tr.text("activity-share-typing"), false)?;
+        let read_opt = preferences.checkbox(&tr.text("activity-private-read"), false)?;
+        let deep_link = preferences.entry("")?;
+        deep_link.set_placeholder(&tr.text("matrix-link"))?;
+        deep_link.accessibility(&tr.text("matrix-link"), "")?;
+        let open_link = preferences.button(&tr.text("open-link"))?;
+        let sign_out = preferences.button(&tr.text("sign-out"))?;
+        let reauth_group = preferences.box_layout(sys::CUI_VERTICAL, 6)?;
+        let reauth_password = reauth_group.password("")?;
+        reauth_password.accessibility(&tr.text("password"), "")?;
+        let reauth = reauth_group.button(&tr.text("reauthenticate"))?;
+        let reauth_sso = reauth_group.button(&tr.text("sso-login"))?;
+        let reauth_oauth = reauth_group.button(&tr.text("oauth-login"))?;
+        let reauth_cancel = reauth_group.button(&tr.text("cancel"))?;
+        Ok(Self {
+            root: preferences,
+            account,
+            profile,
+            profiles,
+            switch_profile,
+            appearance,
+            appearance_error,
+            notifications,
+            typing_opt,
+            read_opt,
+            deep_link,
+            open_link,
+            sign_out,
+            reauth_group,
+            reauth_password,
+            reauth,
+            reauth_sso,
+            reauth_oauth,
+            reauth_cancel,
+        })
+    }
 }

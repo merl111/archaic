@@ -57,12 +57,13 @@ pub struct Controls {
 impl Controls {
     pub fn new(parent: &Widget, tr: &Translator) -> Result<Self> {
         let root = parent.box_layout(sys::CUI_VERTICAL, 12)?;
-        root.box_set_padding(24)?;
+        root.box_set_padding(0)?;
         root.expand(true)?;
         let header = root.box_layout(sys::CUI_HORIZONTAL, 12)?;
-        label(&header, &tr.text("security-title"), sys::CUI_ROLE_HEADING)?.expand(true)?;
+        header.box_layout(sys::CUI_HORIZONTAL, 0)?.expand(true)?;
         let refresh = header.button(&tr.text("refresh"))?;
         let close = header.button(&tr.text("security-close"))?;
+        close.set_visible(false)?;
         let summary = label(&root, "", sys::CUI_ROLE_CAPTION)?;
         let mode = root.select(&[
             &tr.text("security-devices"),

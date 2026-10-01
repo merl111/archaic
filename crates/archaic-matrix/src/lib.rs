@@ -161,13 +161,22 @@ pub enum RoomAction {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RoomSummary {
+    pub info: RoomInfo,
     pub id: String,
     pub name: String,
     pub membership: Membership,
     pub inviter: Option<String>,
 }
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct RoomInfo {
+    pub topic: String,
+    pub members: u64,
+    pub encrypted: Option<bool>,
+    pub space: bool,
+}
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Message {
+    pub timestamp: u64,
     pub thread_root: Option<String>,
     pub id: String,
     pub sender: String,

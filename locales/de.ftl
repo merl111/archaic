@@ -418,3 +418,25 @@ org-unsubscribe-thread = Thread-Abonnement beenden
 
 profile-saved = Gespeicherte Kontoprofile
 desktop-preference-failed = Desktop-Einstellungen konnten nicht gespeichert werden. Die aktuelle Auswahl bleibt aktiv.
+
+daylight-home = Start
+daylight-account = Konto & Einstellungen
+daylight-about = Über diesen Raum
+
+daylight-members = Mitglieder
+daylight-encryption = Verschlüsselung
+daylight-encrypted = E2EE
+daylight-unencrypted = Keine
+daylight-unknown = Unbekannt
+
+daylight-message-actions = Nachrichtenaktionen
+daylight-copy = Nachricht kopieren
+
+daylight-thread = Thread
+daylight-thread-reply = Im Thread antworten…
+daylight-thread-empty = Beginne die Unterhaltung mit einer Antwort.
+
+daylight-emoji = Emoji
+daylight-emoji-search = Namen, :Shortcodes: suchen oder Emoji einfügen…
+daylight-emoji-empty = Keine Treffer. Füge oben ein Unicode-Emoji ein.
+daylight-emoji-insert = Eingegebenes Emoji verwenden

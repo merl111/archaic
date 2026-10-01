@@ -24,7 +24,14 @@ pub(crate) async fn summary(room: &Room) -> RoomSummary {
     } else {
         None
     };
+    let encryption = room.encryption_state();
     RoomSummary {
+        info: crate::RoomInfo {
+            topic: room.topic().unwrap_or_default(),
+            members: room.joined_members_count(),
+            encrypted: (!encryption.is_unknown()).then(|| encryption.is_encrypted()),
+            space: room.is_space(),
+        },
         id,
         name,
         membership,

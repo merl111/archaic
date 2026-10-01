@@ -110,10 +110,11 @@ impl Controls {
     pub fn new(root: &Widget, tr: &Translator) -> Result<Self> {
         let root = root.box_layout(sys::CUI_VERTICAL, 8)?;
         root.expand(true)?;
-        root.box_set_padding(16)?;
+        root.box_set_padding(0)?;
         let bar = root.box_layout(sys::CUI_HORIZONTAL, 8)?;
-        label(&bar, &tr.text("organization"), sys::CUI_ROLE_HEADING)?.expand(true)?;
+
         let close = bar.button(&tr.text("security-close"))?;
+        bar.set_visible(false)?;
         let names = KEYS.iter().map(|k| tr.text(k)).collect::<Vec<_>>();
         let mode = root.select(&names.iter().map(String::as_str).collect::<Vec<_>>())?;
         label(&root, &tr.text("org-fields"), sys::CUI_ROLE_CAPTION)?;

@@ -11,6 +11,9 @@ pub enum ActionKind {
     Reaction,
 }
 impl ActionKind {
+    pub fn inline(self) -> bool {
+        matches!(self, Self::Reply | Self::Edit)
+    }
     pub fn key(self) -> &'static str {
         match self {
             Self::Thread => "message-thread",
@@ -57,17 +60,18 @@ impl ActionDraft {
 }
 impl Model {
     pub fn selected_message(&self) -> Option<&Message> {
-        self.tools
-            .details
-            .as_ref()
-            .map(|d| &d.message)
-            .filter(|m| self.message_selected.as_ref() == Some(&m.id))
+        self.messages
+            .iter()
+            .find(|m| self.message_selected.as_ref() == Some(&m.id))
             .or_else(|| {
-                self.messages
-                    .iter()
-                    .find(|m| self.message_selected.as_ref() == Some(&m.id))
+                self.tools.details.as_ref().and_then(|d| {
+                    std::iter::once(&d.message)
+                        .chain(d.thread.iter())
+                        .find(|m| self.message_selected.as_ref() == Some(&m.id))
+                })
             })
     }
+
     pub fn can_message_action(&self) -> bool {
         !self.tools_busy()
             && self.phase == Phase::Connected
@@ -166,7 +170,8 @@ impl Model {
             draft.pending = false;
             draft.error = Some(key);
         } else {
-            self.tools.details = None;
+            // Keep the active relation snapshot so subsequent LiveDetails can
+            // refresh it, including reactions/edits inside the thread pane.
             self.message_draft = None;
             self.status = "message-action-done";
         }
@@ -184,6 +189,7 @@ mod tests {
             user: "@a:local".into(),
             selected: Some("!r:local".into()),
             rooms: vec![RoomSummary {
+                info: Default::default(),
                 id: "!r:local".into(),
                 name: "Room".into(),
                 membership: Membership::Joined,
@@ -206,6 +212,36 @@ mod tests {
         };
         request
     }
+    #[test]
+    fn reacting_to_thread_reply_keeps_live_relation_updates_attached() {
+        let mut m = model();
+        let mut details = crate::visual_fixture::model().tools.details.unwrap();
+        m.message_selected = Some(details.thread[0].id.clone());
+        m.tools.details = Some(details.clone());
+        m.begin_message_action(ActionKind::Reaction);
+        m.message_draft.as_mut().unwrap().body = "❤️".into();
+        let Some(Command::QueueMessageAction(request)) = m.message_command() else {
+            panic!("reaction command");
+        };
+        assert_eq!(request.event_id, details.thread[0].id);
+        m.message_draft.as_mut().unwrap().pending = true;
+        m.message_result(request, Ok(()));
+        assert!(m.message_draft.is_none());
+        assert!(m.tools.details.is_some());
+        details.thread[0].body = Some("Updated thread message".into());
+        m.apply(Event {
+            epoch: m.epoch,
+            kind: EventKind::LiveDetails {
+                room_id: m.selected.clone().unwrap(),
+                details: Box::new(details),
+            },
+        });
+        assert_eq!(
+            m.tools.details.unwrap().thread[0].body.as_deref(),
+            Some("Updated thread message")
+        );
+    }
+
     #[test]
     fn retry_keeps_transaction_but_changing_text_creates_a_new_one_and_preserves_composer() {
         let mut m = model();
@@ -241,6 +277,32 @@ mod tests {
         assert!(m.message_command().is_none());
         m.update_rooms(vec![]);
         assert!(m.message_draft.is_none());
+    }
+    #[test]
+    fn current_timeline_reactions_win_over_an_older_thread_snapshot() {
+        let mut m = model();
+        m.tools.details = Some(archaic_matrix::MessageDetails {
+            message: m.messages[0].clone(),
+            thread: vec![],
+            unavailable: 0,
+            reply: None,
+            reply_unavailable: false,
+            revisions: vec![],
+            read_by: vec![],
+            thread_read_by: vec![],
+            more: false,
+            loaded: 0,
+        });
+        m.messages[0].reactions.push(Reaction {
+            id: "$new-reaction".into(),
+            sender: m.user.clone(),
+            key: "❤️".into(),
+        });
+        m.begin_message_action(ActionKind::Reaction);
+        m.message_draft.as_mut().unwrap().body = "❤️".into();
+        assert!(
+            matches!(request(&mut m).action, MessageAction::RemoveReactions { ids, .. } if ids == ["$new-reaction"])
+        );
     }
     #[test]
     fn reaction_removal_retains_full_set_on_partial_retry_and_old_epochs_do_not_complete_it() {

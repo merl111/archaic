@@ -23,9 +23,8 @@ pub struct NewConversationForm {
 impl NewConversationForm {
     pub fn new(parent: &Widget, tr: &Translator) -> Result<Self> {
         let root = parent.box_layout(sys::CUI_VERTICAL, 12)?;
-        root.box_set_padding(24)?;
+        root.box_set_padding(0)?;
         root.expand(true)?;
-        label(&root, &tr.text("new-conversation"), sys::CUI_ROLE_HEADING)?;
         let mode = root.select(&[&tr.text("create-direct"), &tr.text("create-group")])?;
         mode.set_selected(0)?;
         mode.accessibility(&tr.text("create-kind"), "")?;

@@ -379,6 +379,7 @@ mod tests {
             rooms: ["!a:local", "!b:local"]
                 .into_iter()
                 .map(|id| RoomSummary {
+                    info: Default::default(),
                     id: id.into(),
                     name: id.into(),
                     membership: archaic_matrix::Membership::Joined,
@@ -426,6 +427,7 @@ mod tests {
         model.apply(Event {
             epoch: 2,
             kind: EventKind::Joined(RoomSummary {
+                info: Default::default(),
                 membership: archaic_matrix::Membership::Joined,
                 inviter: None,
                 id: "!b:local".into(),
@@ -685,6 +687,7 @@ mod tests {
             epoch: 2,
             kind: EventKind::ConversationOpened {
                 room: RoomSummary {
+                    info: Default::default(),
                     id: "!created:local".into(),
                     name: "New group".into(),
                     membership: archaic_matrix::Membership::Joined,

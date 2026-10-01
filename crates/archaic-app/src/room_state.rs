@@ -95,6 +95,7 @@ mod tests {
 
     fn room(id: &str, membership: Membership) -> RoomSummary {
         RoomSummary {
+            info: Default::default(),
             id: id.into(),
             name: id.into(),
             membership,

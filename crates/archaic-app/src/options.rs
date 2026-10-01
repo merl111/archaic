@@ -69,3 +69,13 @@ pub fn parse() -> Result<Option<Options>, Box<dyn std::error::Error>> {
         temporary,
     }))
 }
+
+impl Options {
+    pub fn window_title(&self) -> &'static str {
+        if self.fixture_mode {
+            "Archaic — Offline UI preview"
+        } else {
+            "Archaic"
+        }
+    }
+}

@@ -417,3 +417,25 @@ org-unsubscribe-thread = Unsubscribe from thread
 
 profile-saved = Saved account profiles
 desktop-preference-failed = Could not save desktop preferences. Your current selection remains active.
+
+daylight-home = Home
+daylight-account = Account & preferences
+daylight-about = About this room
+
+daylight-members = Members
+daylight-encryption = Encryption
+daylight-encrypted = E2EE
+daylight-unencrypted = None
+daylight-unknown = Unknown
+
+daylight-message-actions = Message actions
+daylight-copy = Copy message
+
+daylight-thread = Thread
+daylight-thread-reply = Reply in thread…
+daylight-thread-empty = Start the conversation with a reply.
+
+daylight-emoji = Emoji
+daylight-emoji-search = Search names, :shortcodes: or paste an emoji…
+daylight-emoji-empty = No matches. Paste any Unicode emoji above.
+daylight-emoji-insert = Use typed emoji
