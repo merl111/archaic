@@ -78,15 +78,7 @@ impl Model {
                 self.saved_drafts.insert(room_id, body);
             }
             EventKind::Notification { .. } => {}
-            EventKind::Organization { id, result } => {
-                if self.organization.pending.as_ref() == Some(&id) {
-                    self.organization.pending = None;
-                    match result {
-                        Ok(page) => self.organization.page = page,
-                        Err(e) => self.organization.error = Some(e),
-                    }
-                }
-            }
+            EventKind::Organization { id, result } => self.organization.apply(id, result),
             EventKind::TransferProgress {
                 room_id: _,
                 id,
@@ -101,7 +93,10 @@ impl Model {
                 self.transfer_progress
                     .insert(id.to_string(), (current, total));
             }
-            EventKind::ReauthenticationRequired => self.reauthentication = true,
+            EventKind::ReauthenticationRequired => {
+                self.reauthentication = true;
+                self.browser_login = false;
+            }
             EventKind::LiveDetails { room_id, details } => {
                 if self.selected.as_ref() == Some(&room_id)
                     && self
@@ -158,6 +153,7 @@ impl Model {
                 self.error = Some(key);
             }
             EventKind::Connected(user) => {
+                self.browser_login = false;
                 self.reauthentication = false;
                 self.user = user;
                 self.phase = Phase::Connected;

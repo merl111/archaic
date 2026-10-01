@@ -612,9 +612,13 @@ async fn oauth_login_uses_pkce_validates_state_and_restores_its_session() {
         )
         .mount(&server)
         .await;
-    Mock::given(method("POST")).and(path("/token"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"access_token":"oauth-token","refresh_token":"oauth-refresh","token_type":"Bearer","expires_in":3600})))
-        .mount(&server).await;
+    Mock::given(method("POST"))
+        .and(path("/token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(
+            json!({"access_token":"oauth-token","token_type":"Bearer","expires_in":3600}),
+        ))
+        .mount(&server)
+        .await;
     Mock::given(method("GET"))
         .and(path_regex(r".*/account/whoami$"))
         .respond_with(
@@ -650,6 +654,20 @@ async fn oauth_login_uses_pkce_validates_state_and_restores_its_session() {
     assert_eq!(params["code_challenge_method"], "S256");
     assert!(!params["code_challenge"].is_empty());
     assert_eq!(params["client_id"], "archaic-test-client");
+    let device = params["scope"]
+        .split_whitespace()
+        .find_map(|s| s.strip_prefix("urn:matrix:org.matrix.msc2967.client:device:"))
+        .unwrap()
+        .to_owned();
+    Mock::given(method("GET"))
+        .and(path_regex(r".*/account/whoami$"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"user_id":"@alice:local","device_id":device})),
+        )
+        .with_priority(2)
+        .mount(&server)
+        .await;
     let callback = &params["redirect_uri"];
     let http = matrix_sdk::reqwest::Client::new();
     assert_eq!(
@@ -691,6 +709,122 @@ async fn oauth_login_uses_pkce_validates_state_and_restores_its_session() {
     assert_eq!(form["grant_type"], "authorization_code");
     assert_eq!(form["code"], "test-code");
     assert!(!form["code_verifier"].is_empty());
+    next(
+        &mut receiver,
+        |e| matches!(e, EventKind::Rooms(r) if !r.is_empty()),
+    )
+    .await;
+    Mock::given(method("GET"))
+        .and(path_regex(r".*/sync$"))
+        .and(wiremock::matchers::header(
+            "authorization",
+            "Bearer oauth-token",
+        ))
+        .respond_with(ResponseTemplate::new(401).set_body_json(
+            json!({"errcode":"M_UNKNOWN_TOKEN","error":"expired","soft_logout":true}),
+        ))
+        .with_priority(1)
+        .mount(&server)
+        .await;
+    next(&mut receiver, |e| {
+        matches!(e, EventKind::Error("session-expired"))
+    })
+    .await;
+    next(&mut receiver, |e| {
+        matches!(e, EventKind::ReauthenticationRequired)
+    })
+    .await;
+    sender
+        .send(Command::Reauthorize { oauth: true })
+        .await
+        .unwrap();
+    let EventKind::BrowserUrl(renew) =
+        next(&mut receiver, |e| matches!(e, EventKind::BrowserUrl(_)))
+            .await
+            .kind
+    else {
+        unreachable!()
+    };
+    let renew = url::Url::parse(&renew)
+        .unwrap()
+        .query_pairs()
+        .into_owned()
+        .collect::<std::collections::HashMap<_, _>>();
+    assert_eq!(renew["client_id"], params["client_id"]);
+    assert_eq!(renew["scope"], params["scope"]);
+    Mock::given(method("POST"))
+        .and(path("/token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(
+            json!({"access_token":"renewed-oauth","token_type":"Bearer","expires_in":3600}),
+        ))
+        .with_priority(1)
+        .mount(&server)
+        .await;
+    let saved_before_renewal = std::fs::read(dir.path().join("session.enc")).unwrap();
+    Mock::given(method("GET"))
+        .and(path_regex(r".*/account/whoami$"))
+        .and(wiremock::matchers::header(
+            "authorization",
+            "Bearer renewed-oauth",
+        ))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"user_id":"@alice:local","device_id":"OTHER_DEVICE"})),
+        )
+        .up_to_n_times(2)
+        .with_priority(1)
+        .mount(&server)
+        .await;
+    let mut renewed = url::Url::parse(&renew["redirect_uri"]).unwrap();
+    renewed
+        .query_pairs_mut()
+        .append_pair("state", &renew["state"])
+        .append_pair("code", "renewal");
+    assert_eq!(http.get(renewed).send().await.unwrap().status(), 200);
+    next(&mut receiver, |e| {
+        matches!(e, EventKind::Error("session-key-mismatch"))
+    })
+    .await;
+    assert_eq!(
+        std::fs::read(dir.path().join("session.enc")).unwrap(),
+        saved_before_renewal
+    );
+    next(&mut receiver, |e| {
+        matches!(e, EventKind::Error("session-expired"))
+    })
+    .await;
+    next(&mut receiver, |e| {
+        matches!(e, EventKind::ReauthenticationRequired)
+    })
+    .await;
+    sender
+        .send(Command::Reauthorize { oauth: true })
+        .await
+        .unwrap();
+    let EventKind::BrowserUrl(renew) =
+        next(&mut receiver, |e| matches!(e, EventKind::BrowserUrl(_)))
+            .await
+            .kind
+    else {
+        unreachable!()
+    };
+    let renew = url::Url::parse(&renew)
+        .unwrap()
+        .query_pairs()
+        .into_owned()
+        .collect::<std::collections::HashMap<_, _>>();
+    let mut renewed = url::Url::parse(&renew["redirect_uri"]).unwrap();
+    renewed
+        .query_pairs_mut()
+        .append_pair("state", &renew["state"])
+        .append_pair("code", "renewal");
+    assert_eq!(http.get(renewed).send().await.unwrap().status(), 200);
+    next(&mut receiver, |e| matches!(e, EventKind::Connected(_))).await;
+    next(
+        &mut receiver,
+        |e| matches!(e, EventKind::Rooms(r) if !r.is_empty()),
+    )
+    .await;
     drop(sender);
     drop(receiver);
     worker.await.unwrap();
@@ -814,6 +948,27 @@ async fn organization_writes_preserve_settings_and_reject_power_escalation() {
             user: "@bob:local".into(),
             enabled: true,
         },
+        Action::Advanced {
+            room: "!studio:local".into(),
+            operation: archaic_matrix::room_settings::Operation::Restricted,
+            value: "!members:local".into(),
+            extra: String::new(),
+            next: None,
+        },
+        Action::Advanced {
+            room: "!studio:local".into(),
+            operation: archaic_matrix::room_settings::Operation::EventPower,
+            value: "m.room.message".into(),
+            extra: "25".into(),
+            next: None,
+        },
+        Action::Advanced {
+            room: "!studio:local".into(),
+            operation: archaic_matrix::room_settings::Operation::Retention,
+            value: "1000".into(),
+            extra: "2000".into(),
+            next: None,
+        },
         Action::SpaceChild {
             room: "!studio:local".into(),
             child: "!child:local".into(),
@@ -861,6 +1016,57 @@ async fn organization_writes_preserve_settings_and_reject_power_escalation() {
         unreachable!()
     };
     assert_eq!(result.unwrap_err(), "room-action-forbidden");
+    for (operation, value, extra, error) in [
+        (
+            archaic_matrix::room_settings::Operation::EventPower,
+            "m.room.message",
+            "101",
+            "room-action-forbidden",
+        ),
+        (
+            archaic_matrix::room_settings::Operation::Retention,
+            "2000",
+            "1000",
+            "organization-invalid",
+        ),
+        (
+            archaic_matrix::room_settings::Operation::Restricted,
+            "bad-id",
+            "",
+            "organization-invalid",
+        ),
+        (
+            archaic_matrix::room_settings::Operation::ParentAdd,
+            "!studio:local",
+            "",
+            "organization-invalid",
+        ),
+    ] {
+        let id = transaction_id();
+        sender
+            .send(Command::Organization {
+                id: id.clone(),
+                action: Action::Advanced {
+                    room: "!studio:local".into(),
+                    operation,
+                    value: value.into(),
+                    extra: extra.into(),
+                    next: None,
+                },
+            })
+            .await
+            .unwrap();
+        let EventKind::Organization { result, .. } = next(
+            &mut receiver,
+            |e| matches!(e,EventKind::Organization{id:i,..} if *i==id),
+        )
+        .await
+        .kind
+        else {
+            unreachable!()
+        };
+        assert_eq!(result.unwrap_err(), error);
+    }
     let requests = server.received_requests().await.unwrap();
     for (suffix, key, value) in [
         ("m.room.name/", "name", json!("Renamed")),
@@ -894,8 +1100,8 @@ async fn organization_writes_preserve_settings_and_reject_power_escalation() {
         .collect::<Vec<_>>();
     assert_eq!(
         power.len(),
-        1,
-        "escalation must not make a second state write"
+        2,
+        "only the authorized user and event-level changes may write state"
     );
     assert_eq!(
         power[0].body_json::<serde_json::Value>().unwrap()["users"]["@bob:local"],
@@ -905,3 +1111,5 @@ async fn organization_writes_preserve_settings_and_reject_power_escalation() {
     drop(receiver);
     worker.await.unwrap();
 }
+
+mod closure;

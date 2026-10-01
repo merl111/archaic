@@ -2,6 +2,63 @@
 use crate::{Controller, model::Phase};
 use cui::Result;
 impl Controller {
+    pub fn set_notifications(&self, enabled: bool) -> Result<()> {
+        let previous = self.rendering.replace(true);
+        let result = self.view.notifications.set_checked(enabled);
+        self.rendering.set(previous);
+        result
+    }
+    pub fn notification_preference(&self) -> Result<()> {
+        let enabled = self.view.notifications.get_checked()?;
+        if !enabled {
+            self.notification_sender.invalidate();
+        }
+        if let Some(path) = &self.preference_path
+            && crate::preferences::save_notifications(
+                &path.with_file_name("desktop.json"),
+                &self.active_profile.borrow(),
+                enabled,
+            )
+            .is_err()
+        {
+            self.model.borrow_mut().error = Some("desktop-preference-failed");
+            self.render()?;
+        }
+        Ok(())
+    }
+    pub fn refresh_profiles(&self) -> Result<()> {
+        if self.model.borrow().temporary || self.fixture {
+            return Ok(());
+        }
+        let names =
+            archaic_matrix::storage::profile_names().unwrap_or_else(|_| vec!["default".into()]);
+        let previous = self.rendering.replace(true);
+        let result = (|| {
+            self.view
+                .profiles
+                .set_items(&names.iter().map(String::as_str).collect::<Vec<_>>())?;
+            let index = names
+                .iter()
+                .position(|n| n == &*self.active_profile.borrow());
+            self.view
+                .profiles
+                .set_selected(index.map_or(-1, |i| i as i32))?;
+            *self.profile_names.borrow_mut() = names;
+            Ok(())
+        })();
+        self.rendering.set(previous);
+        result
+    }
+    pub fn choose_profile(&self) -> Result<()> {
+        let index = self.view.profiles.get_selected()?;
+        let names = self.profile_names.borrow().clone();
+        if let Some(name) = usize::try_from(index).ok().and_then(|i| names.get(i)) {
+            self.view.profile.set_text(name)?;
+            self.switch_profile()?;
+        }
+        Ok(())
+    }
+
     pub fn desktop_open(&self, open: crate::instance::Open) -> Result<()> {
         self.window.show()?;
         if let Some(profile) = open.profile
@@ -76,7 +133,13 @@ impl Controller {
         }
         self.render()
     }
-    pub fn desktop_notification(&self, epoch: u64, room_id: &str, name: &str) -> Result<()> {
+    pub fn desktop_notification(
+        &self,
+        epoch: u64,
+        room_id: &str,
+        name: &str,
+        event_id: &str,
+    ) -> Result<()> {
         let m = self.model.borrow();
         if self.fixture
             || epoch != m.epoch
@@ -96,54 +159,17 @@ impl Controller {
                 .take(120)
                 .collect::<String>()
         );
-        self.notification_sender.send(body);
+        let room = archaic_matrix::matrix_event_link(room_id, event_id);
+        if let Ok(link) = room {
+            self.notification_sender.send(
+                body,
+                crate::instance::Open {
+                    link: Some(link),
+                    profile: Some(self.active_profile.borrow().clone()),
+                },
+            );
+        }
         Ok(())
-    }
-}
-
-/// Generation-tagged, bounded notifications cannot leak queued room names across account changes.
-pub struct Notifications {
-    sender: std::sync::mpsc::SyncSender<(u64, String)>,
-    generation: std::sync::Arc<std::sync::atomic::AtomicU64>,
-}
-impl Notifications {
-    pub fn new() -> Self {
-        use std::sync::{
-            Arc,
-            atomic::{AtomicU64, Ordering},
-        };
-        let generation = Arc::new(AtomicU64::new(0));
-        let current = generation.clone();
-        let (sender, rx) = std::sync::mpsc::sync_channel::<(u64, String)>(8);
-        std::thread::spawn(move || {
-            let mut last = None::<std::time::Instant>;
-            while let Ok((generation, body)) = rx.recv() {
-                if generation != current.load(Ordering::Acquire)
-                    || last.is_some_and(|t| t.elapsed() < std::time::Duration::from_secs(2))
-                {
-                    continue;
-                }
-                let body = body
-                    .replace('&', "&amp;")
-                    .replace('<', "&lt;")
-                    .replace('>', "&gt;");
-                let _ = notify_rust::Notification::new()
-                    .appname("Archaic")
-                    .summary("Archaic")
-                    .body(&body)
-                    .show();
-                last = Some(std::time::Instant::now());
-            }
-        });
-        Self { sender, generation }
-    }
-    pub fn invalidate(&self) {
-        self.generation
-            .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
-    }
-    pub fn send(&self, body: String) {
-        let generation = self.generation.load(std::sync::atomic::Ordering::Acquire);
-        let _ = self.sender.try_send((generation, body));
     }
 }
 
@@ -160,6 +186,7 @@ impl Controller {
             && !m.sending
             && !m.creating
             && !m.joining
+            && !m.browser_login
     }
     pub fn drafts_dirty(&self) -> bool {
         let m = self.model.borrow();

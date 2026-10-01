@@ -100,6 +100,40 @@ async fn run_inner(
                         persistence=Persistence::Unavailable(name);
                         session=restore(epoch,&mut persistence,updates.clone(),&events).await;
                     }
+                    Command::Reauthorize { oauth } => {
+                        if let Some(active) = &session {
+                            let epoch = active.epoch;
+                            if !active.revoked || !active.soft_logout {
+                                emit(&events,epoch,EventKind::Error("reauth-unavailable")).await;
+                                continue;
+                            }
+                            let mut shutdown = None;
+                            let result = {
+                                let pending = tokio::time::timeout(std::time::Duration::from_secs(300), crate::reauthorize::browser(active,oauth,events.clone()));
+                                tokio::pin!(pending);
+                                loop {
+                                    tokio::select! {
+                                        result = &mut pending => break result.unwrap_or(Err("sso-timeout")),
+                                        command = commands.recv() => match command {
+                                            Some(Command::Barrier(reply)) => { let _=reply.send(()); },
+                                            Some(command @ Command::Shutdown {..}) => { shutdown=Some(command); break Err("sso-cancelled"); },
+                                            _ => break Err("sso-cancelled"),
+                                        }
+                                    }
+                                }
+                            };
+                            if let Some(Command::Shutdown {epoch,drafts,result}) = shutdown {
+                                let saved=match &mut session {Some(active) if active.epoch==epoch=>active.local.save_drafts(drafts),_=>Ok(())};
+                                let _=result.send(saved);
+                                break;
+                            }
+                            // Discard the client even after cancellation/failure: an exchange may
+                            // have replaced its memory tokens before identity validation failed.
+                            drop(session.take());
+                            session=restore(epoch,&mut persistence,updates.clone(),&events).await;
+                            if let Err(key)=result {emit(&events,epoch,EventKind::Error(key)).await;}
+                        }
+                    }
                     Command::Reauthenticate { password } => {
                         if let Some(active) = &session {
                             let epoch = active.epoch;
@@ -163,8 +197,7 @@ async fn sync_update(active: &mut Session, update: SyncUpdate, events: &mpsc::Se
     let epoch = active.epoch;
     match update {
         SyncUpdate::Expired(soft) => {
-            active.soft_logout =
-                soft && active.saved && active.client.oauth().client_id().is_none();
+            active.soft_logout = soft && active.saved;
             active.revoked = true;
             active.client.send_queue().set_enabled(false).await;
             emit(events, epoch, EventKind::Error("session-expired")).await;
@@ -486,6 +519,7 @@ async fn handle(
         | Command::Shutdown { .. }
         | Command::SwitchProfile { .. }
         | Command::Reauthenticate { .. }
+        | Command::Reauthorize { .. }
         | Command::CancelLogin
         | Command::Login { .. }
         | Command::Restore { .. }

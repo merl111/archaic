@@ -18,6 +18,13 @@ use matrix_sdk::{
 use serde_json::json;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Action {
+    Advanced {
+        room: String,
+        operation: crate::room_settings::Operation,
+        value: String,
+        extra: String,
+        next: Option<String>,
+    },
     Directory {
         query: String,
         next: Option<String>,
@@ -93,6 +100,15 @@ pub struct Row {
 }
 pub(crate) async fn perform(client: &Client, action: &Action) -> Result<Page, &'static str> {
     match action {
+        Action::Advanced {
+            room,
+            operation,
+            value,
+            extra,
+            next,
+        } => {
+            crate::room_settings::perform(client, room, operation, value, extra, next.clone()).await
+        }
         Action::Directory { query, next } => {
             if query.len() > 256 || next.as_ref().is_some_and(|v| v.len() > 4096) {
                 return Err("organization-invalid");
@@ -379,7 +395,11 @@ pub(crate) async fn perform(client: &Client, action: &Action) -> Result<Page, &'
 fn joined(client: &Client, id: &str) -> Result<Room, &'static str> {
     crate::room_tools::joined(client, id)
 }
-async fn state_room(client: &Client, id: &str, kind: StateEventType) -> Result<Room, &'static str> {
+pub(crate) async fn state_room(
+    client: &Client,
+    id: &str,
+    kind: StateEventType,
+) -> Result<Room, &'static str> {
     let r = joined(client, id)?;
     if !r
         .power_levels()

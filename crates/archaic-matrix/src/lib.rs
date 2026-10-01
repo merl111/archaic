@@ -13,6 +13,9 @@ mod oauth;
 pub mod organization;
 pub mod outbox;
 mod paging;
+mod reauthorize;
+pub mod room_settings;
+mod room_threads;
 mod room_tools;
 mod search;
 mod search_index;
@@ -66,6 +69,9 @@ pub enum Command {
     OAuthLogin {
         epoch: u64,
         server: String,
+    },
+    Reauthorize {
+        oauth: bool,
     },
     Reauthenticate {
         password: security::Secret,
@@ -317,6 +323,7 @@ pub enum EventKind {
     Notification {
         room_id: String,
         name: String,
+        event_id: String,
     },
     Organization {
         id: TransactionId,
@@ -425,6 +432,14 @@ pub fn homeserver_url(input: &str) -> Result<Url, &'static str> {
         return Err("invalid-server");
     }
     Ok(url)
+}
+
+/// Construct links from validated protocol identifiers, never by interpreting event bodies.
+pub fn matrix_event_link(room: &str, event: &str) -> Result<String, &'static str> {
+    use matrix_sdk::ruma::{EventId, RoomId};
+    let room = RoomId::parse(room).map_err(|_| "link-invalid")?;
+    let event = EventId::parse(event).map_err(|_| "link-invalid")?;
+    Ok(room.matrix_to_event_uri(event).to_string())
 }
 
 #[cfg(test)]

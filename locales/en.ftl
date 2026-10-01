@@ -391,3 +391,29 @@ desktop-unread = Unread activity
 desktop-tray-unavailable = The desktop status item is unavailable on this desktop.
 
 profile-saving = Saving drafts before switching accounts…
+
+org-alias-add = Create room alias
+org-alias-remove = Remove room alias
+org-canonical = Set canonical alias
+org-publish = Publish in directory
+org-unpublish = Unpublish from directory
+org-low-priority = Mark low priority
+org-normal-priority = Remove low priority
+org-avatar = Upload room avatar (file path)
+org-clear-avatar = Remove room avatar
+org-restricted = Restrict membership to rooms
+org-event-power = Set event permission
+org-retention = Set retention (milliseconds)
+org-upgrade = Upgrade room version
+org-report = Report event
+org-redact = Redact event as moderator
+org-knock = Request to join (knock)
+org-parent-add = Add canonical parent space
+org-parent-remove = Remove parent space
+org-threads = Browse threads
+org-participated-threads = Threads I participated in
+org-subscribe-thread = Subscribe to thread
+org-unsubscribe-thread = Unsubscribe from thread
+
+profile-saved = Saved account profiles
+desktop-preference-failed = Could not save desktop preferences. Your current selection remains active.

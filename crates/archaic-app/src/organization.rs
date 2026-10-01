@@ -36,6 +36,28 @@ const KEYS: &[&str] = &[
     "org-blocked",
     "org-add-child",
     "org-remove-child",
+    "org-alias-add",
+    "org-alias-remove",
+    "org-canonical",
+    "org-publish",
+    "org-unpublish",
+    "org-low-priority",
+    "org-normal-priority",
+    "org-avatar",
+    "org-clear-avatar",
+    "org-restricted",
+    "org-event-power",
+    "org-retention",
+    "org-upgrade",
+    "org-report",
+    "org-redact",
+    "org-knock",
+    "org-parent-add",
+    "org-parent-remove",
+    "org-threads",
+    "org-participated-threads",
+    "org-subscribe-thread",
+    "org-unsubscribe-thread",
 ];
 #[derive(Default)]
 pub struct State {
@@ -44,6 +66,28 @@ pub struct State {
     pub page: Page,
     pub error: Option<&'static str>,
     pub key: Option<(i32, String, String, String)>,
+    pub cursors: std::collections::HashSet<String>,
+}
+impl State {
+    pub fn apply(&mut self, id: TransactionId, result: std::result::Result<Page, &'static str>) {
+        if self.pending.as_ref() != Some(&id) {
+            return;
+        }
+        self.pending = None;
+        match result {
+            Ok(page) => {
+                if page.next.as_ref().is_some_and(|next| {
+                    self.cursors.len() >= 4096 || !self.cursors.insert(next.clone())
+                }) {
+                    self.error = Some("history-invalid-page");
+                    self.page.next = None;
+                } else {
+                    self.page = page;
+                }
+            }
+            Err(e) => self.error = Some(e),
+        }
+    }
 }
 pub struct Controls {
     root: Widget,
@@ -134,6 +178,8 @@ impl Controls {
         ] {
             w.set_enabled(enabled)?;
         }
+        self.join
+            .set_enabled(enabled && !matches!(self.mode.get_selected()?, 41 | 42))?;
         self.more
             .set_enabled(enabled && m.organization.page.next.is_some())?;
         let labels = m
@@ -168,7 +214,7 @@ impl Controls {
         let value = self.value.text()?.trim().to_owned();
         let extra = self.extra.text()?.trim().to_owned();
         let mode = self.mode.get_selected()?;
-        if mode >= 5 && mode != 20 && !self.confirm.get_checked()? {
+        if mode >= 5 && ![20, 41, 42].contains(&mode) && !self.confirm.get_checked()? {
             return Ok(Err("org-confirm-required"));
         }
         Ok(Ok(match mode {
@@ -216,6 +262,40 @@ impl Controls {
                 child: value,
                 remove: mode == 22,
             },
+            23..=44 => {
+                use archaic_matrix::room_settings::Operation::*;
+                let operations = [
+                    AliasAdd,
+                    AliasRemove,
+                    CanonicalAlias,
+                    Publish,
+                    Unpublish,
+                    LowPriority,
+                    NormalPriority,
+                    Avatar,
+                    ClearAvatar,
+                    Restricted,
+                    EventPower,
+                    Retention,
+                    Upgrade,
+                    Report,
+                    Redact,
+                    Knock,
+                    ParentAdd,
+                    ParentRemove,
+                    Threads,
+                    ParticipatedThreads,
+                    SubscribeThread,
+                    UnsubscribeThread,
+                ];
+                Action::Advanced {
+                    room,
+                    operation: operations[(mode - 23) as usize].clone(),
+                    value,
+                    extra,
+                    next,
+                }
+            }
             _ => return Ok(Err("organization-invalid")),
         }))
     }
@@ -274,6 +354,9 @@ impl Controller {
                     action,
                 }) {
                     let mut m = self.model.borrow_mut();
+                    if !more {
+                        m.organization.cursors.clear();
+                    }
                     m.organization.pending = Some(id);
                     m.organization.key = Some(key);
                     m.organization.error = None;
@@ -289,7 +372,33 @@ impl Controller {
             .ok()
             .and_then(|i| self.model.borrow().organization.page.rows.get(i).cloned())
         {
-            if row.id.starts_with('@') {
+            if row.id.starts_with('$') {
+                let Some(room) = self
+                    .model
+                    .borrow()
+                    .organization
+                    .key
+                    .as_ref()
+                    .filter(|(mode, _, _, _)| matches!(mode, 41 | 42))
+                    .map(|(_, room, _, _)| room.trim().to_owned())
+                else {
+                    return Ok(());
+                };
+                self.remember_draft()?;
+                if self.enqueue(Command::Select(room.clone())) {
+                    {
+                        let mut m = self.model.borrow_mut();
+                        m.selected = Some(room);
+                        m.clear_history();
+                        m.message_selected = Some(row.id);
+                        m.organization.show = false;
+                        m.tools.show = true;
+                        m.tools.mode = 2;
+                    }
+                    self.render()?;
+                    self.load_details()?;
+                }
+            } else if row.id.starts_with('@') {
                 self.view.organization.value.set_text(&row.id)?;
             } else {
                 self.view.organization.target.set_text(&row.id)?;

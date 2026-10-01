@@ -100,7 +100,7 @@ async fn notifications(
     events: &mpsc::Sender<Event>,
 ) {
     for (room_id, notifications) in &response.notifications {
-        let mut notify = false;
+        let mut notify = None;
         for notification in notifications {
             if !notification
                 .actions
@@ -123,14 +123,14 @@ async fn notifications(
                     });
                 if let Some(id) = raw.get_field::<String>("event_id").ok().flatten()
                     && !own
-                    && active.notified.insert(id)
+                    && active.notified.insert(id.clone())
                     && active.initial_sync_done
                 {
-                    notify = true;
+                    notify = Some(id);
                 }
             }
         }
-        if notify {
+        if let Some(event_id) = notify {
             let name = active
                 .client
                 .get_room(room_id)
@@ -142,6 +142,7 @@ async fn notifications(
                 EventKind::Notification {
                     room_id: room_id.to_string(),
                     name,
+                    event_id,
                 },
             )
             .await;

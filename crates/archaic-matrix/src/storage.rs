@@ -327,6 +327,28 @@ fn profile_directory() -> Result<PathBuf> {
     path.filter(|p| p.is_absolute()).ok_or("storage-failed")
 }
 
+/// Enumerate only this application's valid profile directories, without opening any vault.
+pub fn profile_names() -> Result<Vec<String>> {
+    let root = profile_directory()?.join("profiles");
+    let mut names = vec!["default".to_owned()];
+    let entries = match std::fs::read_dir(root) {
+        Ok(v) => v,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(names),
+        Err(_) => return Err("storage-failed"),
+    };
+    for entry in entries.take(1024).flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name != "default"
+            && validate_profile_name(&name).is_ok()
+            && entry.file_type().is_ok_and(|t| t.is_dir())
+        {
+            names.push(name);
+        }
+    }
+    names[1..].sort();
+    Ok(names)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

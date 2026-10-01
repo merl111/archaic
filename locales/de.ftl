@@ -392,3 +392,29 @@ desktop-unread = Ungelesene Aktivitäten
 desktop-tray-unavailable = Das Statussymbol ist auf diesem Desktop nicht verfügbar.
 
 profile-saving = Entwürfe werden vor dem Kontowechsel gespeichert…
+
+org-alias-add = Raumalias erstellen
+org-alias-remove = Raumalias entfernen
+org-canonical = Hauptalias setzen
+org-publish = Im Verzeichnis veröffentlichen
+org-unpublish = Aus Verzeichnis entfernen
+org-low-priority = Niedrige Priorität setzen
+org-normal-priority = Niedrige Priorität entfernen
+org-avatar = Raumavatar hochladen (Dateipfad)
+org-clear-avatar = Raumavatar entfernen
+org-restricted = Mitgliedschaft auf Räume beschränken
+org-event-power = Ereignisberechtigung setzen
+org-retention = Aufbewahrung setzen (Millisekunden)
+org-upgrade = Raumversion aktualisieren
+org-report = Ereignis melden
+org-redact = Ereignis als Moderator entfernen
+org-knock = Beitritt anfragen (Anklopfen)
+org-parent-add = Übergeordneten Space setzen
+org-parent-remove = Übergeordneten Space entfernen
+org-threads = Threads durchsuchen
+org-participated-threads = Threads mit meiner Beteiligung
+org-subscribe-thread = Thread abonnieren
+org-unsubscribe-thread = Thread-Abonnement beenden
+
+profile-saved = Gespeicherte Kontoprofile
+desktop-preference-failed = Desktop-Einstellungen konnten nicht gespeichert werden. Die aktuelle Auswahl bleibt aktiv.

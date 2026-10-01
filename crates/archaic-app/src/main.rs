@@ -13,9 +13,11 @@ mod message_controls;
 mod message_state;
 mod model;
 mod new_conversation;
+mod notifications;
 mod options;
 mod organization;
 mod outbox;
+mod preferences;
 mod room_controls;
 mod room_state;
 mod search_snippet;
@@ -46,11 +48,12 @@ struct Controller {
     sender: Sender,
     rendering: Cell<bool>,
     active_profile: RefCell<String>,
+    profile_names: RefCell<Vec<String>>,
     startup_link: Cell<bool>,
     status_item: RefCell<Option<status_item::StatusItem>>,
     status_item_attempted: Cell<bool>,
     desktop_commands: RefCell<Vec<cui::Command>>,
-    notification_sender: desktop::Notifications,
+    notification_sender: notifications::Notifications,
     pending_profile: RefCell<Option<String>>,
     room_labels: RefCell<Vec<String>>,
     fixture: bool,
@@ -67,6 +70,9 @@ impl Controller {
     }
     fn render_inner(&self) -> Result<()> {
         let model = self.model.borrow();
+        self.view
+            .profiles
+            .set_visible(!model.temporary && !self.fixture)?;
         for command in self.desktop_commands.borrow().iter() {
             command.set_enabled(model.phase == Phase::Connected)?;
         }
@@ -156,7 +162,7 @@ impl Controller {
         }) {
             self.notification_sender.invalidate();
             *self.active_profile.borrow_mut() = name;
-            self.view.notifications.set_checked(false)?;
+            self.set_notifications(false)?;
             self.view.typing_opt.set_checked(false)?;
             self.view.read_opt.set_checked(false)?;
             *self.model.borrow_mut() = Model {
@@ -334,6 +340,21 @@ impl Controller {
             let mut model = self.model.borrow_mut();
             model.sending = true;
             model.error = None;
+        }
+        self.render()
+    }
+    fn reauthorize_sso(&self) -> Result<()> {
+        self.reauthorize(false)
+    }
+    fn reauthorize_oauth(&self) -> Result<()> {
+        self.reauthorize(true)
+    }
+    fn reauthorize(&self, oauth: bool) -> Result<()> {
+        if self.model.borrow().reauthentication
+            && !self.model.borrow().browser_login
+            && self.enqueue(Command::Reauthorize { oauth })
+        {
+            self.model.borrow_mut().browser_login = true;
         }
         self.render()
     }
@@ -549,12 +570,18 @@ impl Controller {
         self.render()
     }
     fn event(&self, event: Event) -> Result<()> {
-        if let archaic_matrix::EventKind::Notification { room_id, name } = &event.kind {
-            self.desktop_notification(event.epoch, room_id, name)?;
+        if let archaic_matrix::EventKind::Notification {
+            room_id,
+            name,
+            event_id,
+        } = &event.kind
+        {
+            self.desktop_notification(event.epoch, room_id, name, event_id)?;
         }
         if event.epoch == self.model.borrow().epoch
             && self.model.borrow().browser_login
-            && self.model.borrow().phase == Phase::Connecting
+            && (self.model.borrow().phase == Phase::Connecting
+                || self.model.borrow().reauthentication)
             && let archaic_matrix::EventKind::BrowserUrl(url) = &event.kind
             && open_browser(url).is_err()
         {
@@ -588,10 +615,22 @@ impl Controller {
             && matches!(event.kind, archaic_matrix::EventKind::SignedOut);
         let rooms_ready = event.epoch == self.model.borrow().epoch
             && matches!(event.kind, archaic_matrix::EventKind::Rooms(_));
+        let connected = event.epoch == self.model.borrow().epoch
+            && matches!(event.kind, archaic_matrix::EventKind::Connected(_));
         self.model.borrow_mut().apply(event);
+        if connected {
+            self.refresh_profiles()?;
+            let enabled = self.preference_path.as_ref().is_some_and(|p| {
+                preferences::notifications(
+                    &p.with_file_name("desktop.json"),
+                    &self.active_profile.borrow(),
+                )
+            });
+            self.set_notifications(enabled)?;
+        }
         if signed_out {
             self.notification_sender.invalidate();
-            self.view.notifications.set_checked(false)?;
+            self.set_notifications(false)?;
             self.view.typing_opt.set_checked(false)?;
             self.view.read_opt.set_checked(false)?;
         }
@@ -701,6 +740,8 @@ impl Controller {
             (&self.view.sign_out, Self::logout),
             (&self.view.open_link, Self::open_matrix_link),
             (&self.view.switch_profile, Self::switch_profile),
+            (&self.view.profiles, Self::choose_profile),
+            (&self.view.notifications, Self::notification_preference),
             (&self.view.organization_toggle, Self::toggle_organization),
             (&self.view.organization.close, Self::toggle_organization),
             (&self.view.organization.apply, Self::organization_run),
@@ -708,6 +749,9 @@ impl Controller {
             (&self.view.organization.select, Self::organization_select),
             (&self.view.organization.join, Self::organization_join),
             (&self.view.reauth, Self::reauthenticate),
+            (&self.view.reauth_sso, Self::reauthorize_sso),
+            (&self.view.reauth_oauth, Self::reauthorize_oauth),
+            (&self.view.reauth_cancel, Self::cancel_login),
             (&self.view.refresh, Self::refresh),
             (&self.view.history_controls.older, Self::older_history),
             (&self.view.history_controls.newer, Self::newer_history),
@@ -827,11 +871,12 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         sender,
         rendering: Cell::new(false),
         active_profile: RefCell::new(options.profile.clone()),
+        profile_names: RefCell::new(Vec::new()),
         startup_link: Cell::new(options.link.is_some()),
         status_item: Default::default(),
         status_item_attempted: Cell::new(false),
         desktop_commands: Default::default(),
-        notification_sender: desktop::Notifications::new(),
+        notification_sender: notifications::Notifications::new(),
         pending_profile: Default::default(),
         room_labels: RefCell::new(Vec::new()),
         fixture: options.fixture_mode,
@@ -839,6 +884,8 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         preference_path,
     });
     controller.view.profile.set_text(&options.profile)?;
+    controller.refresh_profiles()?;
+
     if let Some(link) = &options.link {
         controller.view.deep_link.set_text(link)?;
     }
@@ -861,6 +908,11 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // Bounded main-thread polling until CUI exposes a worker-safe dispatcher.
     let _pump = app.every(50, move || {
         updates.status_item_tick().expect("live desktop controls");
+        if updates.desktop_ready()
+            && let Some(open) = updates.notification_sender.activation()
+        {
+            updates.desktop_open(open).expect("live desktop controls");
+        }
         if let Some(instance) = &*activation.borrow() {
             let ready = updates.desktop_ready();
             if ready && let Ok(open) = instance.incoming.try_recv() {

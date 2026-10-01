@@ -9,6 +9,7 @@ pub(crate) struct TokenStore {
     profile: Arc<Profile>,
     metadata: Mutex<Option<SavedSession>>,
     failed: AtomicBool,
+    suspended: AtomicBool,
 }
 impl TokenStore {
     pub fn attach(
@@ -20,6 +21,7 @@ impl TokenStore {
             profile,
             metadata: Mutex::new(Some(record)),
             failed: AtomicBool::new(false),
+            suspended: AtomicBool::new(false),
         });
         let save = Arc::downgrade(&store);
         let reload = Arc::downgrade(&store);
@@ -57,7 +59,13 @@ impl TokenStore {
             .map_err(|_| "session-invalid")?;
         Ok(store)
     }
+    pub fn suspend(&self) {
+        self.suspended.store(true, Ordering::Release);
+    }
     pub fn save(&self, client: &Client) -> Result<(), &'static str> {
+        if self.suspended.load(Ordering::Acquire) {
+            return Err("reauth-unavailable");
+        }
         let mut guard = self.metadata.lock().map_err(|_| "storage-failed")?;
         let Some(record) = guard.as_mut() else {
             return Ok(());

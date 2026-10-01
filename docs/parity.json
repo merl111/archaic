@@ -59,7 +59,7 @@
       "acceptance": "Use a system browser with validated return flow; handle cancellation, registration and expired tokens.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/structures/auth",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_note": "Classic SSO plus delegated OAuth discovery, dynamic registration, PKCE/state validation, bounded loopback callback and encrypted OAuth restoration. Servers requiring client_uri/static registration and real authentication-service interoperability remain pending.",
+      "implementation_note": "Classic SSO and delegated OAuth discovery/PKCE, dynamic or issuer-bound static registration, client URI configuration, callback validation and encrypted restore/reauthorization. Real authentication-service interoperability remains pending.",
       "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
@@ -93,7 +93,7 @@
       "acceptance": "Restart without a fresh device; refresh safely; reauthenticate without losing recoverable data.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/structures/auth",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_note": "Encrypted same-device restore, token rotation and same-device password soft logout have protocol coverage; OAuth/SSO reauthorization remains pending.",
+      "implementation_note": "Encrypted same-device restore, refresh rotation, password/SSO/OAuth soft-logout recovery. Reauthorization rejects identity changes and preserves saved tokens on failure/cancel. SDK protocol tests cover renewal; real auth-service/platform acceptance remains pending.",
       "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
@@ -161,7 +161,7 @@
       "acceptance": "Match independent desktop profiles and add in-app switching with separate stores/crypto state.",
       "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/desktop/README.md",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_note": "Named, isolated profiles and account switching pause the old queue, wait for draft saves and restore existing devices. Manual profile names; picker and cross-platform acceptance pending.",
+      "implementation_note": "Isolated saved profiles, snapshot-based local profile picker and switching after draft saves; old queues paused. Per-profile notification preference restored. Only active account syncs; platform acceptance pending.",
       "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
@@ -580,7 +580,7 @@
       "acceptance": "Read/send threaded replies, navigate context and show appropriate unread state.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/composer",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_note": "Thread sending and paginated relation replies, automatic open-details sync refresh and thread receipts. Dedicated thread inbox and unread navigation pending.",
+      "implementation_note": "Thread replies, live paginated details, scoped receipts, all/participated thread-root catalog and server-dependent subscriptions. Exact-latest receipt marker is not a complete unread counter; automatic catalog refresh and richer thread inbox remain pending.",
       "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
@@ -971,7 +971,7 @@
       "acceptance": "Create/manage nested spaces, browse children and obey restricted membership rules.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/room_settings",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_note": "Create private spaces, list joined spaces, paginated hierarchy, add/remove children with permission checks. Reciprocal parents, complex cycles and restricted membership UX pending.",
+      "implementation_note": "Create/list spaces, paginated hierarchy, child and parent links, restricted membership rules. Direct self-links rejected; global nested-cycle handling and comprehensive federation acceptance pending.",
       "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
@@ -989,7 +989,7 @@
       "acceptance": "Sync applicable tags/account data and preserve sensible local sorting/navigation.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/room_settings",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_note": "Matrix favorite tags and favorite-first room sorting. Low priority, advanced filters/order preferences pending.",
+      "implementation_note": "Matrix favorite and low-priority tags, favorite-first room sorting. Advanced filters/order preferences pending.",
       "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
@@ -1007,7 +1007,7 @@
       "acceptance": "Edit metadata/aliases and directory visibility with explicit permission errors.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/room_settings",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_note": "Permission-aware room name/topic edits and information view. Avatars, aliases and publishing pending.",
+      "implementation_note": "Room name/topic/avatar/alias/canonical alias/publishing operations with permission and alias-target validation; real multi-server/platform acceptance remains pending.",
       "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
@@ -1232,7 +1232,7 @@
       "acceptance": "Respect preview privacy and open correct account/room/event on activation.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/desktop/src",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_note": "Opt-in native notifications with generic text/room name, initial-sync/own/blocked/focused suppression and bounded worker. Activation and persisted preferences pending.",
+      "implementation_note": "Opt-in native notification delivery, default action routed to account/room/event, stale generation rejection and per-profile preferences. Private Linux D-Bus delivery/action test passes; macOS/Windows activation acceptance remains pending.",
       "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {

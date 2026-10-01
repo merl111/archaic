@@ -69,7 +69,12 @@ pub(crate) async fn login(
     epoch: u64,
     events: mpsc::Sender<Event>,
 ) -> Result<(), &'static str> {
-    let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
+    let port = std::env::var("ARCHAIC_OAUTH_CALLBACK_PORT")
+        .ok()
+        .map(|v| v.parse::<u16>().map_err(|_| "oauth-unavailable"))
+        .transpose()?
+        .unwrap_or(0);
+    let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port))
         .await
         .map_err(|_| "sso-unavailable")?;
     let host = listener
@@ -79,21 +84,20 @@ pub(crate) async fn login(
     let redirect =
         url::Url::parse(&format!("http://{host}/callback")).map_err(|_| "sso-unavailable")?;
     let oauth = client.oauth();
-    let metadata = Raw::from_json(serde_json::value::to_raw_value(&serde_json::json!({
-        "application_type":"native", "client_name":"Archaic desktop",
-        "redirect_uris":[redirect.as_str()], "grant_types":["authorization_code","refresh_token"],
-        "response_types":["code"], "token_endpoint_auth_method":"none"
-    })).map_err(|_| "oauth-unavailable")?);
-    let data = oauth
-        .login(
-            redirect.clone(),
-            None,
-            Some(matrix_sdk::authentication::oauth::ClientRegistrationData::new(metadata)),
-            None,
-        )
-        .build()
-        .await
-        .map_err(|_| "oauth-unavailable")?;
+    let metadata = registration_metadata(client, &redirect).await?;
+    let data =
+        oauth
+            .login(
+                redirect.clone(),
+                client.device_id().map(ToOwned::to_owned),
+                client.oauth().client_id().is_none().then(|| {
+                    matrix_sdk::authentication::oauth::ClientRegistrationData::new(metadata)
+                }),
+                None,
+            )
+            .build()
+            .await
+            .map_err(|_| "oauth-unavailable")?;
     let (tx, mut rx) = mpsc::channel(1);
     let state = Arc::new(Callback {
         state: data.state.secret().clone(),
@@ -121,6 +125,47 @@ pub(crate) async fn login(
         .await
         .map_err(|_| "oauth-callback-failed")
 }
+async fn registration_metadata(
+    client: &Client,
+    redirect: &url::Url,
+) -> Result<Raw<matrix_sdk::authentication::oauth::registration::ClientMetadata>, &'static str> {
+    let oauth = client.oauth();
+    if oauth.client_id().is_none()
+        && let Ok(id) = std::env::var("ARCHAIC_OAUTH_CLIENT_ID")
+    {
+        let expected = std::env::var("ARCHAIC_OAUTH_ISSUER").map_err(|_| "oauth-unavailable")?;
+        let expected = url::Url::parse(&expected).map_err(|_| "oauth-unavailable")?;
+        let metadata = oauth
+            .server_metadata()
+            .await
+            .map_err(|_| "oauth-unavailable")?;
+        if metadata.issuer != expected || id.is_empty() || id.len() > 4096 {
+            return Err("oauth-unavailable");
+        }
+        oauth.restore_registered_client(matrix_sdk::authentication::oauth::ClientId::new(id));
+    }
+    let mut metadata = serde_json::json!({
+        "application_type":"native", "client_name":"Archaic desktop",
+        "redirect_uris":[redirect.as_str()], "grant_types":["authorization_code","refresh_token"],
+        "response_types":["code"], "token_endpoint_auth_method":"none"
+    });
+    if let Ok(uri) = std::env::var("ARCHAIC_OAUTH_CLIENT_URI") {
+        let uri = url::Url::parse(&uri).map_err(|_| "oauth-unavailable")?;
+        if uri.scheme() != "https"
+            || !uri.username().is_empty()
+            || uri.password().is_some()
+            || uri.fragment().is_some()
+        {
+            return Err("oauth-unavailable");
+        }
+        metadata["client_uri"] = serde_json::json!(uri);
+    }
+    let metadata = Raw::from_json(
+        serde_json::value::to_raw_value(&metadata).map_err(|_| "oauth-unavailable")?,
+    );
+    Ok(metadata)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

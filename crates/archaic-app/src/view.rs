@@ -10,6 +10,7 @@ pub struct View {
     pub open_link: Widget,
     pub profile: Widget,
     pub switch_profile: Widget,
+    pub profiles: Widget,
     pub organization: crate::organization::Controls,
     pub organization_toggle: Widget,
     pub typing_opt: Widget,
@@ -57,6 +58,9 @@ pub struct View {
     pub reauth_group: Widget,
     pub reauth_password: Widget,
     pub reauth: Widget,
+    pub reauth_sso: Widget,
+    pub reauth_oauth: Widget,
+    pub reauth_cancel: Widget,
     pub account: Widget,
     pub status: Widget,
     pub error: Widget,
@@ -74,6 +78,8 @@ impl View {
         let profile = header.entry("default")?;
         profile.set_min_size(90, 0)?;
         profile.accessibility(&tr.text("profile-name"), "")?;
+        let profiles = header.select(&[])?;
+        profiles.accessibility(&tr.text("profile-saved"), "")?;
         let switch_profile = header.button(&tr.text("profile-switch"))?;
         label(&header, &tr.text("appearance"), sys::CUI_ROLE_CAPTION)?;
         let appearance = header.select(&[
@@ -129,6 +135,9 @@ impl View {
         let reauth_password = reauth_group.password("")?;
         reauth_password.accessibility(&tr.text("password"), "")?;
         let reauth = reauth_group.button(&tr.text("reauthenticate"))?;
+        let reauth_sso = reauth_group.button(&tr.text("sso-login"))?;
+        let reauth_oauth = reauth_group.button(&tr.text("oauth-login"))?;
+        let reauth_cancel = reauth_group.button(&tr.text("cancel"))?;
         let sign_out = sidebar.button(&tr.text("sign-out"))?;
         let conversation = workspace.split_pane(1)?;
         conversation.box_set_padding(20)?;
@@ -180,6 +189,7 @@ impl View {
             open_link,
             profile,
             switch_profile,
+            profiles,
             organization,
             organization_toggle,
             typing_opt,
@@ -227,6 +237,9 @@ impl View {
             reauth_group,
             reauth_password,
             reauth,
+            reauth_sso,
+            reauth_oauth,
+            reauth_cancel,
             account,
             status,
             error,
@@ -313,6 +326,10 @@ impl View {
     pub fn render(&self, model: &Model, tr: &Translator, fixture: bool) -> Result<()> {
         self.organization.render(model, tr)?;
         self.reauth_group.set_visible(model.reauthentication)?;
+        for button in [&self.reauth, &self.reauth_sso, &self.reauth_oauth] {
+            button.set_enabled(!model.browser_login)?;
+        }
+        self.reauth_cancel.set_visible(model.browser_login)?;
         let connected = matches!(
             model.phase,
             Phase::Connected | Phase::SigningOut | Phase::LogoutCleanup

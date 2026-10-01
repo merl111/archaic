@@ -2,7 +2,7 @@
 
 A native Matrix desktop client built with Rust and CUI, targeting Linux, Windows and macOS.
 
-**Early development build.** Archaic connects to real Matrix homeservers with password or classic browser SSO, restores saved devices, and supports security/recovery controls, persistent outgoing text, incremental history, message actions, attachments and search. It is not yet an Element replacement. Use a test account while acceptance work continues. Closing the window keeps a saved session; **Sign out** revokes it. See [security and messaging workflows](docs/SECURITY-MESSAGING.md) for the current behavior and remaining work in priorities 1–3.
+**Early development build.** Archaic connects to real Matrix homeservers with password, classic browser SSO or delegated OAuth, restores saved devices, and supports security/recovery controls, persistent outgoing text, incremental history, message actions, attachments and search. It is not yet an Element replacement. Use a test account while acceptance work continues. Closing the window keeps a saved session; **Sign out** revokes it. See [security and messaging workflows](docs/SECURITY-MESSAGING.md) for the current behavior and remaining work in priorities 1–3.
 
 ## Build and run
 
@@ -115,3 +115,5 @@ Protocol tests use a local HTTP mock server and the real Matrix SDK, without ext
 - [Machine-readable inventory](docs/parity.json) and [upstream feature/settings index](docs/upstream-index.json).
 
 Archaic consumes CUI's public Rust binding and C ABI. It does not copy private backend code or become part of CUI's examples.
+
+Native installer and signing commands: [release packaging](docs/RELEASE.md). Room administration and thread browsing: [organization guide](docs/ORGANIZATION.md).
