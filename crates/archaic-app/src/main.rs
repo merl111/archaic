@@ -3,6 +3,8 @@ mod history_controls;
 mod history_state;
 mod join_form;
 mod login;
+mod message_controls;
+mod message_state;
 mod model;
 mod new_conversation;
 mod options;
@@ -126,13 +128,22 @@ impl Controller {
     }
     fn remember_draft(&self) -> Result<()> {
         let text = self.view.composer.text()?;
+        let action_body = self.view.message_controls.body.text()?;
         let mut model = self.model.borrow_mut();
+        if let Some(draft) = &mut model.message_draft
+            && !draft.pending
+        {
+            draft.body = action_body;
+        }
         if let Some(id) = model.selected.clone() {
             model.drafts.insert(id, text);
         }
         Ok(())
     }
     fn select(&self) -> Result<()> {
+        if self.model.borrow().message_draft.is_some() {
+            return Ok(());
+        }
         self.remember_draft()?;
         let index = self.view.rooms.get_selected()?;
         let id = usize::try_from(index).ok().and_then(|index| {
@@ -262,6 +273,9 @@ impl Controller {
         self.render()
     }
     fn toggle_join(&self) -> Result<()> {
+        if self.model.borrow().message_draft.is_some() {
+            return Ok(());
+        }
         let mut model = self.model.borrow_mut();
         if model.phase != Phase::Connected || model.joining || model.creating || self.fixture {
             return Ok(());
@@ -272,6 +286,9 @@ impl Controller {
         self.render()
     }
     fn join(&self) -> Result<()> {
+        if self.model.borrow().message_draft.is_some() {
+            return Ok(());
+        }
         if self.fixture
             || self.model.borrow().room_pending.is_some()
             || self.model.borrow().joining
@@ -409,6 +426,13 @@ impl Controller {
             (&self.view.temporary, Self::temporary),
             (&self.view.rooms, Self::select),
             (&self.view.send, Self::send),
+            (&self.view.message_controls.select, Self::choose_message),
+            (&self.view.message_controls.reply, Self::reply_message),
+            (&self.view.message_controls.edit, Self::edit_message),
+            (&self.view.message_controls.delete, Self::delete_message),
+            (&self.view.message_controls.react, Self::react_message),
+            (&self.view.message_controls.cancel, Self::cancel_message),
+            (&self.view.message_controls.submit, Self::submit_message),
             (&self.view.sign_out, Self::logout),
             (&self.view.refresh, Self::refresh),
             (&self.view.history_controls.older, Self::older_history),
@@ -449,7 +473,7 @@ fn fixture() -> Model {
         phase: Phase::Connected, user: "@alex:example.org".into(),
         rooms: vec![RoomSummary { membership: archaic_matrix::Membership::Joined, inviter: None, id: "!design:example.org".into(), name: "Design studio".into() }, RoomSummary { membership: archaic_matrix::Membership::Joined, inviter: None, id: "!general:example.org".into(), name: "Archaic".into() }],
         selected: Some("!design:example.org".into()),
-        messages: vec![Message { id: "1".into(), sender: "@maya:example.org".into(), body: Some("A place for thoughtful conversations.\nNative controls, a calm workspace, and room to focus.".into()) }, Message { id: "2".into(), sender: "@alex:example.org".into(), body: Some("This is an explicit offline visual-test fixture.\nThe normal application starts at real Matrix sign-in.".into()) }],
+        messages: vec![Message { id: "1".into(), sender: "@maya:example.org".into(), body: Some("A place for thoughtful conversations.\nNative controls, a calm workspace, and room to focus.".into()), ..Message::default() }, Message { id: "2".into(), sender: "@alex:example.org".into(), body: Some("This is an explicit offline visual-test fixture.\nThe normal application starts at real Matrix sign-in.".into()), ..Message::default() }],
         ..Model::default()
     }
 }

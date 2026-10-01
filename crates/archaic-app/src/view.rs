@@ -13,6 +13,7 @@ pub struct View {
     pub join: crate::join_form::JoinForm,
     pub compose_group: Widget,
     pub room_controls: crate::room_controls::RoomControls,
+    pub message_controls: crate::message_controls::MessageControls,
     pub history_controls: crate::history_controls::HistoryControls,
     pub footer: Widget,
     pub session_notice: Widget,
@@ -104,6 +105,7 @@ impl View {
         timeline.expand(true)?;
         timeline.set_read_only(true)?;
         timeline.accessibility(&tr.text("recent-only"), "")?;
+        let message_controls = crate::message_controls::MessageControls::new(&conversation, tr)?;
         let compose_group = conversation.box_layout(sys::CUI_VERTICAL, 10)?;
         compose_group.box_set_padding(12)?;
         compose_group.set_role(sys::CUI_ROLE_CARD)?;
@@ -137,6 +139,7 @@ impl View {
             compose_group,
             room_controls,
             history_controls,
+            message_controls,
             footer,
             session_notice,
             temporary: login.temporary,
@@ -254,6 +257,7 @@ impl View {
         self.join_toggle.set_enabled(
             model.phase == Phase::Connected
                 && !model.joining
+                && model.message_draft.is_none()
                 && !model.creating
                 && model.room_pending.is_none()
                 && !fixture,
@@ -286,7 +290,9 @@ impl View {
             selected.is_some_and(|room| room.membership == archaic_matrix::Membership::Joined);
         self.room_controls.render(model, tr, fixture)?;
         self.history_controls.render(model, tr, fixture)?;
-        self.compose_group.set_visible(joined)?;
+        self.message_controls.render(model, tr, fixture)?;
+        self.compose_group
+            .set_visible(joined && model.message_draft.is_none())?;
         self.timeline.set_visible(joined || selected.is_none())?;
         let history = history_text(model, tr, selected.is_some());
         set_text(&self.timeline, &history)?;
@@ -314,8 +320,12 @@ impl View {
         )?;
         self.refresh
             .set_enabled(model.phase == Phase::Connected && !fixture)?;
-        self.rooms
-            .set_enabled(model.phase == Phase::Connected && !model.joining && !model.creating)?;
+        self.rooms.set_enabled(
+            model.message_draft.is_none()
+                && model.phase == Phase::Connected
+                && !model.joining
+                && !model.creating,
+        )?;
         self.search.set_enabled(model.phase == Phase::Connected)?;
         Ok(())
     }
@@ -347,17 +357,56 @@ fn history_text(model: &Model, tr: &Translator, selected: bool) -> String {
         model
             .messages
             .iter()
-            .map(|message| {
-                format!(
-                    "{}\n{}",
-                    message.sender,
-                    message
-                        .body
-                        .clone()
-                        .unwrap_or_else(|| tr.text("unavailable-message"))
-                )
-            })
+            .map(|message| message_text(message, model, tr))
             .collect::<Vec<_>>()
             .join("\n\n")
     }
+}
+
+fn message_text(message: &archaic_matrix::Message, model: &Model, tr: &Translator) -> String {
+    let mut text = message.sender.clone();
+    if message.edited {
+        text.push_str(&format!(" · {}", tr.text("message-edited")));
+    }
+    if let Some(target) = &message.reply_to {
+        let preview = model
+            .messages
+            .iter()
+            .find(|m| &m.id == target)
+            .and_then(|m| m.body.as_deref())
+            .map(|body| body.chars().take(80).collect::<String>())
+            .unwrap_or_else(|| target.clone());
+        text.push_str(&format!("\n↳ {}: {}", tr.text("message-reply"), preview));
+    }
+    text.push_str(&format!(
+        "\n{}",
+        if message.deleted {
+            tr.text("message-deleted")
+        } else {
+            message
+                .body
+                .clone()
+                .unwrap_or_else(|| tr.text("unavailable-message"))
+        }
+    ));
+    let mut reactions = std::collections::BTreeMap::<&str, std::collections::BTreeSet<&str>>::new();
+    for reaction in &message.reactions {
+        reactions
+            .entry(&reaction.key)
+            .or_default()
+            .insert(&reaction.sender);
+    }
+    for (key, senders) in reactions {
+        text.push_str(&format!(
+            "  [{} {}{}]",
+            key,
+            senders.len(),
+            if senders.contains(model.user.as_str()) {
+                " ✓"
+            } else {
+                ""
+            }
+        ));
+    }
+    text
 }

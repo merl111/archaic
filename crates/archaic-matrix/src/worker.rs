@@ -151,6 +151,10 @@ async fn handle(
             load_history(active, events, room_id, kind).await;
             Ok(())
         }
+        Command::MessageAction(request) => {
+            message_action(active, request, events).await;
+            Ok(())
+        }
         Command::Refresh => {
             snapshot(active, events).await;
             Ok(())
@@ -196,6 +200,27 @@ async fn handle(
         emit(events, active.epoch, EventKind::Error(key)).await;
     }
     false
+}
+
+async fn message_action(
+    active: &mut Session,
+    request: crate::MessageRequest,
+    events: &mpsc::Sender<Event>,
+) {
+    let result = crate::message_actions::perform(&active.client, &request).await;
+    emit(
+        events,
+        active.epoch,
+        EventKind::MessageActionResult { request, result },
+    )
+    .await;
+    if result == Err("session-expired") {
+        active.revoked = true;
+        active.stop_sync();
+        emit(events, active.epoch, EventKind::Error("session-expired")).await;
+    } else if result.is_ok() {
+        history(active, events).await;
+    }
 }
 
 async fn room_action(

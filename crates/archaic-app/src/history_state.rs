@@ -20,6 +20,8 @@ impl Model {
     }
     pub fn clear_history(&mut self) {
         self.messages.clear();
+        self.message_selected = None;
+        self.message_draft = None;
         self.history_info = Default::default();
         self.history_pending = None;
         self.history_error = None;

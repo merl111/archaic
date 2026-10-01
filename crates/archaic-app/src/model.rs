@@ -30,6 +30,8 @@ pub struct Model {
     pub filter: String,
     pub selected: Option<String>,
     pub messages: Vec<Message>,
+    pub message_selected: Option<String>,
+    pub message_draft: Option<crate::message_state::ActionDraft>,
     pub history_info: archaic_matrix::HistoryInfo,
     pub history_pending: Option<archaic_matrix::HistoryLoad>,
     pub history_error: Option<(archaic_matrix::HistoryLoad, &'static str)>,
@@ -74,6 +76,9 @@ impl Model {
             EventKind::Rooms(rooms) => self.update_rooms(rooms),
             history @ (EventKind::History { .. } | EventKind::HistoryFailed { .. }) => {
                 self.apply_history(history)
+            }
+            EventKind::MessageActionResult { request, result } => {
+                self.message_result(request, result)
             }
             EventKind::Sent { transaction } => self.confirm_sent(&transaction),
             EventKind::Joined(room) => self.joined(room),
@@ -188,7 +193,11 @@ impl Model {
     }
 
     pub fn send_command(&mut self) -> Option<Command> {
-        if self.sending || self.creating || self.phase != Phase::Connected {
+        if self.message_draft.is_some()
+            || self.sending
+            || self.creating
+            || self.phase != Phase::Connected
+        {
             return None;
         }
         let room = self.selected_room()?;
@@ -300,6 +309,7 @@ mod tests {
                     id: "old".into(),
                     sender: "alice".into(),
                     body: None,
+                    ..Message::default()
                 }],
             },
         });

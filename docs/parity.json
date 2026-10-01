@@ -459,15 +459,17 @@
       "feature": "Redacted, edited and unknown events",
       "phase": "P3",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/SDK protocol tests and native Xvfb interaction checks",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Preserve event identity and safe fallback rendering; update relations after redaction.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/timeline",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Bounded loaded-window projection applies edits and redactions with room-version target rules, keeps deleted tombstones and hides redacted edits/reactions. Unknown-event presentation, server-bundled relations, full remote history and encrypted interoperability remain unfinished.",
+      "implementation_evidence": "docs/IMPLEMENTATION.md"
     },
     {
       "id": "ARC-03-10",
@@ -523,15 +525,17 @@
       "feature": "Reply and quoted context",
       "phase": "P3",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/SDK protocol tests and native Xvfb interaction checks",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Create/follow replies including missing originals, edits and encrypted events.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/composer",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Native action editor sends SDK unthreaded replies without implicit mention notifications. Loaded targets show a preview; absent targets retain their event ID. Jump-to-original, complete quoted context and encrypted multi-device acceptance remain unfinished.",
+      "implementation_evidence": "docs/IMPLEMENTATION.md"
     },
     {
       "id": "ARC-04-04",
@@ -555,15 +559,17 @@
       "feature": "Edit, edit history and deletion",
       "phase": "P3",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/SDK protocol tests and native Xvfb interaction checks",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Edit own messages, inspect history and apply permission-aware redaction across clients.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/composer",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Own text messages can be edited or deleted with explicit confirmation, guarded targets and stable retry transactions. Loaded revisions update the original; redaction hides the message. Full edit history, broader event types, moderation and live multi-client acceptance remain unfinished.",
+      "implementation_evidence": "docs/IMPLEMENTATION.md"
     },
     {
       "id": "ARC-04-06",
@@ -571,15 +577,17 @@
       "feature": "Reactions, emoji and custom reaction images",
       "phase": "P3",
       "reference_availability": "Reference + Labs extension",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/SDK protocol tests and native Xvfb interaction checks",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Toggle standard reactions without duplicate state; track custom-image flag separately.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/composer",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Native reaction entry adds or removes the current user's loaded matching annotation events. Counts deduplicate senders; retries preserve operation and per-event transaction IDs. Full relation loading, emoji picker/custom images, durable retry and live encrypted interoperability remain unfinished.",
+      "implementation_evidence": "docs/IMPLEMENTATION.md"
     },
     {
       "id": "ARC-04-07",

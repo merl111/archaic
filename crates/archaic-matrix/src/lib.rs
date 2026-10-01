@@ -3,7 +3,9 @@ mod connection;
 mod conversations;
 mod history;
 mod membership;
+mod message_actions;
 pub mod storage;
+mod timeline;
 mod worker;
 use matrix_sdk::ruma::OwnedTransactionId;
 pub use worker::{run, run_persistent, run_with_profile};
@@ -44,6 +46,7 @@ pub enum Command {
         body: String,
         transaction: OwnedTransactionId,
     },
+    MessageAction(MessageRequest),
     Logout,
 }
 
@@ -78,11 +81,38 @@ pub struct RoomSummary {
     pub membership: Membership,
     pub inviter: Option<String>,
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Message {
     pub id: String,
     pub sender: String,
     pub body: Option<String>,
+    pub editable: bool,
+    pub deleted: bool,
+    pub edited: bool,
+    pub reply_to: Option<String>,
+    pub reactions: Vec<Reaction>,
+}
+/// One loaded reaction event. Counts are deduplicated by sender in the view.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Reaction {
+    pub id: String,
+    pub sender: String,
+    pub key: String,
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum MessageAction {
+    Reply(String),
+    Edit(String),
+    Delete,
+    React(String),
+    RemoveReactions { key: String, ids: Vec<String> },
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MessageRequest {
+    pub room_id: String,
+    pub event_id: String,
+    pub action: MessageAction,
+    pub transaction: TransactionId,
 }
 #[derive(Debug)]
 pub struct Event {
@@ -121,6 +151,10 @@ pub enum EventKind {
     },
     Sent {
         transaction: OwnedTransactionId,
+    },
+    MessageActionResult {
+        request: MessageRequest,
+        result: Result<(), &'static str>,
     },
     Joined(RoomSummary),
     ConversationOpened {

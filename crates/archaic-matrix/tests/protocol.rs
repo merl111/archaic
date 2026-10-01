@@ -1,6 +1,7 @@
 mod protocol_conversations;
 mod protocol_history;
 mod protocol_membership;
+mod protocol_messages;
 use archaic_matrix::{Command, Event, EventKind, Receiver, channels, transaction_id};
 use serde_json::json;
 use std::time::Duration;

@@ -8,7 +8,8 @@ impl Model {
             .and_then(|id| self.rooms.iter().find(|room| &room.id == id))
     }
     pub fn room_action_allowed(&self, action: &RoomAction) -> bool {
-        if self.phase != Phase::Connected
+        if self.message_draft.is_some()
+            || self.phase != Phase::Connected
             || self.room_pending.is_some()
             || self.joining
             || self.creating
@@ -126,6 +127,7 @@ mod tests {
                     id: "old".into(),
                     sender: "alice".into(),
                     body: Some("old history".into()),
+                    ..Message::default()
                 }],
             },
         });

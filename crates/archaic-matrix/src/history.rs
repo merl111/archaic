@@ -1,23 +1,12 @@
 use crate::{HistoryInfo, HistoryLoad, Message};
-use matrix_sdk::{
-    Room,
-    room::MessagesOptions,
-    ruma::{
-        events::{AnySyncMessageLikeEvent, AnySyncTimelineEvent, SyncMessageLikeEvent},
-        uint,
-    },
-};
+use matrix_sdk::{Room, room::MessagesOptions, ruma::uint};
 use std::collections::HashSet;
 
 const PAGE_SIZE: usize = 50;
 const WINDOW_LIMIT: usize = 500;
 const PAGE_LIMIT: usize = 128;
 
-#[derive(Clone)]
-struct Entry {
-    id: String,
-    message: Option<Message>,
-}
+use crate::timeline::{Entry, aggregate, decode};
 
 #[derive(Default)]
 pub(crate) struct History {
@@ -57,16 +46,25 @@ impl History {
         if response.chunk.len() > PAGE_SIZE {
             return Err("history-invalid-page");
         }
+        let rules = room.clone_info().room_version_rules_or_default().redaction;
         let entries = response
             .chunk
             .into_iter()
             .rev()
             .map(|event| {
-                let event = event
+                event
                     .raw()
                     .deserialize()
                     .map_err(|_| "history-invalid-page")?;
-                Ok(decode(event))
+                let value: serde_json::Value = serde_json::from_str(event.raw().json().get())
+                    .map_err(|_| "history-invalid-page")?;
+                if value["room_id"]
+                    .as_str()
+                    .is_some_and(|id| id != room.room_id().as_str())
+                {
+                    return Err("history-invalid-page");
+                }
+                Ok(decode(value, rules.keep_room_redaction_redacts))
             })
             .collect::<Result<Vec<_>, &'static str>>()?;
         self.apply_page(kind, entries, response.end)?;
@@ -136,13 +134,7 @@ impl History {
         }
     }
     fn snapshot(&self) -> (Vec<Message>, HistoryInfo) {
-        (
-            self.entries
-                .iter()
-                .filter_map(|entry| entry.message.clone())
-                .collect(),
-            self.info(),
-        )
+        (aggregate(&self.entries), self.info())
     }
 }
 
@@ -153,41 +145,22 @@ fn deduplicate(entries: Vec<Entry>) -> Vec<Entry> {
         .filter(|entry| seen.insert(entry.id.clone()))
         .collect()
 }
-fn decode(event: AnySyncTimelineEvent) -> Entry {
-    let id = event.event_id().to_string();
-    let message = match event {
-        AnySyncTimelineEvent::MessageLike(AnySyncMessageLikeEvent::RoomMessage(
-            SyncMessageLikeEvent::Original(message),
-        )) => Some(Message {
-            id: id.clone(),
-            sender: message.sender.to_string(),
-            body: Some(message.content.body().to_owned()),
-        }),
-        AnySyncTimelineEvent::MessageLike(AnySyncMessageLikeEvent::RoomEncrypted(message)) => {
-            Some(Message {
-                id: id.clone(),
-                sender: message.sender().to_string(),
-                body: None,
-            })
-        }
-        _ => None,
-    };
-    Entry { id, message }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn entries(ids: &[usize]) -> Vec<Entry> {
         ids.iter()
-            .map(|id| Entry {
-                id: id.to_string(),
-                message: Some(Message {
+            .map(|id| {
+                let mut entry = Entry::default();
+                entry.id = id.to_string();
+                entry.message = Some(Message {
                     id: id.to_string(),
                     sender: "@a:local".into(),
                     body: Some(format!("message {id}")),
-                }),
+                    ..Message::default()
+                });
+                entry
             })
             .collect()
     }
@@ -255,15 +228,14 @@ mod tests {
     fn raw_event_overlap_replaces_redacted_body_and_counts_non_messages() {
         let mut h = History::default();
         page(&mut h, HistoryLoad::Recent, &[1, 2, 3], Some("a"));
-        let redacted: AnySyncTimelineEvent = serde_json::from_value(serde_json::json!({
+        let redacted = serde_json::json!({
             "type":"m.room.message", "sender":"@a:local", "event_id":"$redacted",
             "origin_server_ts":1, "content":{}, "unsigned":{"redacted_because":{
                 "type":"m.room.redaction", "sender":"@a:local", "event_id":"$redaction",
                 "origin_server_ts":2, "content":{}, "redacts":"$redacted"
             }}
-        }))
-        .unwrap();
-        assert!(decode(redacted).message.is_none());
+        });
+        assert!(decode(redacted, false).message.unwrap().deleted);
         let mut refreshed = entries(&[2, 3, 4]);
         refreshed[0].message = None;
         h.apply_page(HistoryLoad::Recent, refreshed, Some("unused".into()))
