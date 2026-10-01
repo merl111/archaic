@@ -1,8 +1,14 @@
+use crate::login::Login;
 use crate::model::{Model, Phase};
+use crate::widgets::label;
 use archaic_i18n::Translator;
 use cui::{Result, Widget, sys};
 
 pub struct View {
+    pub header: Widget,
+    pub footer: Widget,
+    pub login_error: Widget,
+    pub login_status: Widget,
     pub login: Widget,
     pub server: Widget,
     pub username: Widget,
@@ -23,46 +29,19 @@ pub struct View {
     pub error: Widget,
 }
 
-fn label(parent: &Widget, text: &str, role: i32) -> Result<Widget> {
-    let widget = parent.label(text)?;
-    widget.set_role(role)?;
-    Ok(widget)
-}
-fn input(parent: &Widget, tr: &Translator, key: &str, secret: bool) -> Result<Widget> {
-    label(parent, &tr.text(key), sys::CUI_ROLE_CAPTION)?;
-    let widget = if secret {
-        parent.password("")?
-    } else {
-        parent.entry("")?
-    };
-    widget.accessibility(&tr.text(key), "")?;
-    Ok(widget)
-}
-
 impl View {
     pub fn new(root: &Widget, tr: &Translator) -> Result<Self> {
-        root.box_set_padding(24)?;
-        let header = root.box_layout(sys::CUI_HORIZONTAL, 20)?;
+        root.box_set_padding(0)?;
+        let header_group = root.box_layout(sys::CUI_VERTICAL, 0)?;
+        let header = header_group.box_layout(sys::CUI_HORIZONTAL, 20)?;
+        header.box_set_padding(24)?;
         label(&header, "Archaic", sys::CUI_ROLE_TITLE)?;
         let subtitle = label(&header, &tr.text("app-tagline"), sys::CUI_ROLE_CAPTION)?;
         subtitle.expand(true)?;
         let account = label(&header, "", sys::CUI_ROLE_CAPTION)?;
         let sign_out = header.button(&tr.text("sign-out"))?;
-        root.separator()?;
-
-        let login = root.box_layout(sys::CUI_VERTICAL, 14)?;
-        login.box_set_padding(28)?;
-        label(&login, &tr.text("welcome"), sys::CUI_ROLE_TITLE)?;
-        label(&login, &tr.text("login-description"), sys::CUI_ROLE_BODY)?;
-        let server = input(&login, tr, "homeserver", false)?;
-        server.set_placeholder("https://matrix.example.org")?;
-        let username = input(&login, tr, "username", false)?;
-        username.set_placeholder("@name:example.org")?;
-        let password = input(&login, tr, "password", true)?;
-        let sign_in = login.button(&tr.text("sign-in"))?;
-        sign_in.set_role(sys::CUI_ROLE_PRIMARY)?;
-        label(&login, &tr.text("privacy-note"), sys::CUI_ROLE_CAPTION)?;
-        label(&login, &tr.text("privacy-detail"), sys::CUI_ROLE_CAPTION)?;
+        header_group.separator()?;
+        let login = Login::new(root, tr)?;
 
         let workspace = root.split(sys::CUI_HORIZONTAL, 0.26)?;
         workspace.expand(true)?;
@@ -105,14 +84,19 @@ impl View {
         send.set_role(sys::CUI_ROLE_PRIMARY)?;
         let error = label(root, "", sys::CUI_ROLE_DANGER)?;
         let footer = root.box_layout(sys::CUI_HORIZONTAL, 12)?;
+        footer.box_set_padding(16)?;
         label(&footer, &tr.text("preview"), sys::CUI_ROLE_CAPTION)?.expand(true)?;
         let status = label(&footer, "", sys::CUI_ROLE_CAPTION)?;
         Ok(Self {
-            login,
-            server,
-            username,
-            password,
-            sign_in,
+            header: header_group,
+            footer,
+            login_error: login.error,
+            login_status: login.status,
+            login: login.background,
+            server: login.server,
+            username: login.username,
+            password: login.password,
+            sign_in: login.submit,
             workspace,
             rooms,
             search,
@@ -129,17 +113,33 @@ impl View {
         })
     }
 
-    pub fn render(&self, model: &Model, tr: &Translator, fixture: bool) -> Result<()> {
-        let connected = matches!(model.phase, Phase::Connected | Phase::SigningOut);
+    fn render_login(&self, model: &Model, tr: &Translator, connected: bool) -> Result<()> {
+        self.header.set_visible(connected)?;
+        self.footer.set_visible(connected)?;
         self.login.set_visible(!connected)?;
-        self.workspace.set_visible(connected)?;
-        self.sign_out.set_visible(connected)?;
-        self.sign_out
-            .set_enabled(model.phase == Phase::Connected && !fixture)?;
         self.sign_in.set_enabled(model.phase == Phase::SignedOut)?;
         self.server.set_enabled(model.phase == Phase::SignedOut)?;
         self.username.set_enabled(model.phase == Phase::SignedOut)?;
         self.password.set_enabled(model.phase == Phase::SignedOut)?;
+        set_text(
+            &self.login_error,
+            &model.error.map(|key| tr.text(key)).unwrap_or_default(),
+        )?;
+        self.login_error
+            .set_visible(!connected && model.error.is_some())?;
+        set_text(&self.login_status, &tr.text("signing-in"))?;
+        self.login_status
+            .set_visible(model.phase == Phase::Connecting)?;
+        Ok(())
+    }
+
+    pub fn render(&self, model: &Model, tr: &Translator, fixture: bool) -> Result<()> {
+        let connected = matches!(model.phase, Phase::Connected | Phase::SigningOut);
+        self.render_login(model, tr, connected)?;
+        self.workspace.set_visible(connected)?;
+        self.sign_out.set_visible(connected)?;
+        self.sign_out
+            .set_enabled(model.phase == Phase::Connected && !fixture)?;
         set_text(&self.account, &model.user)?;
         set_text(
             &self.status,
@@ -159,7 +159,7 @@ impl View {
             &self.error,
             &model.error.map(|key| tr.text(key)).unwrap_or_default(),
         )?;
-        self.error.set_visible(model.error.is_some())?;
+        self.error.set_visible(connected && model.error.is_some())?;
         let selected = model
             .selected
             .as_ref()

@@ -1,12 +1,12 @@
 app-tagline = A quieter place to connect.
 preview = Development preview · Sessions are not saved
-welcome = Welcome to Archaic
+welcome = Sign in to your space
 login-description = Connect to your Matrix homeserver with a password.
 homeserver = Homeserver
 username = Matrix ID or username
 password = Password
 sign-in = Sign in
-signing-in = Connecting to your homeserver…
+signing-in = Connecting…
 privacy-note = Use a test account. Recovery and device verification are not implemented yet.
 privacy-detail = Each login creates a new device. Signing out revokes it; closing the window does not.
 rooms = Conversations
@@ -27,11 +27,17 @@ empty-history = No text messages in the latest 50 events.
 no-rooms = No joined rooms yet. Joining and invitations are coming next.
 recent-only = Latest 50 events · Full history and rich messages coming next
 unavailable-message = [Encrypted or unsupported message]
-login-failed = Sign-in failed. Check the server, credentials and supported login method.
-invalid-server = Enter an HTTPS homeserver URL without credentials, a query or a fragment.
+login-failed = Could not sign in. Check your server,
+    credentials and supported login method.
+invalid-server = Enter an HTTPS homeserver address.
+    Leave out credentials, queries and fragments.
 missing-credentials = Enter your username and password.
 load-failed = Could not load messages. Use Refresh to retry.
 send-failed = Delivery is unconfirmed. Retry sends the same transaction; your draft is preserved.
 logout-failed = Could not revoke this session. Check your connection and try signing out again.
 queue-full = An operation is already queued. Please wait.
 preview-fixture = Offline UI fixture · No Matrix connection
+login-preview = Development preview · Test accounts only
+login-safety = Sessions are not saved yet. Verification and
+    recovery are still in development. Sign out
+    before closing to revoke this device.

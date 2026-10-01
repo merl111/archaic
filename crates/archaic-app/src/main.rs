@@ -1,5 +1,8 @@
+mod login;
 mod model;
+mod options;
 mod view;
+mod widgets;
 use archaic_i18n::Translator;
 use archaic_matrix::{Command, Event, Sender};
 use cui::{App, Result};
@@ -155,6 +158,15 @@ impl Controller {
         self.render()
     }
     fn bind(self: &Rc<Self>) -> Result<()> {
+        let controller = self.clone();
+        self.view.password.on_key(move |key, _| {
+            if key == cui::sys::CUI_KEY_ENTER && !controller.rendering.get() {
+                controller.login().expect("live CUI controls");
+                true
+            } else {
+                false
+            }
+        })?;
         for (widget, action) in [
             (&self.view.sign_in, Self::login as fn(&Self) -> Result<()>),
             (&self.view.rooms, Self::select),
@@ -186,27 +198,19 @@ fn fixture() -> Model {
 }
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let args = std::env::args().skip(1).collect::<Vec<_>>();
-    let mut locale = "en".to_string();
-    let mut fixture_mode = false;
-    let mut smoke = false;
-    let mut args = args.iter();
-    while let Some(arg) = args.next() {
-        match arg.as_str() {
-            "--locale" => locale = args.next().ok_or("--locale requires en or de")?.clone(),
-            "--fixture" => fixture_mode = true,
-            "--smoke-test" => smoke = true,
-            "--help" => {
-                println!(
-                    "Archaic [--locale en|de] [--fixture] [--smoke-test]\nDefault: real Matrix password sign-in. Fixture mode never connects."
-                );
-                return Ok(());
-            }
-            _ => return Err(format!("Unknown option: {arg}").into()),
-        }
-    }
+    let Some(options::Options {
+        locale,
+        theme,
+        fixture_mode,
+        smoke,
+    }) = options::parse()?
+    else {
+        return Ok(());
+    };
     let app = App::new()?;
+    app.theme(theme);
     let window = app.window("Archaic", 1180, 800)?;
+    window.scrollable(true)?;
     let root = window.root()?;
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)

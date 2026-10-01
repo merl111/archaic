@@ -21,6 +21,7 @@ From this directory:
 ```sh
 python3 tools/dev.py run
 python3 tools/dev.py run -- --locale de
+python3 tools/dev.py run -- --theme dark
 python3 tools/dev.py build --release
 python3 tools/dev.py test
 ```
@@ -28,6 +29,8 @@ python3 tools/dev.py test
 On Windows, use `py -3 tools/dev.py run` from the developer terminal. The helper builds CUI's static library, configures `CUI_LIB_DIR`, and builds the public Rust binding from the same pinned source revision. Set `CUI_SOURCE_DIR` to use another checkout of that revision. A revision mismatch or tracked modifications stop the build; `--allow-dirty-cui` permits reviewed local library work without silently changing the pin. `Cargo.lock` is checked in. CUI has no remote yet, so source acquisition remains explicit rather than using an invented repository URL.
 
 The development executable is `target/debug/archaic` (`archaic.exe` on Windows). Release builds use `target/release`. These are development binaries, not signed installers or macOS application bundles.
+
+The sign-in screen uses a centered native card and a CUI ambient background. It follows system appearance by default. `--theme light`, `--theme dark` and `--theme system` let you preview both palettes now; a persistent in-app System/Light/Dark switcher is planned for the settings screen. Native window controls retain the desktop theme.
 
 ## Connect
 

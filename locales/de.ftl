@@ -1,12 +1,12 @@
 app-tagline = Ein ruhiger Ort für Gespräche.
 preview = Entwicklungsvorschau · Sitzungen werden nicht gespeichert
-welcome = Willkommen bei Archaic
+welcome = Dein Raum für Gespräche
 login-description = Mit Passwort am Matrix-Homeserver anmelden.
 homeserver = Homeserver
 username = Matrix-ID oder Benutzername
 password = Passwort
 sign-in = Anmelden
-signing-in = Verbindung zum Homeserver wird hergestellt…
+signing-in = Verbindung wird hergestellt…
 privacy-note = Bitte ein Testkonto verwenden. Wiederherstellung und Geräteverifizierung fehlen noch.
 privacy-detail = Jede Anmeldung erstellt ein Gerät. Abmelden widerruft es; das Fenster zu schließen nicht.
 rooms = Unterhaltungen
@@ -27,11 +27,18 @@ empty-history = Keine Textnachrichten in den letzten 50 Ereignissen.
 no-rooms = Noch keine beigetretenen Räume. Beitritt und Einladungen folgen später.
 recent-only = Letzte 50 Ereignisse · Vollständiger Verlauf folgt später
 unavailable-message = [Verschlüsselte oder nicht unterstützte Nachricht]
-login-failed = Anmeldung fehlgeschlagen. Server, Zugangsdaten und Anmeldeverfahren prüfen.
-invalid-server = Eine HTTPS-Adresse ohne Zugangsdaten, Abfrage oder Fragment eingeben.
+login-failed = Anmeldung fehlgeschlagen. Bitte Server,
+    Zugangsdaten und Anmeldeverfahren prüfen.
+invalid-server = Eine HTTPS-Adresse ohne Zugangsdaten,
+    Abfrage oder Fragment eingeben.
 missing-credentials = Benutzername und Passwort eingeben.
 load-failed = Nachrichten konnten nicht geladen werden. Bitte aktualisieren.
 send-failed = Zustellung unbestätigt. Wiederholen nutzt dieselbe Transaktion; der Entwurf bleibt erhalten.
 logout-failed = Sitzung konnte nicht widerrufen werden. Verbindung prüfen und erneut abmelden.
 queue-full = Ein Vorgang wartet bereits. Bitte kurz warten.
 preview-fixture = Offline-Oberflächentest · Keine Matrix-Verbindung
+login-preview = Entwicklungsvorschau · Nur Testkonten
+login-safety = Sitzungen werden noch nicht gespeichert.
+    Verifizierung und Wiederherstellung folgen.
+    Vor dem Schließen abmelden, um dieses
+    Gerät zu widerrufen.

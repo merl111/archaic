@@ -42,3 +42,13 @@ Tested on Linux (Manjaro x86_64), Rust 1.98.1, GCC 16.2.1, GTK 4.22.4. CUI build
 An isolated Xvfb run exercised the actual native controls using X11 mouse/keyboard input: entering a loopback test homeserver and credentials, selecting the synchronized room, typing/sending text, receiving that text in the timeline, and signing out. The HTTP server asserted the submitted credentials and message body. This used the real SDK transport with a local simulated homeserver, not a public account or full Synapse deployment. English/German login and conversation windows also completed graphical smoke runs. The documented build helper was checked with application arguments, and the German conversation view was visually checked at 200% display scaling.
 
 Windows/macOS, real-server interoperability, E2EE multi-device behavior, long-session memory behavior and release packaging have not been validated for Archaic yet. The SDK's presence does not imply those acceptance checks are complete.
+
+## Sign-in design update
+
+The login is a compact centered card with intrinsic-width native fields, a violet/teal ambient background, localized inline errors and Enter-to-submit from the password field. Extra window space surrounds the card instead of stretching the fields; a scrollable root keeps the form accessible in short windows. The application header and conversation footer appear only after login.
+
+CUI now owns the reusable AMBIENT container role and platform implementations. GTK application button styles are scoped to the content root so native title-bar buttons retain their original metrics. The library regression compares close-button padding and measured size with a plain GTK window in both themes. The Rust binding and static library must be built from the updated pinned CUI commit.
+
+Light/dark backgrounds are implemented; use `--theme system|light|dark` to select one at launch. **Follow-up: add a visible System/Light/Dark switcher in Settings, persist the preference and apply it without restarting.** This switcher is not implemented yet.
+
+Checked on Linux: native login/send/logout mouse and keyboard flow, English light/dark layouts, German at 600×660 logical pixels and 200% scaling, nine app tests, strict Clippy, GTK title-bar/control/container tests and complete binding declaration coverage. Windows/macOS runtime verification remains deferred.
