@@ -25,7 +25,7 @@ reconnecting = Connection interrupted. Retrying…
 loading = Loading recent messages…
 empty-history = No text messages in the latest 50 events.
 no-rooms = No conversations yet. Use + to join a room.
-recent-only = Latest 50 events · Full history and rich messages coming next
+recent-only = Plain-text history · up to 500 events
 unavailable-message = [Encrypted or unsupported message]
 login-failed = Could not sign in. Check your server,
     credentials and supported login method.
@@ -111,3 +111,14 @@ invite-invalid-user = Enter a complete Matrix ID, such as @person:server.
 room-action-forbidden = The server denied this operation. Check your room permissions.
 room-action-failed = The operation could not be confirmed. Check your connection and retry.
 invite-sent = Invitation sent.
+
+history-older = Load older
+history-latest = Latest
+history-available = Older messages available
+history-start = Beginning of available history
+history-gap = History gap: showing latest. Load older to continue.
+history-limit = History limit reached. Latest resets the window.
+history-load-failed = Could not load history. Retry Load older or Latest.
+history-invalid-page = Invalid history page. Retry or return to Latest.
+history-stalled = The server repeated a history cursor. Retry or return to Latest.
+history-unavailable = History unavailable

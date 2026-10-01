@@ -1,5 +1,6 @@
 //! Matrix-only application service. No GUI handles or callbacks cross this boundary.
 mod connection;
+mod history;
 mod membership;
 pub mod storage;
 mod worker;
@@ -27,6 +28,10 @@ pub enum Command {
     },
     Select(String),
     Refresh,
+    LoadHistory {
+        room_id: String,
+        kind: HistoryLoad,
+    },
     Join(String),
     RoomAction {
         room_id: String,
@@ -72,6 +77,19 @@ pub struct Event {
     pub epoch: u64,
     pub kind: EventKind,
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HistoryLoad {
+    Recent,
+    Older,
+    Latest,
+}
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct HistoryInfo {
+    pub can_load_more: bool,
+    pub at_limit: bool,
+    pub gap: bool,
+}
+
 #[derive(Debug)]
 pub enum EventKind {
     Connected(String),
@@ -81,6 +99,13 @@ pub enum EventKind {
     History {
         room_id: String,
         messages: Vec<Message>,
+        info: HistoryInfo,
+        kind: HistoryLoad,
+    },
+    HistoryFailed {
+        room_id: String,
+        kind: HistoryLoad,
+        key: &'static str,
     },
     Sent {
         transaction: OwnedTransactionId,

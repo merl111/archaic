@@ -8,7 +8,7 @@ October 1, 2026. This is a partial implementation of the approved plan; no entir
 - Static CUI build helper using CMake; no CUI source or backend implementation copied into Archaic.
 - Native sign-in and split conversation view, system-themed controls, selectable message text, native password field and text composer.
 - Embedded Fluent English/German catalogs, explicit locale selection, English fallback and catalog tests.
-- Matrix SDK 0.19.1 password authentication, classic sync, joined rooms, latest 50 events, text sending and server-side logout.
+- Matrix SDK 0.19.1 password authentication, classic sync, joined rooms, recent events and bounded backward pagination, text sending and server-side logout.
 - Tokio worker service with bounded channels; CUI handles remain on the main thread.
 - Per-room drafts, stable transaction IDs for unchanged failed-send retries, stale-session/history rejection and private view clearing on sign-out.
 - Network operations use finite request timeouts; sync retries with delay. No custom cryptographic implementation.
@@ -19,7 +19,7 @@ Normal startup now restores a saved session and the SDK SQLite crypto/state stor
 
 The Matrix SDK has E2EE enabled, but production encrypted messaging is not an accepted feature yet. There are no multi-device verification/recovery tests or recovery UI. Password login only: SSO/OIDC and authentication challenges are not implemented. Never label a missing supported login method as a successful connection.
 
-A latest-events text view is not a complete timeline. Edits, redactions, relation aggregation, pagination, attachments, reactions and receipts need a proper SDK-backed timeline model plus reusable CUI rich/virtualized controls. History currently reloads on successful sync and explicit refresh; this is a correctness-first scaffold and must be replaced with incremental updates before performance acceptance. Filtering uses current joined rooms only.
+The bounded plain-text view is not a complete timeline. Backward pagination is implemented as described below; forward pagination, jump-to-event, edits, complete redaction/relation aggregation, attachments, reactions and receipts still need a proper SDK-backed timeline model plus reusable CUI rich/virtualized controls. Recent history is fetched on successful sync and explicit refresh and merged with overlapping cached history. This scaffold must be replaced with incremental updates before performance acceptance. Filtering covers joined rooms and invitations.
 
 English/German are the initial catalogs. Runtime language changes, OS locale detection, pluralized dynamic labels, translation workflow and RTL framework work remain open. CUI and app native Windows/macOS verification remain deferred as requested; no portability claim here substitutes for those runs.
 
@@ -28,7 +28,7 @@ English/German are the initial catalogs. Runtime language changes, OS locale det
 1. Complete session lifecycle acceptance: refresh-token rotation, same-device soft logout, recovery-aware local-data purge and real-server failure/crash testing. The initial vault/store/restore boundary is now implemented.
 2. Device verification and recovery UX, real-homeserver integration tests with multiple devices, reconnect/token-expiry/logout cases.
 3. CUI dispatcher and disposable callback/subtree lifetime contracts; virtualized rich timeline and editable composer capabilities in CUI, with bindings and tests.
-4. Incremental SDK timeline models, pagination, edits, reactions, replies, attachments, room directory/invitations and spaces.
+4. Incremental SDK timeline models, forward/context pagination, edits, reactions, replies, attachments, room directory and spaces. Basic invitation actions and bounded backward pagination are implemented.
 5. Continue the feature acceptance checks in the parity inventory. Calls, widgets, admin, notifications, accessibility and release packaging remain independent work packages.
 
 ## Repository boundary
@@ -69,7 +69,7 @@ Checked this increment on Linux: 18 automated workspace tests, a separate passin
 
 ## Conversation workspace and joining
 
-Added a compact appearance toolbar shared by sign-in and conversations, sidebar account controls, a grouped composer hidden until a room is selected, and an inline Join a room form. Native window chrome is unchanged. The view continues to use CUI public controls; no framework change or pin update is needed for this increment. The plain-text latest-50-events timeline remains a deliberate limitation.
+Added a compact appearance toolbar shared by sign-in and conversations, sidebar account controls, a grouped composer hidden until a room is selected, and an inline Join a room form. Native window chrome is unchanged. The view continues to use CUI public controls; no framework change or pin update is needed for this increment. At that increment the timeline was limited to the latest 50 events; the history increment below adds bounded backward loading.
 
 System/Light/Dark applies immediately. Normal-mode preferences are atomically replaced in a separate configuration file, with a visible save-failure warning. Launch overrides do not automatically rewrite the preference. Explicit temporary, fixture and smoke launches bypass preference storage. English and German strings cover the new controls and failure states.
 
@@ -102,3 +102,20 @@ Validation: 28 automated workspace tests pass, including three new membership pr
 Structural review extracted membership operations, their state reducer and functional controls into dedicated modules. Remaining reported debt concerns short callback wrapper similarity, sequential construction/dispatch/test length and recent churn; no clean ripwire gate is claimed. CUI itself is unchanged.
 
 Protocol reference: [Matrix room membership](https://spec.matrix.org/v1.16/client-server-api/#room-membership), plus the pinned matrix-sdk 0.19.1 `Room::join`, `Room::leave`, `Room::invite_user_by_id` and `Room::invite_details` implementations.
+
+
+## Backward history increment
+
+Added **Load older** and **Latest** to the existing native conversation controls. The worker retains a chronological event cache for the selected joined room, requests backward pages of 50 events with the server-provided cursor, and deduplicates by event ID. Overlapping recent responses replace the refreshed portion while retaining the older prefix and its backward cursor. Non-message event IDs participate in overlap detection; re-fetched redacted messages remove their previous visible body. This does not implement full live redaction or relation aggregation for older, unrefreshed messages.
+
+The cache is capped at 500 raw events and 128 traversed backward cursors. New recent events trim the oldest entries when needed. Reaching either limit disables backward loading until **Latest** resets the window. An empty page with a new cursor can still be followed; a missing end cursor marks the start of available history. Repeated or cyclic cursors, malformed events and pages exceeding the requested limit report localized errors without advancing the cursor or replacing the current cache. If a recent page has no overlapping event IDs, it replaces the old window and sets a persistent gap notice, cleared by **Latest**. No automatic request loop attempts to bridge arbitrarily large gaps.
+
+Commands, completion and errors carry the room ID and operation kind; session epochs and current joined membership guard UI updates. Background recent-page success does not clear a failed older-page error or finish a pending older/latest request. Room changes, membership loss and logout clear view pagination state; the worker also drops inaccessible-room history. The existing draft preservation and transaction handling remain in place.
+
+Limitations: this is a selected-room in-memory window, not an offline history browser. Changing rooms/restarting reloads recent history. The event count bounds the window, not the byte size of individual server events. The native text view does not maintain a pixel scroll anchor after replacement. Bidirectional/context pagination, stable viewport anchoring, full edits/redactions/threads and a virtualized rich view are unfinished; ARC-03-04 is **partial**, not accepted parity.
+
+Validation on Manjaro Linux x86_64: 37 workspace tests pass, with the optional real-vault check still separately ignored; strict Clippy and formatting pass. Added tests cover cache ordering/deduplication, overlap/gap handling, refreshed redactions, event/cursor caps, room/session/membership guards and background-refresh/error interaction. Real-SDK HTTP tests assert authorization, direction, page size, exact cursor reuse after a 503, malformed/oversized-page rejection, empty pages, repeated cursors, sync merging, end-of-history and Latest reset. An isolated Xvfb mouse/keyboard run exercised the actual buttons, a failed-page retry, live refresh retaining older messages, disabled end-of-history and loading again after Latest; screenshots were inspected. No real account or desktop credential vault was used. Windows/macOS and real-homeserver interoperability remain unverified.
+
+Validation used an isolated export and static build of pinned CUI revision `1224059d991f7fee4fb019aadef154d275e77c42`, because unrelated CUI development was in progress in the sibling working tree. This increment does not change CUI or its pin. Structural review consolidated pagination resets and event guards; remaining ripwire findings include common callback-wrapper structure, test-module/protocol-scenario size, recent churn and Rust callback/test discovery. No clean structural gate is claimed.
+
+Protocol reference: [Matrix room messages pagination](https://spec.matrix.org/v1.16/client-server-api/#get_matrixclientv3roomsroomidmessages) and the pinned matrix-sdk 0.19.1 `MessagesOptions`/`Room::messages` implementation.

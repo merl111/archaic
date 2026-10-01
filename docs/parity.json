@@ -377,15 +377,17 @@
       "feature": "Historical pagination and jump to event",
       "phase": "P2",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: cache/UI-state and real-SDK protocol tests; native Xvfb pagination/retry/latest interaction check",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Load both directions around an event without duplicates or unexpected viewport movement.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/timeline",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Backward cursor pagination with overlap deduplication, refresh preservation, retry/empty/cyclic/malformed-page handling and explicit gap notices. Selected-room text window capped at 500 events / 128 backward cursors; Latest resets. Forward/context pagination, jump-to-event and stable scroll anchoring remain unfinished.",
+      "implementation_evidence": "docs/IMPLEMENTATION.md"
     },
     {
       "id": "ARC-03-05",

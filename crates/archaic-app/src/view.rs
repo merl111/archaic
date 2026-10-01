@@ -11,6 +11,7 @@ pub struct View {
     pub join: crate::join_form::JoinForm,
     pub compose_group: Widget,
     pub room_controls: crate::room_controls::RoomControls,
+    pub history_controls: crate::history_controls::HistoryControls,
     pub footer: Widget,
     pub session_notice: Widget,
     pub temporary: Widget,
@@ -92,6 +93,7 @@ impl View {
         let room_id = label(&conversation, "", sys::CUI_ROLE_CAPTION)?;
         let room_controls = crate::room_controls::RoomControls::new(&conversation, tr)?;
         conversation.separator()?;
+        let history_controls = crate::history_controls::HistoryControls::new(&conversation, tr)?;
         let timeline = conversation.textarea(&tr.text("choose-description"))?;
         timeline.expand(true)?;
         timeline.set_read_only(true)?;
@@ -126,6 +128,7 @@ impl View {
             join,
             compose_group,
             room_controls,
+            history_controls,
             footer,
             session_notice,
             temporary: login.temporary,
@@ -269,6 +272,7 @@ impl View {
         let joined =
             selected.is_some_and(|room| room.membership == archaic_matrix::Membership::Joined);
         self.room_controls.render(model, tr, fixture)?;
+        self.history_controls.render(model, tr, fixture)?;
         self.compose_group.set_visible(joined)?;
         self.timeline.set_visible(joined || selected.is_none())?;
         let history = history_text(model, tr, selected.is_some());

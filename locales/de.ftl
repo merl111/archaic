@@ -25,7 +25,7 @@ reconnecting = Verbindung unterbrochen. Erneuter Versuch…
 loading = Aktuelle Nachrichten werden geladen…
 empty-history = Keine Textnachrichten in den letzten 50 Ereignissen.
 no-rooms = Noch keine Gespräche. Mit + einem Raum beitreten.
-recent-only = Letzte 50 Ereignisse · Vollständiger Verlauf folgt später
+recent-only = Textverlauf · bis zu 500 Ereignisse
 unavailable-message = [Verschlüsselte oder nicht unterstützte Nachricht]
 login-failed = Anmeldung fehlgeschlagen. Bitte Server,
     Zugangsdaten und Anmeldeverfahren prüfen.
@@ -112,3 +112,14 @@ invite-invalid-user = Vollständige Matrix-ID eingeben, zum Beispiel @person:ser
 room-action-forbidden = Der Server hat den Vorgang verweigert. Raumberechtigungen prüfen.
 room-action-failed = Vorgang nicht bestätigt. Verbindung prüfen und erneut versuchen.
 invite-sent = Einladung gesendet.
+
+history-older = Ältere laden
+history-latest = Neueste
+history-available = Ältere Nachrichten verfügbar
+history-start = Anfang des verfügbaren Verlaufs
+history-gap = Verlaufslücke: Neueste angezeigt. Ältere nachladen.
+history-limit = Verlaufslimit erreicht. Neueste setzt die Ansicht zurück.
+history-load-failed = Verlauf nicht geladen. Ältere laden oder Neueste erneut versuchen.
+history-invalid-page = Ungültige Verlaufsseite. Erneut versuchen oder Neueste wählen.
+history-stalled = Der Server wiederholt eine Verlaufsmarke. Erneut versuchen oder Neueste wählen.
+history-unavailable = Verlauf nicht verfügbar

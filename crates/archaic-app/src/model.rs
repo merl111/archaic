@@ -30,6 +30,9 @@ pub struct Model {
     pub filter: String,
     pub selected: Option<String>,
     pub messages: Vec<Message>,
+    pub history_info: archaic_matrix::HistoryInfo,
+    pub history_pending: Option<archaic_matrix::HistoryLoad>,
+    pub history_error: Option<(archaic_matrix::HistoryLoad, &'static str)>,
     pub drafts: HashMap<String, String>,
     pub outgoing: HashMap<String, Outgoing>,
     pub sending: bool,
@@ -66,15 +69,8 @@ impl Model {
                 self.status = "syncing";
             }
             EventKind::Rooms(rooms) => self.update_rooms(rooms),
-            EventKind::History { room_id, messages } => {
-                if self.selected.as_ref() == Some(&room_id)
-                    && self
-                        .selected_room()
-                        .is_some_and(|room| room.membership == archaic_matrix::Membership::Joined)
-                {
-                    self.messages = messages;
-                    self.status = "ready";
-                }
+            history @ (EventKind::History { .. } | EventKind::HistoryFailed { .. }) => {
+                self.apply_history(history)
             }
             EventKind::Sent { transaction } => self.confirm_sent(&transaction),
             EventKind::Joined(room) => self.joined(room),
@@ -112,7 +108,7 @@ impl Model {
         } else {
             self.rooms.push(room);
         }
-        self.messages.clear();
+        self.clear_history();
         self.filter.clear();
         self.joining = false;
         self.show_join = false;
@@ -275,6 +271,8 @@ mod tests {
         model.apply(Event {
             epoch: 2,
             kind: EventKind::History {
+                info: Default::default(),
+                kind: archaic_matrix::HistoryLoad::Recent,
                 room_id: "!b:local".into(),
                 messages: vec![Message {
                     id: "old".into(),
@@ -390,5 +388,91 @@ mod tests {
         });
         assert!(model.phase == Phase::LogoutCleanup);
         assert!(model.send_command().is_none());
+    }
+    #[test]
+    fn pagination_error_survives_sync_but_retry_success_clears_it() {
+        use archaic_matrix::{HistoryInfo, HistoryLoad};
+        let mut model = connected();
+        model.history_info.can_load_more = true;
+        assert!(matches!(
+            model.history_command(HistoryLoad::Older),
+            Some(Command::LoadHistory {
+                kind: HistoryLoad::Older,
+                ..
+            })
+        ));
+        model.history_pending = Some(HistoryLoad::Older);
+        assert!(model.history_command(HistoryLoad::Older).is_none());
+        let recent = || Event {
+            epoch: 2,
+            kind: EventKind::History {
+                room_id: "!a:local".into(),
+                messages: vec![],
+                kind: HistoryLoad::Recent,
+                info: HistoryInfo {
+                    can_load_more: true,
+                    ..Default::default()
+                },
+            },
+        };
+        model.apply(recent());
+        assert_eq!(model.history_pending, Some(HistoryLoad::Older));
+        model.apply(Event {
+            epoch: 2,
+            kind: EventKind::HistoryFailed {
+                room_id: "!a:local".into(),
+                kind: HistoryLoad::Older,
+                key: "history-load-failed",
+            },
+        });
+        model.apply(recent());
+        assert_eq!(
+            model.history_error,
+            Some((HistoryLoad::Older, "history-load-failed"))
+        );
+        assert!(model.history_pending.is_none());
+        assert!(model.history_command(HistoryLoad::Older).is_some());
+        model.apply(Event {
+            epoch: 2,
+            kind: EventKind::History {
+                room_id: "!a:local".into(),
+                messages: vec![],
+                kind: HistoryLoad::Older,
+                info: HistoryInfo::default(),
+            },
+        });
+        assert!(model.history_error.is_none());
+        assert!(model.history_command(HistoryLoad::Older).is_none());
+        assert!(model.history_command(HistoryLoad::Latest).is_some());
+    }
+    #[test]
+    fn late_history_failures_do_not_cross_room_session_or_membership_boundaries() {
+        use archaic_matrix::HistoryLoad;
+        let mut model = connected();
+        for (epoch, room_id) in [(1, "!a:local"), (2, "!b:local")] {
+            model.apply(Event {
+                epoch,
+                kind: EventKind::HistoryFailed {
+                    room_id: room_id.into(),
+                    kind: HistoryLoad::Older,
+                    key: "history-load-failed",
+                },
+            });
+        }
+        assert!(model.history_error.is_none());
+        model.rooms[0].membership = archaic_matrix::Membership::Invited;
+        model.apply(Event {
+            epoch: 2,
+            kind: EventKind::HistoryFailed {
+                room_id: "!a:local".into(),
+                kind: HistoryLoad::Older,
+                key: "history-load-failed",
+            },
+        });
+        assert!(model.history_error.is_none());
+        assert!(model.history_command(HistoryLoad::Latest).is_none());
+        model.rooms[0].membership = archaic_matrix::Membership::Joined;
+        model.phase = Phase::SigningOut;
+        assert!(model.history_command(HistoryLoad::Latest).is_none());
     }
 }

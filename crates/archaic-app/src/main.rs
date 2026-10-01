@@ -1,4 +1,6 @@
 mod appearance;
+mod history_controls;
+mod history_state;
 mod join_form;
 mod login;
 mod model;
@@ -149,7 +151,7 @@ impl Controller {
                 model.room_confirmation = None;
                 model.room_feedback = None;
                 self.view.room_controls.invite_user.set_text("")?;
-                model.messages.clear();
+                model.clear_history();
                 model.status = if self.fixture {
                     "preview-fixture"
                 } else if model
@@ -190,6 +192,25 @@ impl Controller {
         self.remember_draft()?;
         if self.enqueue(Command::Refresh) {
             self.model.borrow_mut().error = None;
+        }
+        self.render()
+    }
+    fn older_history(&self) -> Result<()> {
+        self.load_history(archaic_matrix::HistoryLoad::Older)
+    }
+    fn latest_history(&self) -> Result<()> {
+        self.load_history(archaic_matrix::HistoryLoad::Latest)
+    }
+    fn load_history(&self, kind: archaic_matrix::HistoryLoad) -> Result<()> {
+        self.remember_draft()?;
+        let command = self.model.borrow().history_command(kind);
+        if !self.fixture
+            && let Some(command) = command
+            && self.enqueue(command)
+        {
+            let mut model = self.model.borrow_mut();
+            model.history_pending = Some(kind);
+            model.history_error = None;
         }
         self.render()
     }
@@ -343,6 +364,8 @@ impl Controller {
             (&self.view.send, Self::send),
             (&self.view.sign_out, Self::logout),
             (&self.view.refresh, Self::refresh),
+            (&self.view.history_controls.older, Self::older_history),
+            (&self.view.history_controls.latest, Self::latest_history),
             (&self.view.search, Self::filter),
             (&self.view.join_toggle, Self::toggle_join),
             (&self.view.join.join_cancel, Self::toggle_join),

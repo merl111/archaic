@@ -43,6 +43,7 @@ pub(crate) struct Session {
     pub client: Client,
     pub selected: Option<String>,
     pub saved: bool,
+    pub history: crate::history::History,
     pub revoked: bool,
     sync: JoinHandle<()>,
 }
@@ -189,6 +190,7 @@ fn start(
         epoch,
         client,
         selected: None,
+        history: crate::history::History::default(),
         saved,
         revoked: false,
         sync,

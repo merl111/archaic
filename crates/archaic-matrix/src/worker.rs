@@ -1,19 +1,10 @@
-use crate::{Command, Event, EventKind, Message, RoomAction, membership};
+use crate::HistoryLoad;
+use crate::{Command, Event, EventKind, RoomAction, membership};
 use crate::{
     connection::{self, Persistence, Session, SyncUpdate},
     storage::Profile,
 };
-use matrix_sdk::{
-    room::MessagesOptions,
-    ruma::{
-        RoomId,
-        events::{
-            AnySyncMessageLikeEvent, AnySyncTimelineEvent, SyncMessageLikeEvent,
-            room::message::RoomMessageEventContent,
-        },
-        uint,
-    },
-};
+use matrix_sdk::ruma::{RoomId, events::room::message::RoomMessageEventContent};
 use tokio::sync::mpsc;
 
 async fn emit(events: &mpsc::Sender<Event>, epoch: u64, kind: EventKind) {
@@ -139,7 +130,8 @@ async fn handle(
     let result = match command {
         Command::Select(room_id) => {
             active.selected = Some(room_id);
-            history(active, events).await
+            history(active, events).await;
+            Ok(())
         }
         Command::Join(address) => {
             if let Err(key) = join_room(active, &address, events).await {
@@ -149,6 +141,10 @@ async fn handle(
         }
         Command::RoomAction { room_id, action } => {
             room_action(active, room_id, action, events).await;
+            Ok(())
+        }
+        Command::LoadHistory { room_id, kind } => {
+            load_history(active, events, room_id, kind).await;
             Ok(())
         }
         Command::Refresh => {
@@ -174,7 +170,8 @@ async fn handle(
                     {
                         Ok(_) => {
                             emit(events, active.epoch, EventKind::Sent { transaction }).await;
-                            history(active, events).await
+                            history(active, events).await;
+                            Ok(())
                         }
                         Err(_) => Err("send-failed"),
                     }
@@ -209,6 +206,7 @@ async fn room_action(
         && active.selected.as_ref() == Some(&room_id)
     {
         active.selected = None;
+        active.history = crate::history::History::default();
     }
     emit(
         events,
@@ -272,7 +270,7 @@ async fn logout(active: &mut Session, persistence: &Persistence) -> Result<(), &
     Ok(())
 }
 
-async fn snapshot(active: &Session, events: &mpsc::Sender<Event>) {
+async fn snapshot(active: &mut Session, events: &mpsc::Sender<Event>) {
     let mut rooms = Vec::new();
     for room in active.client.rooms() {
         if matches!(
@@ -292,54 +290,48 @@ async fn snapshot(active: &Session, events: &mpsc::Sender<Event>) {
                     .then(a.id.cmp(&b.id)),
             )
     });
+    if !rooms.iter().any(|room| {
+        active.selected.as_ref() == Some(&room.id) && room.membership == crate::Membership::Joined
+    }) {
+        active.history = crate::history::History::default();
+    }
     emit(events, active.epoch, EventKind::Rooms(rooms)).await;
-    if let Err(key) = history(active, events).await {
-        emit(events, active.epoch, EventKind::Error(key)).await;
+    history(active, events).await;
+}
+
+async fn history(active: &mut Session, events: &mpsc::Sender<Event>) {
+    if let Some(room_id) = active.selected.clone() {
+        load_history(active, events, room_id, HistoryLoad::Recent).await;
     }
 }
 
-async fn history(active: &Session, events: &mpsc::Sender<Event>) -> Result<(), &'static str> {
-    let Some(room_id) = &active.selected else {
-        return Ok(());
-    };
-    let id = RoomId::parse(room_id).map_err(|_| "load-failed")?;
-    let room = active.client.get_room(&id).ok_or("load-failed")?;
-    if room.state() != matrix_sdk::RoomState::Joined {
-        return Ok(());
+async fn load_history(
+    active: &mut Session,
+    events: &mpsc::Sender<Event>,
+    room_id: String,
+    kind: HistoryLoad,
+) {
+    if active.selected.as_ref() != Some(&room_id) {
+        return;
     }
-    let mut options = MessagesOptions::backward();
-    options.limit = uint!(50);
-    let response = room.messages(options).await.map_err(|_| "load-failed")?;
-    let messages = response
-        .chunk
-        .into_iter()
-        .rev()
-        .filter_map(|event| match event.raw().deserialize().ok()? {
-            AnySyncTimelineEvent::MessageLike(AnySyncMessageLikeEvent::RoomMessage(
-                SyncMessageLikeEvent::Original(message),
-            )) => Some(Message {
-                id: message.event_id.to_string(),
-                sender: message.sender.to_string(),
-                body: Some(message.content.body().to_owned()),
-            }),
-            AnySyncTimelineEvent::MessageLike(AnySyncMessageLikeEvent::RoomEncrypted(message)) => {
-                Some(Message {
-                    id: message.event_id().to_string(),
-                    sender: message.sender().to_string(),
-                    body: None,
-                })
-            }
-            _ => None,
-        })
-        .collect();
-    emit(
-        events,
-        active.epoch,
-        EventKind::History {
-            room_id: room_id.clone(),
+    let Some(room) = RoomId::parse(&room_id)
+        .ok()
+        .and_then(|id| active.client.get_room(&id))
+    else {
+        return;
+    };
+    if room.state() != matrix_sdk::RoomState::Joined {
+        active.history = crate::history::History::default();
+        return;
+    }
+    let event = match active.history.load(&room, kind).await {
+        Ok((messages, info)) => EventKind::History {
+            room_id,
             messages,
+            info,
+            kind,
         },
-    )
-    .await;
-    Ok(())
+        Err(key) => EventKind::HistoryFailed { room_id, kind, key },
+    };
+    emit(events, active.epoch, event).await;
 }

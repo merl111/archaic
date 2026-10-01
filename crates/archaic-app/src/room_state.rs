@@ -25,7 +25,7 @@ impl Model {
         self.rooms = rooms;
         let current = self.selected_room().map(|room| room.membership);
         if previous != current {
-            self.messages.clear();
+            self.clear_history();
             self.room_confirmation = None;
         }
         if self.selected_room().is_none() {
@@ -76,7 +76,7 @@ impl Model {
                 self.outgoing.remove(&room_id);
                 if self.selected.as_ref() == Some(&room_id) {
                     self.selected = None;
-                    self.messages.clear();
+                    self.clear_history();
                 }
                 self.status = "room-left";
             }
@@ -118,6 +118,8 @@ mod tests {
         model.apply(Event {
             epoch: 1,
             kind: EventKind::History {
+                info: Default::default(),
+                kind: archaic_matrix::HistoryLoad::Recent,
                 room_id: "!invite:local".into(),
                 messages: vec![Message {
                     id: "old".into(),
