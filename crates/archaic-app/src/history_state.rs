@@ -7,6 +7,7 @@ impl Model {
             || self.room_pending.is_some()
             || self.room_confirmation.is_some()
             || self.joining
+            || self.creating
             || (kind == HistoryLoad::Older && !self.history_info.can_load_more)
         {
             return None;

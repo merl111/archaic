@@ -11,6 +11,7 @@ impl Model {
         if self.phase != Phase::Connected
             || self.room_pending.is_some()
             || self.joining
+            || self.creating
             || self.sending
         {
             return false;

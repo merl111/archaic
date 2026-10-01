@@ -68,6 +68,7 @@ impl RoomControls {
         let confirming = model.room_confirmation.is_some();
         let enabled = model.phase == Phase::Connected
             && !fixture
+            && !model.creating
             && model.room_pending.is_none()
             && !model.joining
             && !model.sending;

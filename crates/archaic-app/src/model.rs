@@ -36,6 +36,9 @@ pub struct Model {
     pub drafts: HashMap<String, String>,
     pub outgoing: HashMap<String, Outgoing>,
     pub sending: bool,
+    pub show_new: bool,
+    pub creating: bool,
+    pub create_error: Option<&'static str>,
     pub show_join: bool,
     pub joining: bool,
     pub room_pending: Option<(String, archaic_matrix::RoomAction)>,
@@ -74,6 +77,16 @@ impl Model {
             }
             EventKind::Sent { transaction } => self.confirm_sent(&transaction),
             EventKind::Joined(room) => self.joined(room),
+            EventKind::ConversationOpened { room, warning } => {
+                self.conversation_opened(room, warning)
+            }
+            EventKind::CreateFailed(key) => {
+                self.creating = false;
+                self.create_error = Some(key);
+                if key == "session-expired" {
+                    self.apply_error(key);
+                }
+            }
             EventKind::RoomActionResult {
                 room_id,
                 action,
@@ -97,6 +110,15 @@ impl Model {
         }
     }
 
+    fn conversation_opened(&mut self, room: RoomSummary, warning: Option<&'static str>) {
+        self.creating = false;
+        self.show_new = false;
+        self.create_error = None;
+        self.room_confirmation = None;
+        self.room_feedback = None;
+        self.joined(room);
+        self.error = warning;
+    }
     fn joined(&mut self, room: RoomSummary) {
         self.selected = Some(room.id.clone());
         if let Some(existing) = self
@@ -166,7 +188,7 @@ impl Model {
     }
 
     pub fn send_command(&mut self) -> Option<Command> {
-        if self.sending || self.phase != Phase::Connected {
+        if self.sending || self.creating || self.phase != Phase::Connected {
             return None;
         }
         let room = self.selected_room()?;
@@ -474,5 +496,63 @@ mod tests {
         model.rooms[0].membership = archaic_matrix::Membership::Joined;
         model.phase = Phase::SigningOut;
         assert!(model.history_command(HistoryLoad::Latest).is_none());
+    }
+    #[test]
+    fn conversation_creation_preserves_drafts_on_failure_and_selects_success() {
+        let mut model = connected();
+        model.show_new = true;
+        model.creating = true;
+        assert!(!model.can_create());
+        assert!(model.send_command().is_none());
+        model.apply(Event {
+            epoch: 2,
+            kind: EventKind::CreateFailed("create-forbidden"),
+        });
+        assert!(model.can_create() && model.show_new);
+        assert_eq!(model.selected.as_deref(), Some("!a:local"));
+        assert_eq!(model.draft(), "hello");
+        assert_eq!(model.create_error, Some("create-forbidden"));
+        model.creating = true;
+        model.filter = "old filter".into();
+        model.apply(Event {
+            epoch: 2,
+            kind: EventKind::ConversationOpened {
+                room: RoomSummary {
+                    id: "!created:local".into(),
+                    name: "New group".into(),
+                    membership: archaic_matrix::Membership::Joined,
+                    inviter: None,
+                },
+                warning: Some("create-direct-tag-failed"),
+            },
+        });
+        assert!(!model.creating && !model.show_new && model.create_error.is_none());
+        assert_eq!(model.selected.as_deref(), Some("!created:local"));
+        assert!(model.filter.is_empty());
+        assert_eq!(model.drafts["!a:local"], "hello");
+        assert_eq!(model.error, Some("create-direct-tag-failed"));
+    }
+    #[test]
+    fn creation_ignores_old_epochs_and_expired_sessions_block_new_operations() {
+        let mut model = connected();
+        model.show_new = true;
+        model.creating = true;
+        model.apply(Event {
+            epoch: 1,
+            kind: EventKind::CreateFailed("create-forbidden"),
+        });
+        assert!(model.creating && model.create_error.is_none());
+        model.apply(Event {
+            epoch: 2,
+            kind: EventKind::CreateFailed("session-expired"),
+        });
+        assert!(!model.creating && !model.can_create());
+        assert!(model.phase == Phase::LogoutCleanup);
+        assert!(model.send_command().is_none());
+        model.apply(Event {
+            epoch: 2,
+            kind: EventKind::SignedOut,
+        });
+        assert!(!model.show_new && model.create_error.is_none());
     }
 }

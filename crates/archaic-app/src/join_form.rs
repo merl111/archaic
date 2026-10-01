@@ -39,6 +39,7 @@ impl JoinForm {
     pub fn render(&self, model: &Model, tr: &Translator, fixture: bool) -> Result<()> {
         let enabled = model.phase == Phase::Connected
             && !model.joining
+            && !model.creating
             && model.room_pending.is_none()
             && !fixture;
         self.join_form.set_visible(model.show_join)?;

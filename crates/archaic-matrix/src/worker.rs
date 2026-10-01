@@ -139,6 +139,10 @@ async fn handle(
             }
             Ok(())
         }
+        Command::NewConversation(input) => {
+            open_conversation(active, input, events).await;
+            Ok(())
+        }
         Command::RoomAction { room_id, action } => {
             room_action(active, room_id, action, events).await;
             Ok(())
@@ -334,4 +338,28 @@ async fn load_history(
         Err(key) => EventKind::HistoryFailed { room_id, kind, key },
     };
     emit(events, active.epoch, event).await;
+}
+
+async fn open_conversation(
+    active: &mut Session,
+    input: crate::NewConversation,
+    events: &mpsc::Sender<Event>,
+) {
+    match active.conversations.open(&active.client, input).await {
+        Ok(opened) => {
+            let room = membership::summary(&opened.room).await;
+            active.selected = Some(room.id.clone());
+            emit(
+                events,
+                active.epoch,
+                EventKind::ConversationOpened {
+                    room,
+                    warning: opened.warning,
+                },
+            )
+            .await;
+            snapshot(active, events).await;
+        }
+        Err(key) => emit(events, active.epoch, EventKind::CreateFailed(key)).await,
+    }
 }

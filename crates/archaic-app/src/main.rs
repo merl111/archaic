@@ -4,6 +4,7 @@ mod history_state;
 mod join_form;
 mod login;
 mod model;
+mod new_conversation;
 mod options;
 mod room_controls;
 mod room_state;
@@ -231,9 +232,38 @@ impl Controller {
         self.view.appearance_error.set_visible(failed)?;
         Ok(())
     }
+    fn toggle_new(&self) -> Result<()> {
+        self.remember_draft()?;
+        let mut model = self.model.borrow_mut();
+        if !model.can_create() || self.fixture {
+            return Ok(());
+        }
+        model.show_new = !model.show_new;
+        model.show_join = false;
+        model.create_error = None;
+        drop(model);
+        self.render()
+    }
+    fn create_mode(&self) -> Result<()> {
+        self.model.borrow_mut().create_error = None;
+        self.render()
+    }
+    fn create_conversation(&self) -> Result<()> {
+        if !self.model.borrow().can_create() || self.fixture {
+            return Ok(());
+        }
+        if self.enqueue(Command::NewConversation(
+            self.view.new_conversation.input()?,
+        )) {
+            let mut model = self.model.borrow_mut();
+            model.creating = true;
+            model.create_error = None;
+        }
+        self.render()
+    }
     fn toggle_join(&self) -> Result<()> {
         let mut model = self.model.borrow_mut();
-        if model.phase != Phase::Connected || model.joining || self.fixture {
+        if model.phase != Phase::Connected || model.joining || model.creating || self.fixture {
             return Ok(());
         }
         model.show_join = !model.show_join;
@@ -245,6 +275,7 @@ impl Controller {
         if self.fixture
             || self.model.borrow().room_pending.is_some()
             || self.model.borrow().joining
+            || self.model.borrow().creating
             || self.model.borrow().phase != Phase::Connected
         {
             return Ok(());
@@ -314,7 +345,17 @@ impl Controller {
     fn event(&self, event: Event) -> Result<()> {
         self.remember_draft()?;
         let joined = event.epoch == self.model.borrow().epoch
-            && matches!(event.kind, archaic_matrix::EventKind::Joined(_));
+            && matches!(
+                event.kind,
+                archaic_matrix::EventKind::Joined(_)
+                    | archaic_matrix::EventKind::ConversationOpened { .. }
+            );
+        let clear_create = event.epoch == self.model.borrow().epoch
+            && matches!(
+                event.kind,
+                archaic_matrix::EventKind::ConversationOpened { .. }
+                    | archaic_matrix::EventKind::SignedOut
+            );
         if event.epoch == self.model.borrow().epoch
             && let archaic_matrix::EventKind::RoomActionResult {
                 room_id,
@@ -326,6 +367,12 @@ impl Controller {
             self.view.room_controls.invite_user.set_text("")?;
         }
         self.model.borrow_mut().apply(event);
+        if clear_create {
+            self.rendering.set(true);
+            let result = self.view.new_conversation.clear();
+            self.rendering.set(false);
+            result?;
+        }
         if joined {
             self.rendering.set(true);
             let cleared = self
@@ -339,24 +386,24 @@ impl Controller {
         self.render()
     }
     fn bind(self: &Rc<Self>) -> Result<()> {
-        let controller = self.clone();
-        self.view.password.on_key(move |key, _| {
-            if key == cui::sys::CUI_KEY_ENTER && !controller.rendering.get() {
-                controller.login().expect("live CUI controls");
-                true
-            } else {
-                false
-            }
-        })?;
-        let controller = self.clone();
-        self.view.join.join_address.on_key(move |key, _| {
-            if key == cui::sys::CUI_KEY_ENTER && !controller.rendering.get() {
-                controller.join().expect("live CUI controls");
-                true
-            } else {
-                false
-            }
-        })?;
+        for (widget, action) in [
+            (&self.view.password, Self::login as fn(&Self) -> Result<()>),
+            (&self.view.join.join_address, Self::join),
+            (
+                &self.view.new_conversation.person,
+                Self::create_conversation,
+            ),
+        ] {
+            let controller = self.clone();
+            widget.on_key(move |key, _| {
+                if key == cui::sys::CUI_KEY_ENTER && !controller.rendering.get() {
+                    action(&controller).expect("live CUI controls");
+                    true
+                } else {
+                    false
+                }
+            })?;
+        }
         for (widget, action) in [
             (&self.view.sign_in, Self::login as fn(&Self) -> Result<()>),
             (&self.view.temporary, Self::temporary),
@@ -367,6 +414,13 @@ impl Controller {
             (&self.view.history_controls.older, Self::older_history),
             (&self.view.history_controls.latest, Self::latest_history),
             (&self.view.search, Self::filter),
+            (&self.view.new_toggle, Self::toggle_new),
+            (&self.view.new_conversation.cancel, Self::toggle_new),
+            (
+                &self.view.new_conversation.submit,
+                Self::create_conversation,
+            ),
+            (&self.view.new_conversation.mode, Self::create_mode),
             (&self.view.join_toggle, Self::toggle_join),
             (&self.view.join.join_cancel, Self::toggle_join),
             (&self.view.join.join_submit, Self::join),

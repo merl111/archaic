@@ -39,6 +39,7 @@ impl HistoryControls {
         let enabled = model.phase == Phase::Connected
             && !fixture
             && model.history_pending.is_none()
+            && !model.creating
             && model.room_pending.is_none()
             && model.room_confirmation.is_none()
             && !model.joining;

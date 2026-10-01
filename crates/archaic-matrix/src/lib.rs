@@ -1,5 +1,6 @@
 //! Matrix-only application service. No GUI handles or callbacks cross this boundary.
 mod connection;
+mod conversations;
 mod history;
 mod membership;
 pub mod storage;
@@ -33,6 +34,7 @@ pub enum Command {
         kind: HistoryLoad,
     },
     Join(String),
+    NewConversation(NewConversation),
     RoomAction {
         room_id: String,
         action: RoomAction,
@@ -43,6 +45,16 @@ pub enum Command {
         transaction: OwnedTransactionId,
     },
     Logout,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum NewConversation {
+    Direct(String),
+    Group {
+        name: String,
+        topic: String,
+        invitees: String,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -111,6 +123,11 @@ pub enum EventKind {
         transaction: OwnedTransactionId,
     },
     Joined(RoomSummary),
+    ConversationOpened {
+        room: RoomSummary,
+        warning: Option<&'static str>,
+    },
+    CreateFailed(&'static str),
     RoomActionResult {
         room_id: String,
         action: RoomAction,

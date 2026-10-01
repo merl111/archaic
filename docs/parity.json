@@ -863,14 +863,15 @@
       "reference_availability": "Reference",
       "status": "partial",
       "platform_verification": {
-        "linux": "local SDK protocol and native UI checks; full acceptance pending",
+        "linux": "partial: real-SDK local protocol tests and native Xvfb join/create/retry/reuse checks",
         "windows": "implemented through portable API; verification pending",
         "macos": "implemented through portable API; verification pending"
       },
       "acceptance": "Create/find/join supported conversations and distinguish room membership states.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/room_settings",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_notes": "Room alias/ID joining, joined/invited membership states, and invitation actions; creation, directory and DMs remain open."
+      "implementation_notes": "Join by room ID/alias; create private groups with optional topic/invitees and encryption requested in initial state; open/create DMs with existing joined-DM reuse and same-session duplicate avoidance after DM-label failure. Localized validation, explicit retry and native controls. Public-room creation, directory browsing, explicit via routing, Matrix links and restricted/knock flows remain unfinished.",
+      "implementation_evidence": "docs/IMPLEMENTATION.md"
     },
     {
       "id": "ARC-06-02",

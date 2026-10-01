@@ -44,6 +44,7 @@ pub(crate) struct Session {
     pub selected: Option<String>,
     pub saved: bool,
     pub history: crate::history::History,
+    pub conversations: crate::conversations::Conversations,
     pub revoked: bool,
     sync: JoinHandle<()>,
 }
@@ -191,6 +192,7 @@ fn start(
         client,
         selected: None,
         history: crate::history::History::default(),
+        conversations: crate::conversations::Conversations::default(),
         saved,
         revoked: false,
         sync,

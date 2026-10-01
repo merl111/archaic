@@ -7,6 +7,8 @@ use cui::{Result, Widget, sys};
 pub struct View {
     pub appearance: Widget,
     pub appearance_error: Widget,
+    pub new_toggle: Widget,
+    pub new_conversation: crate::new_conversation::NewConversationForm,
     pub join_toggle: Widget,
     pub join: crate::join_form::JoinForm,
     pub compose_group: Widget,
@@ -62,6 +64,7 @@ impl View {
         header_group.separator()?;
         let login = Login::new(root, tr)?;
 
+        let new_conversation = crate::new_conversation::NewConversationForm::new(root, tr)?;
         let workspace = root.split(sys::CUI_HORIZONTAL, 0.26)?;
         workspace.expand(true)?;
         let sidebar = workspace.split_pane(0)?;
@@ -70,6 +73,9 @@ impl View {
         sidebar.set_role(sys::CUI_ROLE_PANEL)?;
         let sidebar_header = sidebar.box_layout(sys::CUI_HORIZONTAL, 12)?;
         label(&sidebar_header, &tr.text("rooms"), sys::CUI_ROLE_HEADING)?.expand(true)?;
+        let new_toggle = sidebar_header.button(&tr.text("new-short"))?;
+        new_toggle.accessibility(&tr.text("new-conversation"), "")?;
+        new_toggle.set_tooltip(&tr.text("new-conversation"))?;
         let join_toggle =
             sidebar_header.symbol_button(sys::CUI_SYMBOL_PLUS, &tr.text("join-room"))?;
         join_toggle.set_tooltip(&tr.text("join-room"))?;
@@ -124,6 +130,8 @@ impl View {
         Ok(Self {
             appearance,
             appearance_error,
+            new_toggle,
+            new_conversation,
             join_toggle,
             join,
             compose_group,
@@ -232,7 +240,11 @@ impl View {
             Phase::Connected | Phase::SigningOut | Phase::LogoutCleanup
         );
         self.render_login(model, tr, connected)?;
-        self.workspace.set_visible(connected)?;
+        self.workspace
+            .set_visible(connected && !(model.show_new && model.phase == Phase::Connected))?;
+        self.new_conversation.render(model, tr, fixture)?;
+        self.new_toggle
+            .set_enabled(model.can_create() && !fixture)?;
         self.sign_out.set_visible(connected)?;
         self.sign_out.set_enabled(
             matches!(model.phase, Phase::Connected | Phase::LogoutCleanup) && !fixture,
@@ -242,6 +254,7 @@ impl View {
         self.join_toggle.set_enabled(
             model.phase == Phase::Connected
                 && !model.joining
+                && !model.creating
                 && model.room_pending.is_none()
                 && !fixture,
         )?;
@@ -282,6 +295,7 @@ impl View {
             joined
                 && model.phase == Phase::Connected
                 && !fixture
+                && !model.creating
                 && model.room_pending.is_none()
                 && model.room_confirmation.is_none(),
         )?;
@@ -290,6 +304,7 @@ impl View {
                 && !model.sending
                 && !fixture
                 && model.phase == Phase::Connected
+                && !model.creating
                 && model.room_pending.is_none()
                 && model.room_confirmation.is_none(),
         )?;
@@ -300,7 +315,7 @@ impl View {
         self.refresh
             .set_enabled(model.phase == Phase::Connected && !fixture)?;
         self.rooms
-            .set_enabled(model.phase == Phase::Connected && !model.joining)?;
+            .set_enabled(model.phase == Phase::Connected && !model.joining && !model.creating)?;
         self.search.set_enabled(model.phase == Phase::Connected)?;
         Ok(())
     }
