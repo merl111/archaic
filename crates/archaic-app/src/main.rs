@@ -668,7 +668,12 @@ impl Controller {
             (&self.view.thread_pane.close, Self::close_thread),
             (&self.view.thread_pane.more, Self::thread_more),
             (&self.view.ui.close, Self::close_panel),
+            (&self.view.ui.scrim, Self::close_panel),
             (&self.view.ui.message_close, Self::close_panel),
+            (&self.view.reaction.close, Self::close_emoji),
+            (&self.view.reaction.query, Self::filter_emoji),
+            (&self.view.reaction.insert, Self::insert_typed_emoji),
+            (&self.view.reaction.more, Self::expand_reactions),
             (&self.view.emoji.close, Self::close_emoji),
             (&self.view.emoji.query, Self::filter_emoji),
             (&self.view.emoji.insert, Self::insert_typed_emoji),
@@ -820,7 +825,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     });
     let tr = Translator::new(&options.locale);
     let controller = Rc::new(Controller {
-        view: View::new(&root, &tr)?,
+        view: View::new(&app, &root, &tr)?,
         window: window.clone(),
         self_weak: RefCell::new(std::rc::Weak::new()),
         model: RefCell::new(if options.fixture_mode {

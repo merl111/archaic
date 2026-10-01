@@ -223,6 +223,15 @@ async fn sync_update(active: &mut Session, update: SyncUpdate, events: &mpsc::Se
             )
             .await
         }
+        SyncUpdate::RoomKeys(rooms) => {
+            if active
+                .selected
+                .as_ref()
+                .is_some_and(|room| rooms.as_ref().is_none_or(|rooms| rooms.contains(room)))
+            {
+                retry_room_keys(active, events).await;
+            }
+        }
         SyncUpdate::Outbox => outbox_snapshot(active, events).await,
         SyncUpdate::Retrying => {
             active.reconnecting = true;
@@ -559,7 +568,7 @@ async fn security_action(
     )
     .await;
     if recovered {
-        history(active, events).await;
+        retry_room_keys(active, events).await;
     }
     if expired {
         active.revoked = true;
@@ -869,5 +878,41 @@ async fn open_conversation(
             snapshot(active, events).await;
         }
         Err(key) => emit(events, active.epoch, EventKind::CreateFailed(key)).await,
+    }
+}
+
+async fn retry_room_keys(active: &mut Session, events: &mpsc::Sender<Event>) {
+    let Some(room_id) = active.selected.clone() else {
+        return;
+    };
+    let Some(room) = RoomId::parse(&room_id)
+        .ok()
+        .and_then(|id| active.client.get_room(&id))
+    else {
+        return;
+    };
+    if let Some((messages, info)) = active.history.retry_decryption(&room).await {
+        emit(
+            events,
+            active.epoch,
+            EventKind::History {
+                room_id: room_id.clone(),
+                messages,
+                info,
+                kind: HistoryLoad::Recent,
+            },
+        )
+        .await;
+    }
+    if let Some(details) = active.tools.details.retry_decryption(&room).await {
+        emit(
+            events,
+            active.epoch,
+            EventKind::LiveDetails {
+                room_id,
+                details: Box::new(details),
+            },
+        )
+        .await;
     }
 }

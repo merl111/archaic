@@ -131,9 +131,13 @@ fn project(v: &MatrixMessage, m: &Model, tr: &Translator, ids: &mut Ids, dark: b
     let body = if v.deleted {
         tr.text("message-deleted")
     } else {
-        v.body
-            .clone()
-            .unwrap_or_else(|| tr.text("unavailable-message"))
+        v.body.clone().unwrap_or_else(|| {
+            tr.text(if v.undecrypted {
+                "encrypted-message"
+            } else {
+                "unavailable-message"
+            })
+        })
     };
     let hue = v
         .sender

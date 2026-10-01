@@ -30,7 +30,23 @@
     "message-more.png": {
       "source": "tools/test_daylight_ui.py private loopback Matrix fixture",
       "sha256": "2b3d72584aeef24c4d24dc63a8a54369e5336012fd2db3e8f0e357bdf52d1627"
+    },
+    "reaction-quick.png": {
+      "source": "tools/test_daylight_ui.py private loopback Matrix fixture, LC_ALL=de_AT.UTF-8, no compositor",
+      "sha256": "ddbfe3ebec36ae5c7b000d6d8e66ea23128871c29c1a5f3f57d3b799c972751a"
+    },
+    "reaction-expanded.png": {
+      "source": "tools/test_daylight_ui.py private loopback Matrix fixture, LC_ALL=de_AT.UTF-8, no compositor",
+      "sha256": "7968038b62706d892d16a844ea87c8a111b19772d2e4761a2341abcc80227ea6"
+    },
+    "reaction-search.png": {
+      "source": "tools/test_daylight_ui.py private loopback Matrix fixture, LC_ALL=de_AT.UTF-8, no compositor",
+      "sha256": "311cc8ed75b3efca6fec54c8c70c59796722db3e8e09b082be6917876d086e3c"
+    },
+    "security.png": {
+      "source": "tools/test_daylight_ui.py private loopback Matrix fixture, LC_ALL=de_AT.UTF-8, no compositor",
+      "sha256": "45c10517c0f995623d18136fce70556b6c6cfc92575d06bcdecce7abc29409db"
     }
   },
-  "popup_note": "The headless Xvfb display has no compositor; translucent native popup corners appear black in root captures."
+  "popup_note": "Reaction popup captures validate native X11 corner clipping without a compositor. Other captures are retained from their earlier validation run."
 }

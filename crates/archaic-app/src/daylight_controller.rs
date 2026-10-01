@@ -27,6 +27,7 @@ impl Controller {
         self.view.timeline.set_theme(&t)?;
         self.view.thread_pane.theme(&t)?;
         self.view.emoji.theme(&t)?;
+        self.view.reaction.theme(&t)?;
         self.view.message_controls.theme(&t)?;
         self.view.theme_forms(&t)?;
         self.view.timeline.render(&self.model.borrow(), &self.tr)
@@ -62,7 +63,8 @@ impl Controller {
         self.view.ui.refresh(self.window.scale()?)
     }
     pub fn close_panel(&self) -> Result<()> {
-        if self.view.emoji.target.borrow().is_some() {
+        if self.view.emoji.target.borrow().is_some() || self.view.reaction.target.borrow().is_some()
+        {
             return self.close_emoji();
         }
         if !self.view.ui.is_modal() {
@@ -134,6 +136,7 @@ impl Controller {
     fn chat_interactive(&self) -> bool {
         !self.view.ui.is_modal()
             && self.view.emoji.target.borrow().is_none()
+            && self.view.reaction.target.borrow().is_none()
             && self.model.borrow().phase == Phase::Connected
     }
     pub fn install_dialog_shortcut(
@@ -153,7 +156,20 @@ impl Controller {
         )
     }
     pub fn chat_tick(&self) -> Result<()> {
-        let emojis = std::mem::take(&mut *self.view.emoji.events.borrow_mut());
+        let mut emojis = std::mem::take(&mut *self.view.emoji.events.borrow_mut());
+        emojis.extend(std::mem::take(&mut *self.view.reaction.events.borrow_mut()));
+        if self.view.reaction.target.borrow().is_some()
+            && !self
+                .view
+                .reaction
+                .window
+                .as_ref()
+                .expect("reaction popup")
+                .is_visible()?
+        {
+            self.close_emoji()?;
+            emojis.clear();
+        }
         for glyph in emojis {
             self.choose_emoji(&glyph)?;
         }
@@ -340,7 +356,12 @@ impl Controller {
                 }
             }
             sys::CUI_CHAT_REACT if e.text.is_empty() => {
-                self.show_emoji(crate::emoji_picker::Kind::Reaction)?
+                let chat = if thread {
+                    &self.view.thread_pane.timeline.chat
+                } else {
+                    &self.view.timeline.chat
+                };
+                self.show_reactions(chat, &e)?
             }
             sys::CUI_CHAT_REACT => {
                 self.view.ui.quick_reaction.set(true);

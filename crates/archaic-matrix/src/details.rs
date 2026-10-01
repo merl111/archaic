@@ -23,6 +23,57 @@ pub(crate) struct Details {
     latest: Option<MessageDetails>,
 }
 impl Details {
+    pub async fn retry_decryption(&mut self, room: &Room) -> Option<MessageDetails> {
+        let (room_id, root) = self.key.as_ref()?;
+        if room_id != room.room_id().as_str() {
+            return None;
+        }
+        let mut changed = timeline::retry_decryption(&mut self.entries, room).await;
+        let mut latest = self.latest.clone()?;
+        if latest.reply.as_ref().is_some_and(|reply| reply.undecrypted)
+            && let Some(target) = &latest.message.reply_to
+            && let Ok(reply) = fetch_message(room, target).await
+            && !reply.undecrypted
+        {
+            latest.reply = Some(reply);
+            latest.reply_unavailable = false;
+            changed = true;
+        }
+        if !changed {
+            return None;
+        }
+        let messages = timeline::aggregate(&self.entries);
+        latest.message = messages.iter().find(|m| &m.id == root)?.clone();
+        latest.thread = messages
+            .into_iter()
+            .filter(|m| m.thread_root.as_ref() == Some(root))
+            .collect();
+        latest.revisions = timeline::revisions(&self.entries, root);
+        latest.unavailable = self
+            .entries
+            .iter()
+            .filter(|e| {
+                e.message
+                    .as_ref()
+                    .is_some_and(|m| !m.deleted && m.body.is_none())
+            })
+            .count();
+        if let Some(target) = &latest.message.reply_to {
+            match fetch_message(room, target).await {
+                Ok(reply) => {
+                    latest.reply = Some(reply);
+                    latest.reply_unavailable = false;
+                }
+                Err(_) => {
+                    latest.reply = None;
+                    latest.reply_unavailable = true;
+                }
+            }
+        }
+        self.latest = Some(latest.clone());
+        Some(latest)
+    }
+
     pub async fn sync(
         &mut self,
         room: &Room,

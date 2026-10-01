@@ -7,6 +7,7 @@ use cui::{Result, Widget, sys};
 pub struct View {
     pub ui: crate::daylight::Shell,
     pub emoji: crate::emoji_picker::Picker,
+    pub reaction: crate::emoji_picker::Picker,
     pub thread_pane: crate::thread_pane::ThreadPane,
     dialogs: Dialogs,
     pub notifications: Widget,
@@ -84,9 +85,10 @@ struct Dialogs {
 }
 
 impl View {
-    pub fn new(root: &Widget, tr: &Translator) -> Result<Self> {
+    pub fn new(app: &cui::App, root: &Widget, tr: &Translator) -> Result<Self> {
         let ui = crate::daylight::Shell::new(root, tr)?;
         let t = ui.theme.borrow().clone();
+        let reaction = crate::emoji_picker::Picker::popup(app, tr, &t)?;
         let emoji = crate::emoji_picker::Picker::new(&ui.layers, tr, &t)?;
         let thread_pane = crate::thread_pane::ThreadPane::new(&ui.body, tr, &t)?;
         let account_fields = AccountFields::new(&ui, tr)?;
@@ -173,6 +175,7 @@ impl View {
             ui,
             thread_pane,
             emoji,
+            reaction,
             dialogs: Dialogs {
                 preferences,
                 security_host,
@@ -382,6 +385,19 @@ impl View {
     }
 
     fn render_picker(&self, model: &Model) -> Result<()> {
+        let reaction_open =
+            self.reaction.target.borrow().as_ref().is_some_and(|t| {
+                t.epoch == model.epoch && model.selected.as_ref() == Some(&t.room)
+            });
+        self.reaction.root.set_visible(reaction_open)?;
+        if !reaction_open {
+            self.reaction.target.borrow_mut().take();
+            self.reaction
+                .window
+                .as_ref()
+                .expect("reaction popup")
+                .close()?;
+        }
         let picker_open =
             self.emoji.target.borrow().as_ref().is_some_and(|t| {
                 t.epoch == model.epoch && model.selected.as_ref() == Some(&t.room)
@@ -596,10 +612,13 @@ pub(crate) fn message_text(
         if message.deleted {
             tr.text("message-deleted")
         } else {
-            message
-                .body
-                .clone()
-                .unwrap_or_else(|| tr.text("unavailable-message"))
+            message.body.clone().unwrap_or_else(|| {
+                tr.text(if message.undecrypted {
+                    "encrypted-message"
+                } else {
+                    "unavailable-message"
+                })
+            })
         }
     ));
     if let Some(file) = &message.attachment {

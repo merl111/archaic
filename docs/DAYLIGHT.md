@@ -19,7 +19,7 @@ The light/dark previews below use the explicitly offline fixture. Account, emoji
 
 ![Light appearance, offline fixture](images/daylight/light.png)
 
-[Dark appearance](images/daylight/dark.png) · [Narrow window](images/daylight/narrow.png) · [Account dialog](images/daylight/account.png) · [Emoji picker](images/daylight/emoji.png) · [Thread pane](images/daylight/thread.png) · [Native More menu](images/daylight/message-more.png)
+[Dark appearance](images/daylight/dark.png) · [Narrow window](images/daylight/narrow.png) · [Account dialog](images/daylight/account.png) · [Emoji picker](images/daylight/emoji.png) · [Thread pane](images/daylight/thread.png) · [Native More menu](images/daylight/message-more.png) · [Quick reactions](images/daylight/reaction-quick.png) · [Expanded reactions](images/daylight/reaction-expanded.png) · [Reaction search](images/daylight/reaction-search.png) · [Security dialog](images/daylight/security.png)
 
 ## Controls
 
@@ -31,11 +31,11 @@ The light/dark previews below use the explicitly offline fixture. Account, emoji
 | More menu | Anchored by CUI to the message action region. Forward, copy, surrounding history and details; edit/delete for your own messages. Escape and outside click dismiss it. Only actions needing input or confirmation open a dialog. |
 | Main composer | Ordinary messages, attachment chooser, emoji picker, reply/edit context, cancellation and pending state. Ordinary drafts survive a reply/edit operation. |
 | Thread pane | Replaces the inspector, loads the selected root and relation replies, exposes more relation pages and queues thread replies. Its composer is separate from the ordinary draft. |
-| Reaction picker | Search common emoji names/shortcodes, choose one, or paste a Unicode sequence. Click an existing reaction to toggle your matching reaction. |
+| Reaction picker | A CUI popup anchored to the message action shows six quick reactions. The + button expands/collapses the searchable picker in place. Select a common emoji or paste a Unicode sequence. Click an existing reaction to toggle your matching reaction. |
 | Inspector | Actual room topic, membership count and encryption state; unknown encryption is distinguished from unencrypted. Links to membership, organization, search, attachments and history. |
 | Dialogs | Account switching, appearance, notifications, privacy, deep links, room management, history, search/files, security/recovery and destructive confirmations. Background interaction is disabled while a dialog is open. |
 
-Escape dismisses the emoji picker or an idle dialog, cancels inline reply/edit, or closes the thread pane. Pending destructive/credential operations retain their existing close guards. Ctrl/Cmd+F opens search, Ctrl/Cmd+Shift+O opens organization and Ctrl/Cmd+Shift+S opens security. See [desktop integration](DESKTOP.md) for the complete shortcut list.
+Outside clicks dismiss idle dialogs and the reaction popup; clicks inside keep them open. Escape dismisses the emoji picker or an idle dialog, cancels inline reply/edit, or closes the thread pane. Pending destructive/credential operations retain their existing close guards. Ctrl/Cmd+F opens search, Ctrl/Cmd+Shift+O opens organization and Ctrl/Cmd+Shift+S opens security. See [desktop integration](DESKTOP.md) for the complete shortcut list.
 
 The inspector collapses on narrower windows; room/history controls remain accessible from the top bar. The header’s panel control opens room controls on a narrow window. Dark/light/system changes update native fields and painted chat components together. Fonts and geometry use logical units and the native window scale.
 
@@ -75,3 +75,27 @@ xvfb-run -a -s '-screen 0 1600x1050x24' python3 tools/test_daylight_ui.py
 The test starts a private loopback Matrix fixture and the real desktop executable with a temporary in-memory SDK session. It asserts server requests from native sign-in, ordinary sending, inline reply, thread reply, emoji sending, reaction selection/removal and message deletion confirmation; it also exercises search, organization, security and account dialogs. It verifies that an ordinary draft survives sending an inline reply. It never accesses a real homeserver or the desktop credential vault. Screenshots and a runtime log are written to `target/daylight-ui`.
 
 The driver assumes the default GTK font at 100% and uses an isolated 1600×1050 display. Separate captures also exercised a 3840×2160 display at 200%, dark/light appearance and German text. These are native captures, not browser mockups. The full Rust workspace and CUI chat/input/presentation/desktop tests cover the underlying protocol and rendering behavior; native screenshot checks complement them.
+
+
+### Encrypted history
+
+The room inspector's **E2EE** badge describes room encryption, not whether this
+session possesses its message keys. A new login may need verification with an
+existing trusted session, or the existing recovery key entered locally under
+**Security & recovery → Recovery**. **Room keys** also supports downloading the
+room's existing backup and importing an encrypted key export. Do not create or
+reset recovery to unlock an existing backup.
+
+Missing-key messages now say **Encrypted message · Unlock history in Security &
+recovery** instead of conflating encryption with unsupported content. The SDK
+requests missing sessions from an accessible backup after a decryption failure.
+Archaic listens for imported/received keys and retries ciphertext retained in its
+bounded timeline and open thread/details caches, preserving pagination. Recovery
+cannot restore historical keys that no trusted device or backup still possesses.
+
+Regression coverage includes real, locally generated Megolm ciphertext that
+becomes readable after key import without a second history request. The native UI
+test also runs with `LC_ALL=de_AT.UTF-8` to cover decimal-comma GTK styling,
+opaque modal surfaces, outside dismissal, reaction popup expansion/search and
+reopening after Escape. Linux popup window shapes cover X11 displays without a
+compositor; native Windows/macOS behavior still requires platform verification.

@@ -7,6 +7,7 @@ use std::collections::{HashMap, HashSet};
 pub(crate) struct Entry {
     pub id: String,
     pub message: Option<Message>,
+    encrypted: Option<Value>,
     sender: String,
     timestamp: u64,
     msgtype: String,
@@ -84,6 +85,8 @@ pub(crate) fn decode(value: Value, redacts_in_content: bool) -> Entry {
             }
         }
         Some("m.room.message" | "m.room.encrypted") => {
+            let undecrypted = !deleted && !entry.room_message;
+            entry.encrypted = undecrypted.then(|| value.clone());
             entry.message = Some(Message {
                 timestamp: entry.timestamp,
                 thread_root: (relation["rel_type"] == "m.thread")
@@ -91,15 +94,20 @@ pub(crate) fn decode(value: Value, redacts_in_content: bool) -> Entry {
                     .flatten(),
                 id: entry.id.clone(),
                 sender: entry.sender.clone(),
-                body: (!deleted)
+                undecrypted,
+                body: (!deleted && !undecrypted)
                     .then(|| content["body"].as_str().map(str::to_owned))
                     .flatten(),
-                editable: !deleted && entry.msgtype == "m.text",
+                editable: !deleted && !undecrypted && entry.msgtype == "m.text",
                 deleted,
                 reply_to: relation["m.in_reply_to"]["event_id"]
                     .as_str()
                     .map(str::to_owned),
-                attachment: if deleted { None } else { attachment(content) },
+                attachment: if deleted || undecrypted {
+                    None
+                } else {
+                    attachment(content)
+                },
                 ..Message::default()
             });
         }
@@ -108,6 +116,36 @@ pub(crate) fn decode(value: Value, redacts_in_content: bool) -> Entry {
     entry.bundled = bundled_replacement(&value, redacts_in_content);
 
     entry
+}
+
+/// Retry only ciphertext retained in the bounded loaded window. Never refetch
+/// history or change pagination when a key arrives via verification/backup.
+pub(crate) async fn retry_decryption(entries: &mut [Entry], room: &matrix_sdk::Room) -> bool {
+    let rules = room.clone_info().room_version_rules_or_default().redaction;
+    let mut changed = false;
+    for entry in entries {
+        let Some(value) = &entry.encrypted else {
+            continue;
+        };
+        let Ok(raw) = matrix_sdk::ruma::serde::Raw::new(value) else {
+            continue;
+        };
+        let Ok(event) = room.decrypt_event(&raw.cast_unchecked(), None).await else {
+            continue;
+        };
+        let Ok(value) = crate::details::value(room, &event) else {
+            continue;
+        };
+        if value["type"] == "m.room.encrypted" {
+            continue;
+        }
+        let decoded = decode(value, rules.keep_room_redaction_redacts);
+        if decoded.id == entry.id {
+            *entry = decoded;
+            changed = true;
+        }
+    }
+    changed
 }
 
 fn attachment(content: &Value) -> Option<crate::Attachment> {
@@ -310,6 +348,16 @@ mod tests {
             json!({"redacts":target}),
             50,
         )
+    }
+    #[test]
+    fn ciphertext_never_exposes_untrusted_plaintext_fields() {
+        let value = json!({"event_id":"$encrypted","type":"m.room.encrypted","sender":"@a:local","origin_server_ts":1,
+            "content":{"body":"untrusted","msgtype":"m.image","url":"mxc://local/untrusted"}});
+        let entry = decode(value, false);
+        assert!(entry.encrypted.is_some());
+        let message = entry.message.unwrap();
+        assert!(message.undecrypted);
+        assert!(message.body.is_none() && message.attachment.is_none() && !message.editable);
     }
     #[test]
     fn edits_use_latest_valid_same_author_content_and_redaction_restores_previous() {

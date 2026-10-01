@@ -26,7 +26,7 @@ loading = Loading recent messages…
 empty-history = No text messages in the latest 50 events.
 no-rooms = No conversations yet. Use + to join a room.
 recent-only = Plain-text history · up to 500 events
-unavailable-message = [Encrypted or unsupported message]
+unavailable-message = [Unsupported message]
 login-failed = Could not sign in. Check your server,
     credentials and supported login method.
 invalid-server = Enter an HTTPS homeserver address.
@@ -439,3 +439,8 @@ daylight-emoji = Emoji
 daylight-emoji-search = Search names, :shortcodes: or paste an emoji…
 daylight-emoji-empty = No matches. Paste any Unicode emoji above.
 daylight-emoji-insert = Use typed emoji
+
+encrypted-message = Encrypted message · Unlock history in Security & recovery
+
+daylight-reactions = Reactions
+daylight-emoji-more = More emojis

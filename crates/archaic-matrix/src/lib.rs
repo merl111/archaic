@@ -181,6 +181,7 @@ pub struct Message {
     pub id: String,
     pub sender: String,
     pub body: Option<String>,
+    pub undecrypted: bool,
     pub editable: bool,
     pub deleted: bool,
     pub edited: bool,

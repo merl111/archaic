@@ -13,6 +13,7 @@ use tokio::{sync::mpsc, task::JoinHandle};
 pub(crate) enum SyncUpdate {
     Ready(Box<matrix_sdk::sync::SyncResponse>),
     Outbox,
+    RoomKeys(Option<std::collections::HashSet<String>>),
     Progress {
         room_id: String,
         id: crate::TransactionId,
@@ -66,10 +67,12 @@ pub(crate) struct Session {
     pub reconnecting: bool,
     sync: JoinHandle<()>,
     queue_updates: JoinHandle<()>,
+    room_keys: JoinHandle<()>,
 }
 impl Drop for Session {
     fn drop(&mut self) {
         self.sync.abort();
+        self.room_keys.abort();
         self.queue_updates.abort();
         if let Some(store) = &self.token_store {
             store.close();
@@ -79,6 +82,7 @@ impl Drop for Session {
 impl Session {
     pub fn stop_sync(&self) {
         self.sync.abort();
+        self.room_keys.abort();
     }
 }
 
@@ -89,6 +93,11 @@ fn builder(server: &str) -> Result<matrix_sdk::ClientBuilder, &'static str> {
         // The user supplied an explicit, validated base URL. Discovery is a separate future flow.
         .respect_login_well_known(false)
         .handle_refresh_tokens()
+        .with_encryption_settings(matrix_sdk::encryption::EncryptionSettings {
+            backup_download_strategy:
+                matrix_sdk::encryption::BackupDownloadStrategy::AfterDecryptionFailure,
+            ..Default::default()
+        })
         .request_config(
             RequestConfig::default()
                 .timeout(Duration::from_secs(12))
@@ -288,6 +297,7 @@ fn start(
 ) -> Result<Session, &'static str> {
     let local = crate::local_data::LocalData::open(token_store.as_deref())?;
     let security = crate::security::Security::new(&client);
+    let room_keys = watch_room_keys(client.clone(), epoch, updates.clone());
     let queue_updates = watch_outbox(&client, epoch, updates.clone());
     let syncing = client.clone();
     let sync = tokio::spawn(async move {
@@ -336,6 +346,7 @@ fn start(
         initial_sync_done: false,
         reconnecting: false,
         queue_updates,
+        room_keys,
         sync,
     })
 }
@@ -419,4 +430,44 @@ pub(crate) async fn reauthenticate(
         .ok_or("reauth-unavailable")?
         .replace_tokens(renewed)?;
     Ok(())
+}
+
+fn watch_room_keys(
+    client: Client,
+    epoch: u64,
+    updates: mpsc::Sender<(u64, SyncUpdate)>,
+) -> JoinHandle<()> {
+    tokio::spawn(async move {
+        use futures_util::StreamExt;
+        let Some(mut stream) = client.encryption().room_keys_received_stream().await else {
+            return;
+        };
+        let backups = client.encryption().backups();
+        let mut backup_state = backups.state_stream();
+        loop {
+            let rooms = tokio::select! {
+                keys = stream.next() => {
+                    let Some(keys) = keys else { break; };
+                    // Broadcast lag requires a retry of the selected room too.
+                    keys.ok().map(|keys| keys.into_iter().map(|key| key.room_id.to_string()).collect())
+                }
+                state = backup_state.next() => {
+                    let Some(state) = state else { break; };
+                    // Verification may unlock a backup before any room keys arrive.
+                    // Retry the loaded ciphertext to schedule its missing-key downloads.
+                    if state.unwrap_or_else(|_| backups.state()) != matrix_sdk::encryption::backups::BackupState::Enabled {
+                        continue;
+                    }
+                    None
+                }
+            };
+            if updates
+                .send((epoch, SyncUpdate::RoomKeys(rooms)))
+                .await
+                .is_err()
+            {
+                break;
+            }
+        }
+    })
 }

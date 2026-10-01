@@ -26,7 +26,7 @@ loading = Aktuelle Nachrichten werden geladen…
 empty-history = Keine Textnachrichten in den letzten 50 Ereignissen.
 no-rooms = Noch keine Gespräche. Mit + einem Raum beitreten.
 recent-only = Textverlauf · bis zu 500 Ereignisse
-unavailable-message = [Verschlüsselte oder nicht unterstützte Nachricht]
+unavailable-message = [Nicht unterstützte Nachricht]
 login-failed = Anmeldung fehlgeschlagen. Bitte Server,
     Zugangsdaten und Anmeldeverfahren prüfen.
 invalid-server = Eine HTTPS-Adresse ohne Zugangsdaten,
@@ -440,3 +440,8 @@ daylight-emoji = Emoji
 daylight-emoji-search = Namen, :Shortcodes: suchen oder Emoji einfügen…
 daylight-emoji-empty = Keine Treffer. Füge oben ein Unicode-Emoji ein.
 daylight-emoji-insert = Eingegebenes Emoji verwenden
+
+encrypted-message = Verschlüsselte Nachricht · Verlauf unter Sicherheit & Wiederherstellung entsperren
+
+daylight-reactions = Reaktionen
+daylight-emoji-more = Weitere Emojis

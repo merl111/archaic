@@ -244,6 +244,14 @@ impl History {
             self.entries.extend(entries);
         }
     }
+    pub async fn retry_decryption(&mut self, room: &Room) -> Option<(Vec<Message>, HistoryInfo)> {
+        if self.room_id != room.room_id().as_str() {
+            return None;
+        }
+        crate::timeline::retry_decryption(&mut self.entries, room)
+            .await
+            .then(|| self.snapshot())
+    }
     fn info(&self) -> HistoryInfo {
         let at_limit =
             self.limited || self.entries.len() >= WINDOW_LIMIT || self.seen.len() >= PAGE_LIMIT;

@@ -1,3 +1,4 @@
+mod recovery;
 use super::{next, server};
 use archaic_matrix::{Command, EventKind, HistoryLoad, Receiver, Sender, channels};
 use serde_json::{Value, json};

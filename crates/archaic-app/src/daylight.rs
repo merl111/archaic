@@ -216,7 +216,7 @@ impl Shell {
             style(b, &t, t.surface, 16., 6)?;
             b.set_visible(false)?;
         }
-        let scrim = layers.stack_layer(sys::CUI_LAYER_FILL, 0, 0, 0)?;
+        let scrim = layers.stack_backdrop(&tr.text("cancel"))?;
         style(&scrim, &t, 0x15253055, 0., 0)?;
         scrim.set_visible(false)?;
         let sheet = layers.stack_layer(sys::CUI_LAYER_CENTER, 860, 0, 24)?;
