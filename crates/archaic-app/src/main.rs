@@ -412,6 +412,7 @@ impl Controller {
     fn filter(&self) -> Result<()> {
         self.remember_draft()?;
         self.model.borrow_mut().filter = self.view.search.text()?;
+        self.view.ui.nav.scroll(0.)?;
         self.render()
     }
     fn appearance(&self) -> Result<()> {
@@ -678,6 +679,8 @@ impl Controller {
             (&self.view.emoji.query, Self::filter_emoji),
             (&self.view.emoji.insert, Self::insert_typed_emoji),
             (&self.view.ui.info_button, Self::toggle_inspector),
+            (&self.view.ui.sidebar_toggle, Self::toggle_sidebar),
+            (&self.view.ui.favorite_button, Self::toggle_favorite),
             (&self.view.ui.room_button, Self::room_panel),
             (&self.view.ui.history_button, Self::history_panel),
             (&self.view.browser_login, Self::browser_login),

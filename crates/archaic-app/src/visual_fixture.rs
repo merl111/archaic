@@ -21,9 +21,11 @@ pub fn model() -> Model {
         inviter: None,
         info: RoomInfo {
             members: 14,
+            members_known: true,
             encrypted: Some(true),
             topic: "Thoughtful conversations. Small details. Better software.".into(),
             space: false,
+            ..Default::default()
         },
     })
     .collect::<Vec<_>>();

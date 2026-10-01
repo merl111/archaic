@@ -13,6 +13,24 @@ python3 tools/dev.py run -- --fixture
 
 Close an older running development instance before launching the new executable. Normal startup restores saved sign-in or shows the login card. The explicitly titled offline fixture is only a visual preview; sending is disabled there.
 
+## Conversation navigation
+
+Drag the dividers to resize the conversation list and room inspector. The top-left
+panel button hides/restores the list; the panel icon in the conversation header
+hides/restores room information. Narrow windows open room information as a dialog.
+Space filtering follows synced child-room links, including nested spaces; it does
+not join rooms or open administration dialogs. Home restores the full list.
+
+Room, sender and account avatars load asynchronously through Matrix SDK media
+requests. CUI retains and clips the decoded image; missing images retain initials.
+The decoder bounds dimensions and memory, and requests are limited to four at a
+time. Avatar refreshes are cached for up to a minute. Member counts use sync
+summaries, with a membership lookup when needed instead of reporting an unknown
+count as zero. Account settings show the signed-in user's profile image.
+
+These settings expose the implemented preferences; they do not yet cover every
+Element preference. Native window verification on macOS and Windows remains pending.
+
 ## Native captures
 
 The light/dark previews below use the explicitly offline fixture. Account, emoji and thread screenshots come from the native integration test connected to its private local Matrix fixture. They are application captures, not web renders. Capture metadata is in [provenance.json](images/daylight/provenance.json).
@@ -21,14 +39,19 @@ The light/dark previews below use the explicitly offline fixture. Account, emoji
 
 [Dark appearance](images/daylight/dark.png) · [Narrow window](images/daylight/narrow.png) · [Account dialog](images/daylight/account.png) · [Emoji picker](images/daylight/emoji.png) · [Thread pane](images/daylight/thread.png) · [Native More menu](images/daylight/message-more.png) · [Quick reactions](images/daylight/reaction-quick.png) · [Expanded reactions](images/daylight/reaction-expanded.png) · [Reaction search](images/daylight/reaction-search.png) · [Security dialog](images/daylight/security.png)
 
+[Loaded avatars and member count](images/daylight/navigation-avatars.png) ·
+[Scrolled conversations](images/daylight/navigation-list-scrolled.png) ·
+[Space filter](images/daylight/navigation-space.png) ·
+[Settings tabs](images/daylight/navigation-settings.png)
+
 ## Controls
 
 | Area | Behavior |
 | --- | --- |
-| Top bar | Real Matrix spaces, room organization, security/recovery and account preferences. Native window decorations belong to the OS. |
-| Room rail | Filter conversations, see unread badges and invitations, create or join rooms. Stable IDs include account scope. |
+| Top bar | Home shows all conversations; Direct messages filters one-to-one Matrix direct chats; space tabs show joined descendant rooms. Settings opens account, appearance, notifications/privacy, security/recovery and advanced tabs. Native window decorations belong to the OS. |
+| Room rail | Scroll with the wheel or touchpad; filter, create or join conversations. Invitations, favorites, direct messages and rooms are grouped, with newest message first within each group. The heart button adds/removes the selected conversation from Matrix favorites. Stable IDs include account scope. |
 | Message toolbar | React, inline reply, open thread, and a three-dot native menu. Keyboard-focused messages expose the same actions. |
-| More menu | Anchored by CUI to the message action region. Forward, copy, surrounding history and details; edit/delete for your own messages. Escape and outside click dismiss it. Only actions needing input or confirmation open a dialog. |
+| More / right-click menu | Anchored by CUI to the message action region. React, reply, thread, forward, copy, surrounding history and details; edit/delete for your own messages. Escape and outside click dismiss it. Only actions needing input or confirmation open a dialog. |
 | Main composer | Ordinary messages, attachment chooser, emoji picker, reply/edit context, cancellation and pending state. Ordinary drafts survive a reply/edit operation. |
 | Thread pane | Replaces the inspector, loads the selected root and relation replies, exposes more relation pages and queues thread replies. Its composer is separate from the ordinary draft. |
 | Reaction picker | A CUI popup anchored to the message action shows six quick reactions. The + button expands/collapses the searchable picker in place. Select a common emoji or paste a Unicode sequence. Click an existing reaction to toggle your matching reaction. |
@@ -70,6 +93,7 @@ Build first, then on Linux with Xvfb, libXtst and ImageMagick:
 
 ```sh
 xvfb-run -a -s '-screen 0 1600x1050x24' python3 tools/test_daylight_ui.py
+xvfb-run -a -s '-screen 0 1600x1050x24' python3 tools/test_daylight_ui.py --navigation
 ```
 
 The test starts a private loopback Matrix fixture and the real desktop executable with a temporary in-memory SDK session. It asserts server requests from native sign-in, ordinary sending, inline reply, thread reply, emoji sending, reaction selection/removal and message deletion confirmation; it also exercises search, organization, security and account dialogs. It verifies that an ordinary draft survives sending an inline reply. It never accesses a real homeserver or the desktop credential vault. Screenshots and a runtime log are written to `target/daylight-ui`.

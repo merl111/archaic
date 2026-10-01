@@ -9,7 +9,7 @@ sign-in = Anmelden
 signing-in = Verbindung wird hergestellt…
 privacy-note = Bitte ein Testkonto verwenden. Wiederherstellung und Geräteverifizierung fehlen noch.
 privacy-detail = Jede Anmeldung erstellt ein Gerät. Abmelden widerruft es; das Fenster zu schließen nicht.
-rooms = Unterhaltungen
+rooms = Räume
 room-search = Unterhaltung suchen…
 choose-room = Alle Gespräche an einem Ort.
 choose-description = Einen Raum auswählen, um aktuelle Nachrichten zu lesen.
@@ -445,3 +445,15 @@ encrypted-message = Verschlüsselte Nachricht · Verlauf unter Sicherheit & Wied
 
 daylight-reactions = Reaktionen
 daylight-emoji-more = Weitere Emojis
+
+direct-messages = Direktnachrichten
+members-loading = Wird geladen…
+settings-title = Einstellungen
+settings-account = Konto
+settings-notifications = Benachrichtigungen & Datenschutz
+settings-advanced = Erweitert
+sidebar-toggle = Unterhaltungen ein- oder ausblenden
+
+security-settings-description = Geräte verifizieren, verschlüsselte Nachrichten wiederherstellen und Wiederherstellungsschlüssel verwalten.
+
+favorites = Favoriten

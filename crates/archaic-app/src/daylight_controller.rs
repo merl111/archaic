@@ -46,21 +46,57 @@ impl Controller {
     pub fn history_panel(&self) -> Result<()> {
         self.open_panel(Panel::History)
     }
+    pub fn toggle_favorite(&self) -> Result<()> {
+        let action = {
+            let m = self.model.borrow();
+            if self.fixture || m.organization.pending.is_some() {
+                return Ok(());
+            }
+            let Some(room) = m.selected_room() else {
+                return Ok(());
+            };
+            archaic_matrix::organization::Action::Favourite {
+                room: room.id.clone(),
+                enabled: !room.info.favourite,
+            }
+        };
+        let id = archaic_matrix::transaction_id();
+        if self.enqueue(archaic_matrix::Command::Organization {
+            id: id.clone(),
+            action,
+        }) {
+            let mut m = self.model.borrow_mut();
+            m.organization.pending = Some(id);
+            m.organization.error = None;
+        }
+        self.render()
+    }
+    pub fn toggle_sidebar(&self) -> Result<()> {
+        let ui = &self.view.ui;
+        if ui.sidebar_open.get() {
+            ui.left_fraction.set(ui.left_split.split_get_position()?);
+        }
+        ui.sidebar_open.set(!ui.sidebar_open.get());
+        ui.refresh(self.window.scale()?)?;
+        if ui.sidebar_open.get() {
+            ui.left_split.split_set_position(ui.left_fraction.get())?;
+        }
+        Ok(())
+    }
     pub fn toggle_inspector(&self) -> Result<()> {
-        if self
-            .view
-            .ui
-            .base
-            .allocated_size()?
-            .is_some_and(|s| s.0 < 1200)
-        {
+        let ui = &self.view.ui;
+        if ui.base.allocated_size()?.is_some_and(|s| s.0 < 1000) {
             return self.room_panel();
         }
-        self.view
-            .ui
-            .inspector_open
-            .set(!self.view.ui.inspector_open.get());
-        self.view.ui.refresh(self.window.scale()?)
+        if ui.inspector_open.get() {
+            ui.right_fraction.set(ui.right_split.split_get_position()?);
+        }
+        ui.inspector_open.set(!ui.inspector_open.get());
+        ui.refresh(self.window.scale()?)?;
+        if ui.inspector_open.get() {
+            ui.right_split.split_set_position(ui.right_fraction.get())?;
+        }
+        Ok(())
     }
     pub fn close_panel(&self) -> Result<()> {
         if self.view.emoji.target.borrow().is_some() || self.view.reaction.target.borrow().is_some()
@@ -236,8 +272,9 @@ impl Controller {
         }
         let scale = self.window.scale()?;
         self.view.ui.refresh(scale)?;
+        self.view.account_avatar.refresh(scale)?;
         if self.view.thread_pane.open.get() {
-            self.view.ui.inspector.root.set_visible(false)?;
+            self.view.ui.right_pane.set_visible(false)?;
         }
         self.view.thread_pane.timeline.chat.refresh(scale)?;
         self.view.thread_pane.composer.refresh(scale)?;
@@ -250,17 +287,18 @@ impl Controller {
             .map(str::to_owned)
     }
     fn chat_space(&self, id: u64) -> Result<()> {
-        if id == u64::MAX {
+        if id == u64::MAX || id == u64::MAX - 1 {
+            self.model.borrow_mut().active_space = None;
+            self.model.borrow_mut().direct_only = id == u64::MAX - 1;
             self.view.search.set_text("")?;
             return self.filter();
         }
         if let Some(room) = self.chat_room_id(id) {
-            self.toggle_organization()?;
-            self.view.organization.mode.set_selected(2)?;
-            self.view.organization.target.set_text(&room)?;
-            if !self.fixture {
-                self.organization_run()?;
-            }
+            self.remember_draft()?;
+            self.model.borrow_mut().active_space = Some(room);
+            self.model.borrow_mut().direct_only = false;
+            self.view.search.set_text("")?;
+            self.filter()?;
         }
         Ok(())
     }

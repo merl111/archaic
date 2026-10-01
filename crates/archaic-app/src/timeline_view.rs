@@ -20,6 +20,7 @@ pub struct Timeline {
     cache: RefCell<Vec<MatrixMessage>>,
     scope: RefCell<String>,
     dark: Cell<bool>,
+    avatars: Cell<u64>,
     relation: RefCell<(String, usize)>,
 }
 impl Timeline {
@@ -61,6 +62,7 @@ impl Timeline {
             cache: Default::default(),
             scope: Default::default(),
             dark: Cell::new(false),
+            avatars: Cell::new(0),
             relation: Default::default(),
         })
     }
@@ -89,7 +91,8 @@ impl Timeline {
             .as_ref()
             .map(|d| (d.message.id.clone(), d.thread.len()))
             .unwrap_or_default();
-        let relations_changed = *self.relation.borrow() != relation;
+        let relations_changed =
+            *self.relation.borrow() != relation || self.avatars.get() != m.avatar_revision;
         *self.relation.borrow_mut() = relation;
         if !changed && !relations_changed && *self.cache.borrow() == m.messages {
             return Ok(());
@@ -105,7 +108,11 @@ impl Timeline {
         force: bool,
     ) -> Result<()> {
         let changed = *self.scope.borrow() != scope;
-        if !force && !changed && *self.cache.borrow() == items {
+        if !force
+            && !changed
+            && self.avatars.get() == m.avatar_revision
+            && *self.cache.borrow() == items
+        {
             return Ok(());
         }
         let mut ids = self.ids.borrow_mut();
@@ -124,6 +131,7 @@ impl Timeline {
         }
         *self.scope.borrow_mut() = scope.to_owned();
         *self.cache.borrow_mut() = items.to_vec();
+        self.avatars.set(m.avatar_revision);
         Ok(())
     }
 }
@@ -146,7 +154,14 @@ fn project(v: &MatrixMessage, m: &Model, tr: &Translator, ids: &mut Ids, dark: b
         % 360;
     Message {
         id: ids.id(&v.id),
-        author: avatar(&v.sender),
+        author: cui::chat::Avatar {
+            image: m
+                .selected
+                .as_ref()
+                .and_then(|r| m.avatars.get(&format!("user:{r}:{}", v.sender)))
+                .cloned(),
+            ..avatar(&v.sender)
+        },
         body: text(&body, 65536).into(),
         author_color: cui::chat_color(if dark { 0.82 } else { 0.45 }, 0.10, hue as f64, 1.),
         reply: reply(v, m, ids),

@@ -256,6 +256,9 @@ async fn sync_ready(
         active.client.send_queue().set_enabled(true).await;
         active.reconnecting = false;
     }
+    if let Err(key) = active.local.update_recent(response) {
+        emit(events, active.epoch, EventKind::Error(key)).await;
+    }
     emit(events, active.epoch, EventKind::Status("ready")).await;
     room_snapshot(active, events).await;
     crate::sync_activity::update(active, response, events).await;
@@ -311,6 +314,7 @@ async fn sync_history(
         Ok(None) => {}
     }
     if let Some((messages, info)) = active.history.sync(&room, &update.timeline) {
+        active.avatars.users(&room, &messages, events, active.epoch);
         emit(
             events,
             active.epoch,
@@ -788,7 +792,12 @@ async fn room_snapshot(active: &mut Session, events: &mpsc::Sender<Event>) {
             room.state(),
             matrix_sdk::RoomState::Joined | matrix_sdk::RoomState::Invited
         ) {
-            rooms.push(membership::summary(&room).await);
+            let mut summary = membership::summary(&room).await;
+            summary.info.recent = summary
+                .info
+                .recent
+                .max(active.local.recent.get(&summary.id).copied().unwrap_or(0));
+            rooms.push(summary);
         }
     }
     rooms.sort_by(|a, b| {
@@ -816,6 +825,12 @@ async fn room_snapshot(active: &mut Session, events: &mpsc::Sender<Event>) {
         active.history = crate::history::History::default();
         active.tools = Default::default();
     }
+    active.avatars.rooms(
+        &active.client,
+        active.selected.as_deref(),
+        events,
+        active.epoch,
+    );
     emit(events, active.epoch, EventKind::Rooms(rooms)).await;
 }
 
@@ -854,6 +869,15 @@ async fn load_history(
         },
         Err(key) => EventKind::HistoryFailed { room_id, kind, key },
     };
+    if let EventKind::History { messages, .. } = &event {
+        active.avatars.users(&room, messages, events, active.epoch);
+        active.avatars.rooms(
+            &active.client,
+            active.selected.as_deref(),
+            events,
+            active.epoch,
+        );
+    }
     emit(events, active.epoch, event).await;
 }
 

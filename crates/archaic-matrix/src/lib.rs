@@ -1,6 +1,7 @@
 #![recursion_limit = "256"]
 //! Matrix-only application service. No GUI handles or callbacks cross this boundary.
 mod attachments;
+mod avatars;
 mod connection;
 mod conversations;
 mod details;
@@ -169,6 +170,11 @@ pub struct RoomSummary {
 }
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct RoomInfo {
+    pub children: Vec<String>,
+    pub favourite: bool,
+    pub recent: u64,
+    pub direct: bool,
+    pub members_known: bool,
     pub topic: String,
     pub members: u64,
     pub encrypted: Option<bool>,
@@ -321,6 +327,14 @@ pub struct HistoryInfo {
 
 #[derive(Debug)]
 pub enum EventKind {
+    Avatar {
+        key: String,
+        pixels: Option<Vec<u8>>,
+    },
+    MemberCount {
+        room_id: String,
+        count: u64,
+    },
     LiveDetailsFailed {
         room_id: String,
         key: &'static str,

@@ -5,6 +5,7 @@ use std::{collections::HashMap, sync::Arc};
 pub(crate) struct LocalData {
     storage: Option<(Arc<Profile>, String)>,
     pub drafts: HashMap<String, String>,
+    pub recent: HashMap<String, u64>,
     pub index_dirty: bool,
     pub index: crate::search_index::Index,
 }
@@ -19,12 +20,53 @@ impl LocalData {
             Some((p, id)) => p.read_data(id, "search-index")?,
             None => Default::default(),
         };
+        let recent = match &storage {
+            Some((p, id)) => p.read_data(id, "room-recency")?,
+            None => HashMap::new(),
+        };
         Ok(Self {
+            recent,
             storage,
             index_dirty: false,
             drafts,
             index,
         })
+    }
+    pub fn update_recent(
+        &mut self,
+        response: &matrix_sdk::sync::SyncResponse,
+    ) -> Result<(), &'static str> {
+        let mut changed = false;
+        for (id, room) in &response.rooms.joined {
+            for event in &room.timeline.events {
+                let raw = event.raw();
+                let kind = raw
+                    .get_field::<String>("type")
+                    .ok()
+                    .flatten()
+                    .unwrap_or_default();
+                if !matches!(
+                    kind.as_str(),
+                    "m.room.message"
+                        | "m.room.encrypted"
+                        | "m.sticker"
+                        | "org.matrix.msc3381.poll.start"
+                ) {
+                    continue;
+                }
+                if let Some(ts) = raw.get_field::<u64>("origin_server_ts").ok().flatten() {
+                    let recent = self.recent.entry(id.to_string()).or_default();
+                    if ts > *recent {
+                        *recent = ts;
+                        changed = true;
+                    }
+                }
+            }
+        }
+        if changed && let Some((p, id)) = &self.storage {
+            p.write_data(id, "room-recency", &self.recent)?;
+        }
+        Ok(())
     }
     pub fn save_index(&mut self) -> Result<(), &'static str> {
         if let Some((p, id)) = &self.storage {
@@ -65,6 +107,39 @@ impl LocalData {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn recency_tracks_messages_without_regressing_or_counting_state_updates() {
+        use matrix_sdk::{
+            deserialized_responses::TimelineEvent, ruma::serde::Raw, sync::SyncResponse,
+        };
+        let mut local = LocalData::default();
+        let mut response = SyncResponse::default();
+        let id = matrix_sdk::ruma::room_id!("!a:local").to_owned();
+        for (kind, timestamp, expected) in [
+            ("m.room.message", 10, 10),
+            ("m.room.message", 5, 10),
+            ("m.room.member", 99, 10),
+            ("m.room.encrypted", 20, 20),
+        ] {
+            response
+                .rooms
+                .joined
+                .entry(id.clone())
+                .or_default()
+                .timeline
+                .events = vec![TimelineEvent::from_plaintext(
+                Raw::from_json_string(
+                    serde_json::json!({
+                        "type": kind, "origin_server_ts": timestamp, "content": {}
+                    })
+                    .to_string(),
+                )
+                .unwrap(),
+            )];
+            local.update_recent(&response).unwrap();
+            assert_eq!(local.recent[id.as_str()], expected);
+        }
+    }
     #[test]
     fn draft_batch_rejects_invalid_entry_without_partial_changes() {
         let mut local = LocalData::default();

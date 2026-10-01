@@ -5,6 +5,9 @@ use std::rc::Rc;
 
 #[derive(Clone, Copy)]
 enum Action {
+    React,
+    Reply,
+    Thread,
     Forward,
     Copy,
     Context,
@@ -17,6 +20,8 @@ struct Target {
     epoch: u64,
     room: String,
     event: String,
+    chat: ChatComponent,
+    anchor: ChatEvent,
 }
 pub struct Menus {
     regular: Menu,
@@ -30,6 +35,9 @@ impl Controller {
         let own = app.menu()?;
         let mut commands = Vec::new();
         for (action, key) in [
+            (Action::React, "message-react"),
+            (Action::Reply, "message-reply"),
+            (Action::Thread, "message-thread"),
             (Action::Forward, "message-forward"),
             (Action::Copy, "daylight-copy"),
             (Action::Context, "message-context"),
@@ -94,6 +102,7 @@ impl Controller {
                     Action::Forward => available && message.editable && !message.deleted,
                     Action::Context => available && m.history_pending.is_none(),
                     Action::Details => available,
+                    Action::React | Action::Reply | Action::Thread => available && !message.deleted,
                 };
                 command.set_enabled(enabled)?;
             }
@@ -101,6 +110,11 @@ impl Controller {
                 epoch: m.epoch,
                 room: room.clone(),
                 event: message.id.clone(),
+                chat: chat.clone(),
+                anchor: ChatEvent {
+                    detail: 0,
+                    ..event.clone()
+                },
             });
             if own {
                 menus.own.clone()
@@ -140,6 +154,9 @@ impl Controller {
             }
         }
         match action {
+            Action::React => self.show_reactions(&target.chat, &target.anchor),
+            Action::Reply => self.reply_message(),
+            Action::Thread => self.open_thread(),
             Action::Forward => self.forward_message(),
             Action::Copy => {
                 if let Some(message) = self.model.borrow().selected_message() {

@@ -21,6 +21,11 @@ pub struct Outgoing {
 
 #[derive(Default)]
 pub struct Model {
+    pub active_space: Option<String>,
+    pub direct_only: bool,
+    pub avatars: HashMap<String, cui::Icon>,
+    pub avatar_revision: u64,
+    pub member_counts: HashMap<String, u64>,
     pub link_join: Option<(String, Vec<String>, Option<String>)>,
     pub blocked: std::collections::HashSet<String>,
     pub organization: crate::organization::State,
@@ -68,6 +73,22 @@ impl Model {
             return;
         }
         match event.kind {
+            EventKind::Avatar { key, pixels } => {
+                let image = pixels.and_then(|v| cui::Icon::rgba(&v, 128, 128).ok());
+                if let Some(image) = image {
+                    if self.avatars.len() >= 1024 && !self.avatars.contains_key(&key) {
+                        self.avatars.clear();
+                    }
+                    self.avatars.insert(key, image);
+                } else {
+                    self.avatars.remove(&key);
+                }
+                self.avatar_revision = self.avatar_revision.wrapping_add(1);
+            }
+            EventKind::MemberCount { room_id, count } => {
+                self.member_counts.insert(room_id, count);
+            }
+
             EventKind::LiveDetailsFailed { room_id, key } => {
                 if self.selected.as_ref() == Some(&room_id) {
                     self.tools.error = Some(key);
@@ -78,7 +99,12 @@ impl Model {
                 self.saved_drafts.insert(room_id, body);
             }
             EventKind::Notification { .. } => {}
-            EventKind::Organization { id, result } => self.organization.apply(id, result),
+            EventKind::Organization { id, result } => {
+                if self.organization.pending.as_ref() == Some(&id) && !self.organization.show {
+                    self.error = result.as_ref().err().copied();
+                }
+                self.organization.apply(id, result);
+            }
             EventKind::TransferProgress {
                 room_id: _,
                 id,
@@ -309,10 +335,31 @@ impl Model {
         }
     }
 
+    pub fn member_count(&self, room: &RoomSummary) -> Option<u64> {
+        // SDK membership synchronization can finish without updating its count
+        // summary. A joined room's zero summary is not an authoritative count.
+        room.info
+            .members_known
+            .then_some(room.info.members)
+            .filter(|count| *count > 0)
+            .or_else(|| self.member_counts.get(&room.id).copied())
+    }
+
     pub fn visible_rooms(&self) -> Vec<&RoomSummary> {
         let filter = self.filter.to_lowercase();
+        let mut children = std::collections::HashSet::new();
+        let mut pending = self.active_space.clone().into_iter().collect::<Vec<_>>();
+        while let Some(id) = pending.pop() {
+            if children.insert(id.clone())
+                && let Some(room) = self.rooms.iter().find(|r| r.id == id)
+            {
+                pending.extend(room.info.children.iter().cloned());
+            }
+        }
         self.rooms
             .iter()
+            .filter(|room| !self.direct_only || room.info.direct)
+            .filter(|room| self.active_space.is_none() || children.contains(&room.id))
             .filter(|room| {
                 room.name.to_lowercase().contains(&filter)
                     || room.id.to_lowercase().contains(&filter)
@@ -390,6 +437,71 @@ mod tests {
             drafts: HashMap::from([("!a:local".into(), "hello".into())]),
             ..Model::default()
         }
+    }
+
+    #[test]
+    fn home_direct_and_nested_spaces_are_independent_filters() {
+        let mut model = connected();
+        model.rooms[1].info.direct = true;
+        let mut outer = model.rooms[0].clone();
+        outer.id = "!space:local".into();
+        outer.info.space = true;
+        outer.info.children = vec!["!nested:local".into()];
+        let mut inner = outer.clone();
+        inner.id = "!nested:local".into();
+        inner.info.children = vec!["!space:local".into(), "!a:local".into()];
+        model.rooms.extend([outer, inner]);
+        model.direct_only = true;
+        assert_eq!(
+            model
+                .visible_rooms()
+                .iter()
+                .map(|r| r.id.as_str())
+                .collect::<Vec<_>>(),
+            ["!b:local"]
+        );
+        model.direct_only = false;
+        model.active_space = Some("!space:local".into());
+        let rooms = model.visible_rooms();
+        assert!(rooms.iter().any(|r| r.id == "!a:local"));
+        assert!(!rooms.iter().any(|r| r.id == "!b:local"));
+        model.filter = "missing".into();
+        assert!(model.visible_rooms().is_empty());
+        model.active_space = None;
+        model.filter.clear();
+        assert_eq!(model.visible_rooms().len(), 4);
+    }
+
+    #[test]
+    fn fetched_members_replace_zero_summaries_but_live_summaries_take_precedence() {
+        let mut model = connected();
+        model.rooms[0].info.members_known = true;
+        assert_eq!(model.member_count(&model.rooms[0]), None);
+        model.member_counts.insert("!a:local".into(), 3);
+        assert_eq!(model.member_count(&model.rooms[0]), Some(3));
+        model.rooms[0].info.members = 4;
+        assert_eq!(model.member_count(&model.rooms[0]), Some(4));
+    }
+
+    #[test]
+    fn member_count_events_are_scoped_to_the_current_session() {
+        let mut model = connected();
+        model.apply(Event {
+            epoch: 1,
+            kind: EventKind::MemberCount {
+                room_id: "!a:local".into(),
+                count: 99,
+            },
+        });
+        assert!(model.member_counts.is_empty());
+        model.apply(Event {
+            epoch: 2,
+            kind: EventKind::MemberCount {
+                room_id: "!a:local".into(),
+                count: 3,
+            },
+        });
+        assert_eq!(model.member_counts["!a:local"], 3);
     }
 
     #[test]

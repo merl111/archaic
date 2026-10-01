@@ -18,6 +18,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, unquote
+import daylight_navigation_fixture as navigation
 requests = []
 room = '!studio:local'
 message_events = [{'type': 'm.room.message', 'sender': '@bob:local', 'event_id': '$bob', 'origin_server_ts': 1790884800000, 'content': {'msgtype': 'm.text', 'body': 'Hello from Bob'}}, {'type': 'm.room.message', 'sender': '@alice:local', 'event_id': '$alice', 'origin_server_ts': 1790884860000, 'content': {'msgtype': 'm.text', 'body': 'My original message'}}]
@@ -60,10 +61,14 @@ class Handler(BaseHTTPRequestHandler):
             return
         if '/directory/room/' in path:
             return self.reply({'room_id': '!new:local', 'servers': ['local']})
+        if args.navigation and navigation.get(self, path):
+            return
         if path.endswith('/versions'):
             return self.reply({'versions': ['v1.11']})
         if path.endswith('/sync'):
             time.sleep(0.15)
+            if args.navigation:
+                return self.reply(navigation.sync(len(requests)))
             state = [{'type': 'm.room.create', 'state_key': '', 'sender': '@alice:local', 'event_id': '$create', 'origin_server_ts': 1, 'content': {'creator': '@alice:local', 'room_version': '10'}}, {'type': 'm.room.member', 'state_key': '@alice:local', 'sender': '@alice:local', 'event_id': '$member', 'origin_server_ts': 2, 'content': {'membership': 'join', 'displayname': 'Alice'}}, {'type': 'm.room.name', 'state_key': '', 'sender': '@alice:local', 'event_id': '$name', 'origin_server_ts': 3, 'content': {'name': 'Native integration test'}}]
             rooms = {room: {'state': {'events': state}, 'timeline': {'events': [], 'limited': False, 'prev_batch': 'history'}, 'unread_notifications': {}, 'summary': {'m.joined_member_count': 2}}}
             return self.reply({'next_batch': 'batch-' + str(len(requests)), 'rooms': {'join': rooms}, 'account_data': {'events': [{'type': 'm.direct', 'content': {}}]}, 'device_one_time_keys_count': {'signed_curve25519': 50}})
@@ -76,6 +81,13 @@ class Handler(BaseHTTPRequestHandler):
         if path.endswith('/messages'):
             return self.reply({'start': 'history', 'chunk': list(reversed(message_events)), 'state': []})
         return self.reply({'errcode': 'M_NOT_FOUND', 'error': 'Not found'}, 404)
+
+    def do_DELETE(self):
+        path = unquote(urlparse(self.path).path)
+        requests.append(('DELETE', path, None))
+        if args.navigation and navigation.delete(self, path):
+            return
+        self.reply({'errcode': 'M_NOT_FOUND', 'error': 'Not found'}, 404)
 
     def do_POST(self):
         path = unquote(urlparse(self.path).path)
@@ -100,6 +112,8 @@ class Handler(BaseHTTPRequestHandler):
         path = unquote(urlparse(self.path).path)
         requests.append(('PUT', path, body))
         action_writes.append((path, body))
+        if args.navigation and navigation.put(self, path, body):
+            return
         if '/account_data/' in path:
             return self.reply({})
         eid = '$sent' + str(len(action_writes))
@@ -111,6 +125,7 @@ class Handler(BaseHTTPRequestHandler):
         message_events.append(event)
         return self.reply({'event_id': eid})
 parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--navigation', action='store_true')
 parser.add_argument('--binary', type=Path, default=Path(__file__).resolve().parents[1] / 'target/debug/archaic')
 parser.add_argument('--output', type=Path, default=Path(__file__).resolve().parents[1] / 'target/daylight-ui')
 args = parser.parse_args()
@@ -227,6 +242,9 @@ try:
     press('Return')
     wait_for(lambda: any((p.endswith('/sync') for _, p, _ in requests)))
     time.sleep(0.5)
+    if args.navigation:
+        navigation.checks(globals())
+        raise SystemExit(0)
     click(120, 232)
     wait_for(lambda: any((p.endswith('/messages') for _, p, _ in requests)))
     time.sleep(0.5)
@@ -237,7 +255,7 @@ try:
     xt.XTestFakeMotionEvent(display, -1, 440, 250, 0)
     x.XFlush(display)
     time.sleep(0.3)
-    click(460, 205)
+    click(505, 194)
     capture('inline-reply')
     click(540, bottom)
     type_text('Native inline reply')
@@ -252,7 +270,7 @@ try:
     xt.XTestFakeMotionEvent(display, -1, 440, 250, 0)
     x.XFlush(display)
     time.sleep(0.3)
-    click(491, 205)
+    click(535, 194)
     time.sleep(0.8)
     capture('thread')
     click(1210, bottom)
@@ -263,7 +281,7 @@ try:
     time.sleep(0.5)
     click(1394, 88)
     time.sleep(0.4)
-    click(1009, bottom)
+    click(929, bottom)
     time.sleep(0.3)
     capture('emoji')
     def modal_surface(name):
@@ -276,8 +294,10 @@ try:
     assert modal_surface('emoji-inside') == modal_surface('emoji')
     click(40, 440)  # Dismiss via backdrop; this must not activate the chat behind it.
     capture('emoji-dismissed')
-    assert modal_surface('emoji-dismissed') != modal_surface('emoji')
-    click(1009, bottom)
+    def backdrop_pixel(name):
+        return subprocess.check_output(['convert', str(output / (name + '.png')), '-format', '%[pixel:p{40,440}]', 'info:'], text=True).strip()
+    assert backdrop_pixel('emoji-dismissed') != backdrop_pixel('emoji')
+    click(929, bottom)
     time.sleep(0.3)
     capture('emoji-reopened')
     assert modal_surface('emoji-reopened') == modal_surface('emoji')
@@ -291,11 +311,11 @@ try:
     xt.XTestFakeMotionEvent(display, -1, 440, 250, 0)
     x.XFlush(display)
     time.sleep(0.4)
-    click(429, 205)
+    click(475, 194)
     time.sleep(0.4)
     capture('reaction-picker')
     assert subprocess.check_output(['convert', str(output / 'reaction-picker.png'), '-format', '%[pixel:p{633,220}]', 'info:'], text=True).strip() not in ('srgb(0,0,0)', 'srgba(0,0,0,1)')
-    click(561, 312)
+    click(603, 300)
     time.sleep(0.5)
     capture('reaction-expanded')
     assert subprocess.check_output(['convert', str(output / 'reaction-expanded.png'), '-format', '%[pixel:p{671,220}]', 'info:'], text=True).strip() not in ('srgb(0,0,0)', 'srgba(0,0,0,1)')
@@ -304,28 +324,28 @@ try:
     capture('reaction-search')
     press('Escape')
     time.sleep(0.4)
-    click(429, 205)
+    click(475, 194)
     time.sleep(0.4)
     capture('reaction-reopened')
-    click(323, 312)
+    click(368, 300)
     wait_for(lambda: any((b.get('m.relates_to', {}).get('key') == '❤️' for _, b in action_writes)))
     print('PASS emoji reaction request', flush=True)
     time.sleep(0.5)
     shortcut('r')
     time.sleep(0.8)
     capture('reacted')
-    xt.XTestFakeMotionEvent(display, -1, 440, 395, 0)
+    xt.XTestFakeMotionEvent(display, -1, 440, 417, 0)
     x.XFlush(display)
     time.sleep(0.4)
-    click(562, 355)
+    click(607, 344)
     capture('message-more')
     press('Escape')
     capture('menu-dismissed')
-    xt.XTestFakeMotionEvent(display, -1, 440, 395, 0)
+    xt.XTestFakeMotionEvent(display, -1, 440, 417, 0)
     x.XFlush(display)
     time.sleep(0.3)
-    click(562, 355)
-    for _ in range(5):
+    click(607, 344)
+    for _ in range(8):
         press('Down')
     press('Return')
     capture('message-delete')
@@ -334,7 +354,7 @@ try:
     print('PASS message action dialog and deletion confirmation', flush=True)
     time.sleep(0.5)
     reaction = next(e['event_id'] for e in message_events if e['content'].get('m.relates_to', {}).get('key') == '❤️')
-    click(406, 328)
+    click(450, 350)
     wait_for(lambda: any('/redact/' + reaction + '/' in p for p, _ in action_writes))
     print('PASS existing reaction toggles off', flush=True)
     time.sleep(0.5)

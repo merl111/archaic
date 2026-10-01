@@ -53,6 +53,7 @@ pub(crate) struct Session {
     pub selected: Option<String>,
     pub saved: bool,
     pub token_store: Option<Arc<crate::token_store::TokenStore>>,
+    pub avatars: crate::avatars::Avatars,
     pub transfers: crate::transfers::Transfers,
     pub local: crate::local_data::LocalData,
     pub history: crate::history::History,
@@ -330,6 +331,7 @@ fn start(
     Ok(Session {
         local,
         transfers: Default::default(),
+        avatars: Default::default(),
         epoch,
         client,
         security,

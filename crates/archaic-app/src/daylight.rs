@@ -91,6 +91,14 @@ pub struct Shell {
     pub layers: Widget,
     pub sheet_body: Widget,
     pub sidebar: Widget,
+    pub sidebar_toggle: Widget,
+    pub left_split: Widget,
+    pub right_split: Widget,
+    pub left_pane: Widget,
+    pub right_pane: Widget,
+    pub sidebar_open: Cell<bool>,
+    pub left_fraction: Cell<f64>,
+    pub right_fraction: Cell<f64>,
     pub main: Widget,
     pub top: Widget,
     pub spaces: ChatComponent,
@@ -103,6 +111,7 @@ pub struct Shell {
     pub room_button: Widget,
     pub history_button: Widget,
     pub info_button: Widget,
+    pub favorite_button: Widget,
     pub sheet: Widget,
     message_sheet: Widget,
     pub message_body: Widget,
@@ -134,6 +143,9 @@ impl Shell {
         let top = page.box_layout(sys::CUI_HORIZONTAL, 12)?;
         style(&top, &t, t.background, 0., 6)?;
         top.set_min_size(1, 44)?;
+        let sidebar_toggle =
+            top.symbol_button(sys::CUI_SYMBOL_PANEL, &tr.text("sidebar-toggle"))?;
+        style(&sidebar_toggle, &t, t.surface, 12., 8)?;
         let brand = top.icon(Some(&crate::daylight_art::brand(&t)?))?;
         brand.set_icon_size(22)?;
         let name = top.label("Archaic")?;
@@ -143,8 +155,7 @@ impl Shell {
         spaces.part(0)?.set_min_size(110, 42)?;
         top.box_layout(sys::CUI_HORIZONTAL, 0)?.expand(true)?;
         let top_actions = top.box_layout(sys::CUI_HORIZONTAL, 8)?;
-        let account_button =
-            top.symbol_button(sys::CUI_SYMBOL_PEOPLE, &tr.text("daylight-account"))?;
+        let account_button = top.symbol_button(sys::CUI_SYMBOL_MENU, &tr.text("settings-title"))?;
         account_button.set_icon_only(false)?;
         style(&account_button, &t, t.surface, 18., 8)?;
         let login_host = page.box_layout(sys::CUI_VERTICAL, 0)?;
@@ -164,13 +175,23 @@ impl Shell {
         content
             .box_layout(sys::CUI_HORIZONTAL, 0)?
             .set_min_size(1, 12)?;
-        let sidebar = body.box_layout(sys::CUI_VERTICAL, 0)?;
-        sidebar.set_min_size(300, 1)?;
+        let left_split = body.split(sys::CUI_HORIZONTAL, 0.23)?;
+        left_split.expand(true)?;
+        let left_pane = left_split.split_pane(0)?;
+        let sidebar = left_pane.box_layout(sys::CUI_VERTICAL, 0)?;
+        sidebar.expand(true)?;
+        sidebar.set_min_size(200, 1)?;
+        let right_split = left_split.split_pane(1)?.split(sys::CUI_HORIZONTAL, 0.73)?;
+        right_split.expand(true)?;
+        let right_pane = right_split.split_pane(1)?;
         style(&sidebar, &t, t.surface, 20., 0)?;
         let sidebar_head = sidebar.box_layout(sys::CUI_VERTICAL, 10)?;
         sidebar_head.box_set_padding(16)?;
         let nav = ChatComponent::create(&sidebar, ChatKind::Rooms, &t)?;
-        let main = body.box_layout(sys::CUI_VERTICAL, 0)?;
+        let main = right_split
+            .split_pane(0)?
+            .box_layout(sys::CUI_VERTICAL, 0)?;
+        main.set_min_size(380, 1)?;
         main.expand(true)?;
         style(&main, &t, t.surface, 20., 0)?;
         let header = ChatComponent::create(&main, ChatKind::Header, &t)?;
@@ -197,15 +218,18 @@ impl Shell {
         let composer_parent = main.box_layout(sys::CUI_VERTICAL, 0)?;
         composer_parent.expand(true)?;
         let composer = ChatComponent::create(&main, ChatKind::Composer, &t)?;
-        let inspector = ChatComponent::create(&body, ChatKind::Inspector, &t)?;
-        inspector.root.expand(false)?;
-        inspector.root.set_min_size(300, 1)?;
+        let inspector = ChatComponent::create(&right_pane, ChatKind::Inspector, &t)?;
+        inspector.root.expand(true)?;
+        inspector.root.set_min_size(220, 1)?;
         inspector.set_commands(&[ChatCommand {
             id: 1,
             label: tr.text("daylight-about"),
             action: sys::CUI_CHAT_MORE,
             ..Default::default()
         }])?;
+        let favorite_button =
+            top_actions.symbol_button(sys::CUI_SYMBOL_HEART, &tr.text("org-favorite"))?;
+        style(&favorite_button, &t, t.surface, 12., 8)?;
         let actions = top.box_layout(sys::CUI_HORIZONTAL, 6)?;
         let room_button = actions.symbol_button(sys::CUI_SYMBOL_MENU, &tr.text("room-tools"))?;
         let history_button =
@@ -259,6 +283,14 @@ impl Shell {
             layers,
             sheet_body,
             sidebar: sidebar_head,
+            sidebar_toggle,
+            left_split,
+            right_split,
+            left_pane,
+            right_pane,
+            sidebar_open: Cell::new(true),
+            left_fraction: Cell::new(0.23),
+            right_fraction: Cell::new(0.73),
             main: composer_parent,
             top: top_actions,
             spaces,
@@ -271,6 +303,7 @@ impl Shell {
             room_button,
             history_button,
             info_button,
+            favorite_button,
             sheet,
             message_sheet,
             message_body,
@@ -353,10 +386,24 @@ impl Shell {
         ));
         let mut ids = self.ids.borrow_mut();
         let all_rooms = m.visible_rooms();
-        let rooms = all_rooms
+        let mut rooms = all_rooms
             .into_iter()
             .filter(|r| !r.info.space)
             .collect::<Vec<_>>();
+        rooms.sort_by(|a, b| {
+            let group = |r: &&archaic_matrix::RoomSummary| {
+                (
+                    r.membership != archaic_matrix::Membership::Invited,
+                    !r.info.favourite,
+                    !r.info.favourite && !r.info.direct,
+                )
+            };
+            group(a)
+                .cmp(&group(b))
+                .then_with(|| b.info.recent.cmp(&a.info.recent))
+                .then_with(|| a.name.cmp(&b.name))
+                .then_with(|| a.id.cmp(&b.id))
+        });
         let keys: Vec<_> = m
             .rooms
             .iter()
@@ -369,11 +416,16 @@ impl Shell {
                 id: ids.id(&format!("{}:{}", m.epoch, r.id)),
                 title: text(&r.name, 1024),
                 avatar: Avatar {
-                    square: true,
+                    square: !r.info.direct,
+                    image: m.avatars.get(&format!("room:{}", r.id)).cloned(),
                     ..avatar(&r.name)
                 },
                 group: tr.text(if r.membership == archaic_matrix::Membership::Invited {
                     "invitation"
+                } else if r.info.favourite {
+                    "favorites"
+                } else if r.info.direct {
+                    "direct-messages"
                 } else {
                     "rooms"
                 }),
@@ -398,6 +450,12 @@ impl Shell {
             symbol: sys::CUI_SYMBOL_HOME,
             ..Default::default()
         }];
+        spaces.push(NavItem {
+            id: u64::MAX - 1,
+            title: tr.text("direct-messages"),
+            symbol: sys::CUI_SYMBOL_PEOPLE,
+            ..Default::default()
+        });
         spaces.extend(
             m.rooms
                 .iter()
@@ -415,7 +473,14 @@ impl Shell {
             42,
         )?;
         self.spaces.rooms(&spaces)?;
-        self.spaces.select(u64::MAX)?;
+        self.spaces.select(if m.direct_only {
+            u64::MAX - 1
+        } else {
+            m.active_space
+                .as_ref()
+                .map(|id| ids.id(&format!("{}:{id}", m.epoch)))
+                .unwrap_or(u64::MAX)
+        })?;
         self.nav.rooms(&items)?;
         let selected = m
             .selected
@@ -425,6 +490,21 @@ impl Shell {
             .unwrap_or(0);
         self.nav.select(selected)?;
         let room = m.selected_room();
+        self.favorite_button.set_visible(room.is_some())?;
+        self.favorite_button
+            .set_enabled(m.organization.pending.is_none())?;
+        let favorite = room.is_some_and(|r| r.info.favourite);
+        self.favorite_button
+            .set_icon(Some(&cui::Icon::symbol(if favorite {
+                sys::CUI_SYMBOL_HEART_FILLED
+            } else {
+                sys::CUI_SYMBOL_HEART
+            })?))?;
+        self.favorite_button.set_text(&tr.text(if favorite {
+            "org-unfavorite"
+        } else {
+            "org-favorite"
+        }))?;
         let title = room
             .map(|r| text(&r.name, 1024))
             .unwrap_or_else(|| tr.text("choose-room"));
@@ -433,7 +513,10 @@ impl Shell {
             title: title.clone(),
             detail: room.map(|r| text(&r.info.topic, 1024)).unwrap_or_default(),
             avatar: Avatar {
-                square: true,
+                square: room.is_none_or(|r| !r.info.direct),
+                image: room
+                    .and_then(|r| m.avatars.get(&format!("room:{}", r.id)))
+                    .cloned(),
                 ..avatar(&title)
             },
             ..Default::default()
@@ -443,7 +526,10 @@ impl Shell {
             title: title.clone(),
             detail: room.map(|r| text(&r.info.topic, 1024)).unwrap_or_default(),
             avatar: Avatar {
-                square: true,
+                square: room.is_none_or(|r| !r.info.direct),
+                image: room
+                    .and_then(|r| m.avatars.get(&format!("room:{}", r.id)))
+                    .cloned(),
                 ..avatar(&title)
             },
             ..Default::default()
@@ -453,7 +539,13 @@ impl Shell {
                 NavItem {
                     id: 2,
                     title: tr.text("daylight-members"),
-                    detail: room.map(|r| r.info.members.to_string()).unwrap_or_default(),
+                    detail: room
+                        .map(|r| {
+                            m.member_count(r)
+                                .map(|n| n.to_string())
+                                .unwrap_or_else(|| tr.text("members-loading"))
+                        })
+                        .unwrap_or_default(),
                     ..Default::default()
                 },
                 NavItem {
@@ -505,14 +597,7 @@ impl Shell {
             ]);
         }
         self.inspector.rooms(&about)?;
-        set_text(
-            &self.account_button,
-            &if m.user.is_empty() {
-                tr.text("daylight-account")
-            } else {
-                text(m.user.split(':').next().unwrap_or(&m.user), 40)
-            },
-        )?;
+        set_text(&self.account_button, &tr.text("settings-title"))?;
         self.account_button.set_tooltip(&m.user)?;
         self.room_button.set_enabled(room.is_some())?;
         self.history_button.set_enabled(room.is_some())?;
@@ -547,12 +632,11 @@ impl Shell {
     }
     pub fn refresh(&self, scale: f64) -> Result<()> {
         let width = self.base.allocated_size()?.map(|s| s.0).unwrap_or(1440);
-        self.inspector
-            .root
-            .set_visible(self.inspector_open.get() && width >= 1200)?;
-        self.spaces
-            .root
-            .set_visible(width >= 1280 && self.connected.get())?;
+        self.right_pane
+            .set_visible(self.inspector_open.get() && width >= 1000)?;
+        self.left_pane.set_visible(self.sidebar_open.get())?;
+        self.sidebar_toggle.set_visible(self.connected.get())?;
+        self.spaces.root.set_visible(self.connected.get())?;
         self.room_button
             .set_visible(width < 1200 && self.connected.get())?;
         self.history_button

@@ -27,6 +27,29 @@ pub(crate) async fn summary(room: &Room) -> RoomSummary {
     let encryption = room.encryption_state();
     RoomSummary {
         info: crate::RoomInfo {
+            children: if room.is_space() {
+                room.get_state_events(matrix_sdk::ruma::events::StateEventType::SpaceChild)
+                    .await
+                    .unwrap_or_default()
+                    .iter()
+                    .filter_map(|e| serde_json::to_value(e).ok())
+                    .filter(|e| {
+                        e["content"]["via"]
+                            .as_array()
+                            .is_some_and(|v| !v.is_empty())
+                    })
+                    .filter_map(|e| e["state_key"].as_str().map(str::to_owned))
+                    .collect()
+            } else {
+                Vec::new()
+            },
+            favourite: room.is_favourite(),
+            recent: room
+                .latest_event_timestamp()
+                .map(|t| u64::from(t.0))
+                .unwrap_or(0),
+            direct: room.is_direct().await.unwrap_or(false) && room.active_members_count() <= 2,
+            members_known: room.joined_members_count() > 0 || room.are_members_synced(),
             topic: room.topic().unwrap_or_default(),
             members: room.joined_members_count(),
             encrypted: (!encryption.is_unknown()).then(|| encryption.is_encrypted()),

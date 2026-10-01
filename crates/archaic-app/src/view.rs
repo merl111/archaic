@@ -5,6 +5,7 @@ use archaic_i18n::Translator;
 use cui::{Result, Widget, sys};
 
 pub struct View {
+    sidebar_heading: Widget,
     pub ui: crate::daylight::Shell,
     pub emoji: crate::emoji_picker::Picker,
     pub reaction: crate::emoji_picker::Picker,
@@ -14,6 +15,7 @@ pub struct View {
     pub deep_link: Widget,
     pub open_link: Widget,
     pub profile: Widget,
+    pub(crate) account_avatar: cui::ChatComponent,
     pub switch_profile: Widget,
     pub profiles: Widget,
     pub organization: crate::organization::Controls,
@@ -123,11 +125,7 @@ impl View {
         let organization_toggle = ui
             .top
             .symbol_button(sys::CUI_SYMBOL_PEOPLE, &tr.text("organization"))?;
-        let security_toggle = ui
-            .top
-            .symbol_button(sys::CUI_SYMBOL_LOCK, &tr.text("security-title"))?;
-        security_toggle.set_icon_only(false)?;
-        crate::daylight::style(&security_toggle, &t, t.surface, 18., 8)?;
+        let security_toggle = account_fields.security_toggle.clone();
         let tools_toggle = ui
             .top
             .symbol_button(sys::CUI_SYMBOL_SEARCH, &tr.text("room-tools"))?;
@@ -172,6 +170,7 @@ impl View {
         let rooms = ui.nav.root.clone();
         let workspace = ui.content.clone();
         Ok(Self {
+            sidebar_heading: home,
             ui,
             thread_pane,
             emoji,
@@ -191,6 +190,7 @@ impl View {
             deep_link: account_fields.deep_link,
             open_link: account_fields.open_link,
             profile: account_fields.profile,
+            account_avatar: account_fields.account_avatar,
             switch_profile: account_fields.switch_profile,
             profiles: account_fields.profiles,
             organization,
@@ -329,6 +329,33 @@ impl View {
     }
 
     pub fn render(&self, model: &Model, tr: &Translator, fixture: bool) -> Result<()> {
+        let heading = if model.direct_only {
+            tr.text("direct-messages")
+        } else {
+            model
+                .active_space
+                .as_ref()
+                .and_then(|id| model.rooms.iter().find(|r| &r.id == id))
+                .map(|r| crate::daylight::text(&r.name, 80))
+                .unwrap_or_else(|| tr.text("daylight-home"))
+        };
+        set_text(&self.sidebar_heading, &heading)?;
+        self.account_avatar.rooms(&[cui::chat::NavItem {
+            id: 1,
+            title: model.user.clone(),
+            avatar: cui::chat::Avatar {
+                image: model.avatars.get("account").cloned().or_else(|| {
+                    model
+                        .selected
+                        .as_ref()
+                        .and_then(|r| model.avatars.get(&format!("user:{r}:{}", model.user)))
+                        .cloned()
+                }),
+                ..crate::daylight::avatar(&model.user)
+            },
+            ..Default::default()
+        }])?;
+        self.account_avatar.set_theme(&self.ui.theme.borrow())?;
         self.organization.render(model, tr)?;
         self.reauth_group.set_visible(model.reauthentication)?;
         for button in [&self.reauth, &self.reauth_sso, &self.reauth_oauth] {
@@ -457,7 +484,7 @@ impl View {
             (
                 panel == Panel::Account || m.reauthentication,
                 &self.dialogs.preferences,
-                "daylight-account",
+                "settings-title",
             ),
             (panel == Panel::Room, &self.dialogs.room_host, "room-tools"),
             (
@@ -653,6 +680,8 @@ pub(crate) fn message_text(
 struct AccountFields {
     account: Widget,
     root: Widget,
+    account_avatar: cui::ChatComponent,
+    security_toggle: Widget,
     profile: Widget,
     profiles: Widget,
     switch_profile: Widget,
@@ -673,12 +702,38 @@ struct AccountFields {
 }
 impl AccountFields {
     fn new(ui: &crate::daylight::Shell, tr: &Translator) -> Result<Self> {
-        let preferences = ui.card(&ui.sheet_body, 0., 0)?;
+        let root = ui.card(&ui.sheet_body, 0., 0)?;
+        let tabs = root.tabs()?;
+        tabs.set_min_size(1, 360)?;
+        let preferences = tabs.tab_add(&tr.text("settings-account"))?;
+        let appearance_page = tabs.tab_add(&tr.text("appearance"))?;
+        let notification_page = tabs.tab_add(&tr.text("settings-notifications"))?;
+        let security_page = tabs.tab_add(&tr.text("security-title"))?;
+        let advanced = tabs.tab_add(&tr.text("settings-advanced"))?;
+        for page in [
+            &preferences,
+            &appearance_page,
+            &notification_page,
+            &security_page,
+            &advanced,
+        ] {
+            page.box_set_padding(16)?;
+        }
+        let security_toggle = security_page.button(&tr.text("security-title"))?;
+        label(
+            &security_page,
+            &tr.text("security-settings-description"),
+            sys::CUI_ROLE_BODY,
+        )?;
         label(
             &preferences,
             &tr.text("signed-in-as"),
             sys::CUI_ROLE_CAPTION,
         )?;
+        let account_avatar =
+            cui::ChatComponent::create(&preferences, cui::ChatKind::Avatar, &ui.theme.borrow())?;
+        account_avatar.root.expand(false)?;
+        account_avatar.part(0)?.set_min_size(80, 100)?;
         let account = label(&preferences, "", sys::CUI_ROLE_BODY)?;
         let profile_row = preferences.box_layout(sys::CUI_HORIZONTAL, 12)?;
         let profile = profile_row.entry("default")?;
@@ -688,26 +743,30 @@ impl AccountFields {
         profiles.expand(true)?;
         profiles.accessibility(&tr.text("profile-saved"), "")?;
         let switch_profile = profile_row.button(&tr.text("profile-switch"))?;
-        label(&preferences, &tr.text("appearance"), sys::CUI_ROLE_CAPTION)?;
-        let appearance = preferences.select(&[
+        label(
+            &appearance_page,
+            &tr.text("appearance"),
+            sys::CUI_ROLE_CAPTION,
+        )?;
+        let appearance = appearance_page.select(&[
             &tr.text("theme-system"),
             &tr.text("theme-light"),
             &tr.text("theme-dark"),
         ])?;
         appearance.accessibility(&tr.text("appearance"), "")?;
         let appearance_error = label(
-            &preferences,
+            &appearance_page,
             &tr.text("appearance-save-failed"),
             sys::CUI_ROLE_DANGER,
         )?;
         appearance_error.set_visible(false)?;
-        let notifications = preferences.checkbox(&tr.text("desktop-notifications"), false)?;
-        let typing_opt = preferences.checkbox(&tr.text("activity-share-typing"), false)?;
-        let read_opt = preferences.checkbox(&tr.text("activity-private-read"), false)?;
-        let deep_link = preferences.entry("")?;
+        let notifications = notification_page.checkbox(&tr.text("desktop-notifications"), false)?;
+        let typing_opt = notification_page.checkbox(&tr.text("activity-share-typing"), false)?;
+        let read_opt = notification_page.checkbox(&tr.text("activity-private-read"), false)?;
+        let deep_link = advanced.entry("")?;
         deep_link.set_placeholder(&tr.text("matrix-link"))?;
         deep_link.accessibility(&tr.text("matrix-link"), "")?;
-        let open_link = preferences.button(&tr.text("open-link"))?;
+        let open_link = advanced.button(&tr.text("open-link"))?;
         let sign_out = preferences.button(&tr.text("sign-out"))?;
         let reauth_group = preferences.box_layout(sys::CUI_VERTICAL, 6)?;
         let reauth_password = reauth_group.password("")?;
@@ -717,7 +776,9 @@ impl AccountFields {
         let reauth_oauth = reauth_group.button(&tr.text("oauth-login"))?;
         let reauth_cancel = reauth_group.button(&tr.text("cancel"))?;
         Ok(Self {
-            root: preferences,
+            root,
+            account_avatar,
+            security_toggle,
             account,
             profile,
             profiles,

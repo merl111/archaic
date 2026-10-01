@@ -9,7 +9,7 @@ sign-in = Sign in
 signing-in = Connecting…
 privacy-note = Use a test account. Recovery and device verification are not implemented yet.
 privacy-detail = Each login creates a new device. Signing out revokes it; closing the window does not.
-rooms = Conversations
+rooms = Rooms
 room-search = Find a conversation…
 choose-room = Your conversations, together.
 choose-description = Select a room to read recent messages.
@@ -444,3 +444,15 @@ encrypted-message = Encrypted message · Unlock history in Security & recovery
 
 daylight-reactions = Reactions
 daylight-emoji-more = More emojis
+
+direct-messages = Direct messages
+members-loading = Loading…
+settings-title = Settings
+settings-account = Account
+settings-notifications = Notifications & privacy
+settings-advanced = Advanced
+sidebar-toggle = Show or hide conversations
+
+security-settings-description = Verify devices, restore encrypted history, and manage recovery keys.
+
+favorites = Favorites

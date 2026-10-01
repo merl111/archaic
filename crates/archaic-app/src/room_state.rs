@@ -26,6 +26,13 @@ impl Model {
     pub fn update_rooms(&mut self, rooms: Vec<RoomSummary>) {
         let previous = self.selected_room().map(|room| room.membership);
         self.rooms = rooms;
+        if self
+            .active_space
+            .as_ref()
+            .is_some_and(|id| !self.rooms.iter().any(|r| &r.id == id && r.info.space))
+        {
+            self.active_space = None;
+        }
         let current = self.selected_room().map(|room| room.membership);
         if previous != current {
             self.clear_history();
