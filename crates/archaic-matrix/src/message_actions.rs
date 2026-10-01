@@ -83,14 +83,39 @@ pub(crate) async fn perform(client: &Client, request: &MessageRequest) -> Result
     let own_text = Some(original.sender.as_ref()) == client.user_id()
         && matches!(original.content.msgtype, MessageType::Text(_));
     match &request.action {
-        MessageAction::Reply(body) => {
+        MessageAction::Forward(destination) => {
+            if !matches!(original.content.msgtype, MessageType::Text(_)) {
+                return Err("message-forward-text-only");
+            }
+            let id = RoomId::parse(destination.trim()).map_err(|_| "room-unavailable")?;
+            let target = client
+                .get_room(&id)
+                .filter(|r| r.state() == RoomState::Joined)
+                .ok_or("room-unavailable")?;
+            let content =
+                matrix_sdk::ruma::events::room::message::RoomMessageEventContent::text_plain(
+                    format!("{}:\n{}", original.sender, original.content.body()),
+                );
+            target
+                .send(content)
+                .with_transaction_id(request.transaction.clone())
+                .await
+                .map_err(failure)?;
+        }
+        MessageAction::Reply(body) | MessageAction::Thread(body) => {
             validate_body(body)?;
             let content = room
                 .make_reply_event(
                     RoomMessageEventContentWithoutRelation::text_plain(body),
                     Reply {
                         event_id: id,
-                        enforce_thread: EnforceThread::Unthreaded,
+                        enforce_thread: if matches!(request.action, MessageAction::Thread(_)) {
+                            EnforceThread::Threaded(
+                                matrix_sdk::ruma::events::room::message::ReplyWithinThread::No,
+                            )
+                        } else {
+                            EnforceThread::Unthreaded
+                        },
                         add_mentions: AddMentions::No,
                     },
                 )

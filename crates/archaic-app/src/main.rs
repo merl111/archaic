@@ -1,3 +1,4 @@
+mod activity;
 mod appearance;
 mod history_controls;
 mod history_state;
@@ -8,8 +9,11 @@ mod message_state;
 mod model;
 mod new_conversation;
 mod options;
+mod outbox;
 mod room_controls;
 mod room_state;
+mod security;
+mod timeline_view;
 mod tool_controller;
 mod tool_controls;
 mod tool_state;
@@ -59,7 +63,11 @@ impl Controller {
                         room.name.replace('\0', "�")
                     )
                 } else {
-                    room.name.replace('\0', "�")
+                    let name = room.name.replace('\0', "�");
+                    match model.activity.unread.get(&room.id) {
+                        Some(n) if *n > 0 => format!("{name} ({n})"),
+                        _ => name,
+                    }
                 }
             })
             .collect::<Vec<_>>();
@@ -106,6 +114,28 @@ impl Controller {
     fn temporary(&self) -> Result<()> {
         self.session_action(true)
     }
+    fn browser_login(&self) -> Result<()> {
+        if self.model.borrow().phase != Phase::SignedOut {
+            return Ok(());
+        }
+        let epoch = self.model.borrow().epoch + 1;
+        if self.enqueue(Command::BrowserLogin {
+            epoch,
+            server: self.view.server.text()?,
+        }) {
+            let mut m = self.model.borrow_mut();
+            m.epoch = epoch;
+            m.phase = Phase::Connecting;
+            m.browser_login = true;
+            m.error = None;
+        }
+        self.render()
+    }
+    fn cancel_login(&self) -> Result<()> {
+        self.enqueue(Command::CancelLogin);
+        self.model.borrow_mut().browser_login = false;
+        self.render()
+    }
     fn login(&self) -> Result<()> {
         if self.model.borrow().phase == Phase::RestoreBlocked {
             return self.session_action(false);
@@ -124,6 +154,7 @@ impl Controller {
             let mut model = self.model.borrow_mut();
             model.epoch = epoch;
             model.phase = Phase::Connecting;
+            model.browser_login = false;
             model.status = "signing-in";
             model.error = None;
             drop(model);
@@ -186,7 +217,22 @@ impl Controller {
     }
     fn send(&self) -> Result<()> {
         self.remember_draft()?;
-        let command = self.model.borrow_mut().send_command();
+        let command = self
+            .model
+            .borrow_mut()
+            .send_command()
+            .map(|command| match command {
+                Command::Send {
+                    room_id,
+                    body,
+                    transaction,
+                } => Command::Enqueue {
+                    room_id,
+                    body,
+                    transaction,
+                },
+                other => other,
+            });
         if let Some(command) = command
             && self.enqueue(command)
         {
@@ -209,6 +255,28 @@ impl Controller {
         self.remember_draft()?;
         if self.enqueue(Command::Refresh) {
             self.model.borrow_mut().error = None;
+        }
+        self.render()
+    }
+    fn newer_history(&self) -> Result<()> {
+        self.load_history(archaic_matrix::HistoryLoad::Newer)
+    }
+    fn message_context(&self) -> Result<()> {
+        self.remember_draft()?;
+        let target = {
+            let m = self.model.borrow();
+            if self.fixture || !m.can_message_action() || m.history_pending.is_some() {
+                return Ok(());
+            }
+            m.selected_message()
+                .map(|message| (m.selected.clone().unwrap(), message.id.clone()))
+        };
+        if let Some((room_id, event_id)) = target
+            && self.enqueue(Command::Context { room_id, event_id })
+        {
+            let mut m = self.model.borrow_mut();
+            m.tools.show = false;
+            m.history_pending = Some(archaic_matrix::HistoryLoad::Latest);
         }
         self.render()
     }
@@ -365,6 +433,15 @@ impl Controller {
         self.render()
     }
     fn event(&self, event: Event) -> Result<()> {
+        if event.epoch == self.model.borrow().epoch
+            && self.model.borrow().browser_login
+            && self.model.borrow().phase == Phase::Connecting
+            && let archaic_matrix::EventKind::BrowserUrl(url) = &event.kind
+            && open_browser(url).is_err()
+        {
+            self.enqueue(Command::CancelLogin);
+            self.model.borrow_mut().error = Some("sso-browser-failed");
+        }
         self.remember_draft()?;
         let joined = event.epoch == self.model.borrow().epoch
             && matches!(
@@ -388,10 +465,20 @@ impl Controller {
         {
             self.view.room_controls.invite_user.set_text("")?;
         }
+        let signed_out = event.epoch == self.model.borrow().epoch
+            && matches!(event.kind, archaic_matrix::EventKind::SignedOut);
         self.model.borrow_mut().apply(event);
+        if signed_out {
+            self.view.typing_opt.set_checked(false)?;
+            self.view.read_opt.set_checked(false)?;
+        }
         if clear_create {
             self.rendering.set(true);
-            let result = self.view.new_conversation.clear();
+            let result = self
+                .view
+                .new_conversation
+                .clear()
+                .and_then(|_| self.view.security.clear());
             self.rendering.set(false);
             result?;
         }
@@ -429,9 +516,33 @@ impl Controller {
         }
         for (widget, action) in [
             (&self.view.sign_in, Self::login as fn(&Self) -> Result<()>),
+            (&self.view.browser_login, Self::browser_login),
+            (&self.view.cancel_login, Self::cancel_login),
             (&self.view.temporary, Self::temporary),
             (&self.view.rooms, Self::select),
+            (&self.view.timeline.rows, Self::choose_timeline_message),
             (&self.view.send, Self::send),
+            (&self.view.composer, Self::composer_input),
+            (&self.view.outbox.retry, Self::retry_outbox),
+            (&self.view.outbox.cancel, Self::cancel_outbox),
+            (&self.view.security_toggle, Self::open_security),
+            (&self.view.security.close, Self::close_security),
+            (&self.view.security.refresh, Self::refresh_security),
+            (&self.view.security.mode, Self::security_mode),
+            (&self.view.security.devices, Self::security_selection),
+            (&self.view.security.verify, Self::verify_device),
+            (&self.view.security.accept, Self::accept_verification),
+            (&self.view.security.start, Self::start_verification),
+            (&self.view.security.confirm, Self::confirm_verification),
+            (&self.view.security.mismatch, Self::mismatch_verification),
+            (&self.view.security.cancel, Self::cancel_verification),
+            (&self.view.security.recover, Self::recover_security),
+            (&self.view.security.bootstrap, Self::bootstrap_security),
+            (&self.view.security.enable, Self::enable_recovery),
+            (&self.view.security.dismiss_key, Self::dismiss_recovery_key),
+            (&self.view.security.room_keys, Self::recover_room_keys),
+            (&self.view.security.export, Self::export_keys),
+            (&self.view.security.import, Self::import_keys),
             (&self.view.tools_toggle, Self::toggle_tools),
             (&self.view.tools.mode, Self::tool_mode),
             (&self.view.tools.choose_file, Self::choose_file),
@@ -450,6 +561,8 @@ impl Controller {
             (&self.view.tools.mark_read, Self::mark_read),
             (&self.view.message_controls.select, Self::choose_message),
             (&self.view.message_controls.reply, Self::reply_message),
+            (&self.view.message_controls.thread, Self::thread_message),
+            (&self.view.message_controls.forward, Self::forward_message),
             (&self.view.message_controls.edit, Self::edit_message),
             (&self.view.message_controls.delete, Self::delete_message),
             (&self.view.message_controls.react, Self::react_message),
@@ -458,6 +571,8 @@ impl Controller {
             (&self.view.sign_out, Self::logout),
             (&self.view.refresh, Self::refresh),
             (&self.view.history_controls.older, Self::older_history),
+            (&self.view.history_controls.newer, Self::newer_history),
+            (&self.view.message_controls.context, Self::message_context),
             (&self.view.history_controls.latest, Self::latest_history),
             (&self.view.search, Self::filter),
             (&self.view.new_toggle, Self::toggle_new),
@@ -576,6 +691,10 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             updates.event(event).expect("live CUI controls");
         }
     })?;
+    let activity = controller.clone();
+    let _activity = app.every(1000, move || {
+        activity.activity_tick().expect("live controls");
+    })?;
     let _smoke_timer = if options.smoke {
         Some(app.every(1800, move || {
             root.quit().expect("live root");
@@ -588,5 +707,32 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     worker.abort();
     runtime.shutdown_timeout(std::time::Duration::from_secs(1));
     result?;
+    Ok(())
+}
+
+fn open_browser(url: &str) -> std::io::Result<()> {
+    let parsed = url::Url::parse(url).map_err(std::io::Error::other)?;
+    if !matches!(parsed.scheme(), "https" | "http") {
+        return Err(std::io::Error::other("invalid browser URL"));
+    }
+    #[cfg(target_os = "linux")]
+    let mut command = std::process::Command::new("xdg-open");
+    #[cfg(target_os = "macos")]
+    let mut command = std::process::Command::new("open");
+    #[cfg(target_os = "windows")]
+    let mut command = {
+        let mut c = std::process::Command::new("rundll32");
+        c.arg("url.dll,FileProtocolHandler");
+        c
+    };
+    let mut child = command
+        .arg(url)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()?;
+    std::thread::spawn(move || {
+        let _ = child.wait();
+    });
     Ok(())
 }

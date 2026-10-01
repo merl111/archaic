@@ -8,6 +8,7 @@ use archaic_matrix::Membership;
 use cui::{Result, Widget, sys};
 
 pub struct HistoryControls {
+    pub newer: Widget,
     root: Widget,
     pub older: Widget,
     pub latest: Widget,
@@ -19,11 +20,13 @@ impl HistoryControls {
         let root = parent.box_layout(sys::CUI_VERTICAL, 6)?;
         let row = root.box_layout(sys::CUI_HORIZONTAL, 10)?;
         let older = row.button(&tr.text("history-older"))?;
+        let newer = row.button(&tr.text("history-newer"))?;
         let latest = row.button(&tr.text("history-latest"))?;
         let status = label(&row, "", sys::CUI_ROLE_CAPTION)?;
         status.expand(true)?;
         let error = label(&root, "", sys::CUI_ROLE_DANGER)?;
         Ok(Self {
+            newer,
             root,
             older,
             latest,
@@ -46,6 +49,9 @@ impl HistoryControls {
         self.older
             .set_enabled(enabled && model.history_info.can_load_more)?;
         self.latest.set_enabled(enabled)?;
+        self.newer
+            .set_enabled(enabled && model.history_info.can_load_newer)?;
+        self.newer.set_visible(model.history_info.can_load_newer)?;
         let status = if model.history_pending.is_some() || model.status == "loading" {
             "loading"
         } else if model.history_error.is_some() && model.messages.is_empty() {

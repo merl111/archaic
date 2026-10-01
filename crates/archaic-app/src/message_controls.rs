@@ -4,6 +4,9 @@ use cui::{Result, Widget, sys};
 use std::cell::RefCell;
 
 pub struct MessageControls {
+    pub context: Widget,
+    pub thread: Widget,
+    pub forward: Widget,
     root: Widget,
     pub select: Widget,
     pub reply: Widget,
@@ -30,6 +33,10 @@ impl MessageControls {
         let edit = row.button(&tr.text("message-edit"))?;
         let delete = row.button(&tr.text("message-delete"))?;
         let react = row.button(&tr.text("message-react"))?;
+        let extra = root.box_layout(sys::CUI_HORIZONTAL, 8)?;
+        let thread = extra.button(&tr.text("message-thread"))?;
+        let context = extra.button(&tr.text("message-context"))?;
+        let forward = extra.button(&tr.text("message-forward"))?;
         let form = root.box_layout(sys::CUI_VERTICAL, 6)?;
         let title = label(&form, "", sys::CUI_ROLE_CAPTION)?;
         let body = form.textarea("")?;
@@ -40,6 +47,9 @@ impl MessageControls {
         let cancel = actions.button(&tr.text("cancel"))?;
         let submit = actions.button(&tr.text("message-apply"))?;
         Ok(Self {
+            context,
+            thread,
+            forward,
             root,
             select,
             reply,
@@ -100,6 +110,11 @@ impl MessageControls {
             .selected_message()
             .filter(|m| !m.deleted && m.body.is_some());
         self.reply.set_enabled(active && message.is_some())?;
+        self.thread.set_enabled(active && message.is_some())?;
+        self.context
+            .set_enabled(active && message.is_some() && model.history_pending.is_none())?;
+        self.forward
+            .set_enabled(active && message.is_some_and(|m| m.editable))?;
         self.react.set_enabled(active && message.is_some())?;
         let own = message.is_some_and(|m| m.editable && m.sender == model.user);
         self.edit.set_enabled(active && own)?;
@@ -118,6 +133,7 @@ impl MessageControls {
         available: bool,
     ) -> Result<()> {
         let hint = match draft.kind {
+            ActionKind::Forward => "message-forward-hint",
             ActionKind::Delete => "message-delete-confirm",
             ActionKind::Reaction => "reaction-hint",
             _ => draft.kind.key(),
@@ -166,6 +182,12 @@ impl Controller {
             self.model.borrow_mut().begin_message_action(kind);
         }
         self.render()
+    }
+    pub fn thread_message(&self) -> Result<()> {
+        self.begin_message(ActionKind::Thread)
+    }
+    pub fn forward_message(&self) -> Result<()> {
+        self.begin_message(ActionKind::Forward)
     }
     pub fn reply_message(&self) -> Result<()> {
         self.begin_message(ActionKind::Reply)

@@ -99,6 +99,10 @@ impl Details {
             .map(|(user, _)| user.to_string())
             .collect();
         let result = MessageDetails {
+            thread: timeline::aggregate(&staged.entries)
+                .into_iter()
+                .filter(|m| m.thread_root.as_deref() == Some(event_id))
+                .collect(),
             unavailable: staged
                 .entries
                 .iter()

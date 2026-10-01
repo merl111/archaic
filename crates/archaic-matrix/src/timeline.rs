@@ -85,6 +85,9 @@ pub(crate) fn decode(value: Value, redacts_in_content: bool) -> Entry {
         }
         Some("m.room.message" | "m.room.encrypted") => {
             entry.message = Some(Message {
+                thread_root: (relation["rel_type"] == "m.thread")
+                    .then(|| relation["event_id"].as_str().map(str::to_owned))
+                    .flatten(),
                 id: entry.id.clone(),
                 sender: entry.sender.clone(),
                 body: (!deleted)

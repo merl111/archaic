@@ -1,6 +1,6 @@
 # First implementation increment
 
-October 1, 2026. This is a partial implementation of the approved plan; no entire parity milestone is complete.
+October 1, 2026. This is a partial implementation of the approved plan; no entire parity milestone is complete. The latest increment is documented in [Security and messaging](SECURITY-MESSAGING.md); earlier increment sections below are historical records.
 
 ## Implemented
 
@@ -15,11 +15,9 @@ October 1, 2026. This is a partial implementation of the approved plan; no entir
 
 ## Deliberate limits
 
-Normal startup now restores a saved session and the SDK SQLite crypto/state stores. Tokens live in an authenticated encrypted record; its key lives in the platform credential vault. Explicit temporary sessions remain available. See the saved-session increment below and the README for storage/retention details. Refresh-token rotation, same-device soft logout, verification and backup/recovery remain unfinished.
+Normal startup restores a saved device and SDK stores. SDK refresh callbacks now persist rotated tokens. Classic browser SSO, native SAS verification, cross-signing bootstrap, recovery setup/unlock, encrypted key-file import/export and room backup-key retrieval are implemented. Real Synapse tests cover two devices, SAS/recovery and encrypted sends. Native Matrix OAuth/OIDC, same-device soft logout, complete interactive authentication and broader interoperability remain unfinished.
 
-The Matrix SDK has E2EE enabled, but production encrypted messaging is not an accepted feature yet. There are no multi-device verification/recovery tests or recovery UI. Password login only: SSO/OIDC and authentication challenges are not implemented. Never label a missing supported login method as a successful connection.
-
-The bounded plain-text view is not a complete timeline. Backward pagination is implemented as described below; forward/context pagination and continuous relation updates still need a proper incremental SDK-backed timeline model plus reusable CUI rich/virtualized controls. Attachments, explicit receipts, room search and separate complete relation pagination are implemented in the room-tools increment below. Recent history is fetched on successful sync and explicit refresh and merged with overlapping cached history. This scaffold must be replaced with incremental updates before performance acceptance. Filtering covers joined rooms and invitations.
+Ordinary text uses the persistent SDK send queue, with retry/cancel and restart tests. The timeline applies incremental sync events to native CUI table rows; context and newer pagination supplement backward paging. Threads can be replied to and inspected through loaded relation pages. Unread counts and typing are exposed, with optional private receipts while composing. Rich message rendering/editing, mention completion, all-action queue support, durable unsent drafts, unlimited scrollback, offline history and full thread UX remain open. See the current guide for exact limits.
 
 English/German are the initial catalogs. Runtime language changes, OS locale detection, pluralized dynamic labels, translation workflow and RTL framework work remain open. CUI and app native Windows/macOS verification remain deferred as requested; no portability claim here substitutes for those runs.
 
@@ -176,3 +174,11 @@ Pending operations guard conflicting actions and preserve the ordinary composer.
 Validation: **79 automated workspace tests pass** (one real-vault test remains separately opt-in), strict Clippy and formatting pass. Linux, pinned CUI `1224059d991f7fee4fb019aadef154d275e77c42`, real matrix-sdk 0.19.1 transport against disposable loopback mocks. Automated checks cover stable upload bytes/transactions, original filename handling, size bounds/no-clobber saves, authenticated encrypted-media decryption and tamper rejection, explicit receipt types and sync-backed reader lists, search pagination/retry/privacy, unavailable encrypted content, bundled edit guards, redactions, outside-window reply originals and relation continuation/refresh. Native Xvfb input checks cover local search/open details, both receipt types, file selection/upload/save and preserved composer drafts. These are not real-homeserver, multi-device E2EE or Windows/macOS acceptance.
 
 Structural review extracted attachment/bundle decoding and native dialog completion. Remaining structural findings concern dispatcher/view/test length, callback reachability and recent churn; a clean ripwire gate is not claimed. All parity families touched here remain **partial**.
+
+## Priorities 1–3 increment
+
+See [Security and messaging workflows](SECURITY-MESSAGING.md) for instructions, code ownership and remaining acceptance work. Added SDK-native account security/recovery, classic browser SSO, encrypted refresh-token persistence, a durable ordinary-text queue, typing/unread/private receipt controls, incremental native table rows, thread replies, text forwarding and context/newer pagination. This is progress across all three priorities, not completion of them.
+
+Linux validation includes 86 normal workspace tests (two opt-in tests excluded), the additional passing real-Synapse two-device security/encrypted-message test, and native Xvfb interaction/layout checks. The live-test helper pins its Synapse image, creates isolated accounts and removes its own container/volume. Tests never reuse Element credentials or the desktop credential vault. CUI remains pinned at `1224059d991f7fee4fb019aadef154d275e77c42`; Windows/macOS verification and the design overhaul remain deferred.
+
+Structural review extracted sync processing, security result handling, queue observation and forward-page handling. Some dispatcher/view/test size, callback-discovery and recent-churn findings remain; no clean ripwire structural gate is claimed.

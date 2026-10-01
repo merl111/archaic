@@ -50,15 +50,17 @@
       "feature": "SSO and delegated OAuth/OIDC",
       "phase": "P2",
       "reference_availability": "Server-dependent",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
+        "linux": "partial: SDK protocol tests; native controls; isolated Synapse security/encryption scenarios where applicable",
         "windows": "not implemented",
         "macos": "not implemented"
       },
       "acceptance": "Use a system browser with validated return flow; handle cancellation, registration and expired tokens.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/structures/auth",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Classic browser SSO with capability checks, SDK loopback callback, cancellation, timeout and encrypted persistence. Native OAuth/OIDC remains planned.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md"
     },
     {
       "id": "ARC-01-04",
@@ -84,14 +86,16 @@
       "reference_availability": "Reference",
       "status": "partial",
       "platform_verification": {
-        "linux": "automated SDK restore/corruption/revocation tests; native temporary-session flow checked",
+        "linux": "partial: SDK protocol tests; native controls; isolated Synapse security/encryption scenarios where applicable",
         "windows": "implemented adapter; runtime verification deferred",
         "macos": "implemented adapter; runtime verification deferred"
       },
       "acceptance": "Restart without a fresh device; refresh safely; reauthenticate without losing recoverable data.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/structures/auth",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation": "OS-vault key, encrypted session record and SDK SQLite stores; same-device restoration, explicit temporary mode and revoked-token handling. Refresh rotation and soft-logout reauthentication remain unfinished."
+      "implementation": "OS-vault key, encrypted session record and SDK SQLite stores; same-device restoration, explicit temporary mode and revoked-token handling. Refresh rotation and soft-logout reauthentication remain unfinished.",
+      "implementation_note": "Same-device encrypted restoration and refresh-token rotation/restoration tested. Same-device soft logout remains pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md"
     },
     {
       "id": "ARC-01-06",
@@ -165,15 +169,17 @@
       "feature": "Encrypted room messaging",
       "phase": "P2",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
+        "linux": "partial: SDK protocol tests; native controls; isolated Synapse security/encryption scenarios where applicable",
         "windows": "not implemented",
         "macos": "not implemented"
       },
       "acceptance": "Exchange encrypted messages with Element; never downgrade an encrypted room to plaintext.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/crypto",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Two SDK devices exchange encrypted messages through real Synapse, including queued text. Full Element interoperability and failure coverage remain pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md"
     },
     {
       "id": "ARC-02-02",
@@ -181,15 +187,17 @@
       "feature": "Device list and session management",
       "phase": "P2",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
+        "linux": "partial: SDK protocol tests; native controls; isolated Synapse security/encryption scenarios where applicable",
         "windows": "not implemented",
         "macos": "not implemented"
       },
       "acceptance": "Inspect, rename and revoke sessions; expose meaningful device trust state.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/crypto",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Native device list and SDK trust labels. Rename/revoke flows remain pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md"
     },
     {
       "id": "ARC-02-03",
@@ -197,15 +205,17 @@
       "feature": "SAS/emoji and QR verification",
       "phase": "P2",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
+        "linux": "partial: SDK protocol tests; native controls; isolated Synapse security/encryption scenarios where applicable",
         "windows": "not implemented",
         "macos": "not implemented"
       },
       "acceptance": "Verify between Archaic and Element, including cancellation, timeout and mismatched codes.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/crypto",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Native SAS/emoji/decimal comparison, accept/start/confirm/mismatch/cancel state guards. Real two-device code agreement tested; QR and full failure matrix remain pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md"
     },
     {
       "id": "ARC-02-04",
@@ -213,15 +223,17 @@
       "feature": "Cross-signing bootstrap and trust changes",
       "phase": "P2",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
+        "linux": "partial: SDK protocol tests; native controls; isolated Synapse security/encryption scenarios where applicable",
         "windows": "not implemented",
         "macos": "not implemented"
       },
       "acceptance": "Bootstrap and restore identity; explain resets and changed identities without silently trusting them.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/crypto",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "SDK non-destructive cross-signing bootstrap with password UIAA; existing identity is not reset. Broader trust/reset UX remains pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md"
     },
     {
       "id": "ARC-02-05",
@@ -229,15 +241,17 @@
       "feature": "Secret storage and recovery key/passphrase",
       "phase": "P2",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
+        "linux": "partial: SDK protocol tests; native controls; isolated Synapse security/encryption scenarios where applicable",
         "windows": "not implemented",
         "macos": "not implemented"
       },
       "acceptance": "Create and unlock recovery, handle wrong/lost credentials without destructive reset by default.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/crypto",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "New recovery setup and key/passphrase unlock; existing secret storage is not overwritten. Second-device recovery tested.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md"
     },
     {
       "id": "ARC-02-06",
@@ -245,15 +259,17 @@
       "feature": "Backup, restore, key import/export",
       "phase": "P2",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
+        "linux": "partial: SDK protocol tests; native controls; isolated Synapse security/encryption scenarios where applicable",
         "windows": "not implemented",
         "macos": "not implemented"
       },
       "acceptance": "Recover encrypted history on a fresh device and validate import/export error handling.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/crypto",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "SDK encrypted key-file export/import and room backup retrieval. Wrong export passphrase rejected; full fresh-device historical restore acceptance remains pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md"
     },
     {
       "id": "ARC-02-07",
@@ -261,15 +277,17 @@
       "feature": "Missing keys, key requests and decryption recovery",
       "phase": "P2",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
+        "linux": "partial: SDK protocol tests; native controls; isolated Synapse security/encryption scenarios where applicable",
         "windows": "not implemented",
         "macos": "not implemented"
       },
       "acceptance": "Differentiate unavailable keys, untrusted history and malformed data; retry when keys arrive.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/crypto",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Manual selected-room backup retrieval and history refresh after import/recovery. Automatic missing-key reprocessing remains pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md"
     },
     {
       "id": "ARC-02-08",
@@ -328,15 +346,15 @@
       "reference_availability": "Reference",
       "status": "partial",
       "platform_verification": {
-        "linux": "partial: unit/protocol tests and native Xvfb interaction check",
+        "linux": "partial: SDK protocol tests; native controls; isolated Synapse security/encryption scenarios where applicable",
         "windows": "unverified",
         "macos": "unverified"
       },
       "acceptance": "Catch up live events, state and unread counts without freezing the UI.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/timeline",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_note": "Initial and ongoing classic sync with retry delay. Incremental timeline diffing, durable state and offline restoration remain unfinished.",
-      "implementation_evidence": "docs/IMPLEMENTATION.md"
+      "implementation_note": "Classic incremental timeline events and loaded relations update locally without polling message history after every sync.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md"
     },
     {
       "id": "ARC-03-02",
@@ -380,15 +398,15 @@
       "reference_availability": "Reference",
       "status": "partial",
       "platform_verification": {
-        "linux": "partial: cache/UI-state and real-SDK protocol tests; native Xvfb pagination/retry/latest interaction check",
+        "linux": "partial: SDK protocol tests; native controls; isolated Synapse security/encryption scenarios where applicable",
         "windows": "unverified",
         "macos": "unverified"
       },
       "acceptance": "Load both directions around an event without duplicates or unexpected viewport movement.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/timeline",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_note": "Backward cursor pagination with overlap deduplication, refresh preservation, retry/empty/cyclic/malformed-page handling and explicit gap notices. Selected-room text window capped at 500 events / 128 backward cursors; Latest resets. Forward/context pagination, jump-to-event and stable scroll anchoring remain unfinished.",
-      "implementation_evidence": "docs/IMPLEMENTATION.md"
+      "implementation_note": "Backward, context and forward paging with independent cursors and malformed/stalled-page guards. Bounded 500-event window; pixel-stable unlimited scrollback remains pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md"
     },
     {
       "id": "ARC-03-05",
@@ -396,15 +414,17 @@
       "feature": "Local echoes and durable send queue",
       "phase": "P2",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
+        "linux": "partial: SDK protocol tests; native controls; isolated Synapse security/encryption scenarios where applicable",
         "windows": "not implemented",
         "macos": "not implemented"
       },
       "acceptance": "Reconcile transaction IDs, retries and server echoes across restart without duplicate sends.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/timeline",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "SDK-persisted ordinary-text queue with local pending rows, retry/cancel and restart transaction-identity tests. Other actions/uploads are not yet queued.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md"
     },
     {
       "id": "ARC-03-06",
@@ -412,15 +432,17 @@
       "feature": "Offline mode and network recovery",
       "phase": "P2",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
+        "linux": "partial: SDK protocol tests; native controls; isolated Synapse security/encryption scenarios where applicable",
         "windows": "not implemented",
         "macos": "not implemented"
       },
       "acceptance": "Read cached history, preserve drafts and unsent state; handle rate limits and partial connectivity.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/timeline",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Pending text survives saved-session restart; recoverable queue resumes after sync reconnect. Offline history and durable unqueued drafts remain pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md"
     },
     {
       "id": "ARC-03-07",
@@ -430,14 +452,15 @@
       "reference_availability": "Reference",
       "status": "partial",
       "platform_verification": {
-        "linux": "local SDK protocol and native Xvfb checks; full acceptance pending",
+        "linux": "partial: SDK protocol tests; native controls; isolated Synapse security/encryption scenarios where applicable",
         "windows": "implemented; verification deferred",
         "macos": "implemented; verification deferred"
       },
       "acceptance": "Respect receipt/privacy settings and thread-aware unread behavior across clients.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/timeline",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_note": "Explicit private/public unthreaded receipts and selected-event known public reader lists are implemented. Automatic viewport receipts, unread accounting, fully-read markers, threads and cross-client acceptance remain unfinished."
+      "implementation_note": "Server unread counts, explicit public/private receipts and opt-in private receipts while composing. Full viewport and thread-aware tracking remain pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md"
     },
     {
       "id": "ARC-03-08",
@@ -445,15 +468,17 @@
       "feature": "Typing indicators and membership/state events",
       "phase": "P2",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
+        "linux": "partial: SDK protocol tests; native controls; isolated Synapse security/encryption scenarios where applicable",
         "windows": "not implemented",
         "macos": "not implemented"
       },
       "acceptance": "Expire typing state and render meaningful state changes without overwhelming the timeline.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/timeline",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Incoming expiring typing names and opt-in outgoing typing with idle stop. Rich membership/state timeline remains pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md"
     },
     {
       "id": "ARC-03-09",
@@ -545,15 +570,17 @@
       "feature": "Threads and thread activity",
       "phase": "P3",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
+        "linux": "partial: SDK protocol tests; native controls; isolated Synapse security/encryption scenarios where applicable",
         "windows": "not implemented",
         "macos": "not implemented"
       },
       "acceptance": "Read/send threaded replies, navigate context and show appropriate unread state.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/composer",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "SDK thread replies and paginated loaded thread relations in Message details. Dedicated live threads and thread unread UX remain pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md"
     },
     {
       "id": "ARC-04-05",
@@ -647,15 +674,17 @@
       "feature": "Message actions, permalinks and copy",
       "phase": "P3",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
+        "linux": "partial: SDK protocol tests; native controls; isolated Synapse security/encryption scenarios where applicable",
         "windows": "not implemented",
         "macos": "not implemented"
       },
       "acceptance": "Copy readable text/links and open actions through keyboard/context menu with access checks.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/composer",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Selected text forwarding to joined room ID and jump to surrounding context. Complete copy/permalink/action UX remains pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md"
     },
     {
       "id": "ARC-04-11",

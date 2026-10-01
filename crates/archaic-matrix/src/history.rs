@@ -13,6 +13,8 @@ pub(crate) struct History {
     room_id: String,
     entries: Vec<Entry>,
     cursor: Option<String>,
+    forward: Option<String>,
+    seen_forward: HashSet<String>,
     seen: HashSet<String>,
     initialized: bool,
     limited: bool,
@@ -20,6 +22,95 @@ pub(crate) struct History {
 }
 
 impl History {
+    pub async fn context(
+        &mut self,
+        room: &Room,
+        event_id: &str,
+    ) -> Result<(Vec<Message>, HistoryInfo), &'static str> {
+        let id = matrix_sdk::ruma::EventId::parse(event_id).map_err(|_| "message-unavailable")?;
+        let response = room
+            .event_with_context(&id, true, uint!(50), None)
+            .await
+            .map_err(crate::message_actions::failure)?;
+        if response.events_before.len() + response.events_after.len() > 50 {
+            return Err("history-invalid-page");
+        }
+        let target = response.event.ok_or("message-unavailable")?;
+        if target
+            .raw()
+            .get_field::<String>("event_id")
+            .ok()
+            .flatten()
+            .as_deref()
+            != Some(event_id)
+        {
+            return Err("message-unavailable");
+        }
+        let rules = room.clone_info().room_version_rules_or_default().redaction;
+        let entries = response
+            .events_before
+            .iter()
+            .rev()
+            .chain(std::iter::once(&target))
+            .chain(response.events_after.iter())
+            .map(|event| {
+                crate::details::value(room, event)
+                    .map(|v| decode(v, rules.keep_room_redaction_redacts))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        *self = Self {
+            room_id: room.room_id().to_string(),
+            entries: deduplicate(entries),
+            cursor: response.prev_batch_token,
+            forward: response.next_batch_token,
+            initialized: true,
+            ..Default::default()
+        };
+        Ok(self.snapshot())
+    }
+
+    pub fn sync(
+        &mut self,
+        room: &Room,
+        timeline: &matrix_sdk::sync::Timeline,
+    ) -> Option<(Vec<Message>, HistoryInfo)> {
+        if self.forward.is_some()
+            || !self.initialized
+            || self.room_id != room.room_id().as_str()
+            || (timeline.events.is_empty() && !timeline.limited)
+        {
+            return None;
+        }
+        let rules = room.clone_info().room_version_rules_or_default().redaction;
+        let entries = timeline
+            .events
+            .iter()
+            .filter_map(|event| serde_json::from_str(event.raw().json().get()).ok())
+            .map(|value| decode(value, rules.keep_room_redaction_redacts))
+            .collect::<Vec<_>>();
+        let before = self.snapshot();
+        self.apply_sync(entries, timeline.limited, timeline.prev_batch.clone());
+        let after = self.snapshot();
+        (before != after).then_some(after)
+    }
+    fn apply_sync(&mut self, entries: Vec<Entry>, limited: bool, cursor: Option<String>) {
+        if limited {
+            self.apply_recent(HistoryLoad::Recent, deduplicate(entries), cursor);
+        } else {
+            for entry in entries {
+                if let Some(old) = self.entries.iter_mut().find(|old| old.id == entry.id) {
+                    *old = entry;
+                } else {
+                    self.entries.push(entry);
+                }
+            }
+        }
+        if self.entries.len() > WINDOW_LIMIT {
+            self.entries.drain(..self.entries.len() - WINDOW_LIMIT);
+            self.limited = true;
+        }
+    }
+
     pub async fn load(
         &mut self,
         room: &Room,
@@ -34,10 +125,20 @@ impl History {
         if kind == HistoryLoad::Older && (!self.initialized || !self.info().can_load_more) {
             return Ok(self.snapshot());
         }
-        let mut options = MessagesOptions::backward();
+        if kind == HistoryLoad::Newer && !self.info().can_load_newer {
+            return Ok(self.snapshot());
+        }
+        let mut options = if kind == HistoryLoad::Newer {
+            MessagesOptions::forward()
+        } else {
+            MessagesOptions::backward()
+        };
         options.limit = uint!(50);
         if kind == HistoryLoad::Older {
             options.from = self.cursor.clone();
+        }
+        if kind == HistoryLoad::Newer {
+            options.from = self.forward.clone();
         }
         let response = room
             .messages(options)
@@ -47,23 +148,14 @@ impl History {
             return Err("history-invalid-page");
         }
         let rules = room.clone_info().room_version_rules_or_default().redaction;
-        let entries = response
-            .chunk
+        let mut chunk = response.chunk;
+        if kind != HistoryLoad::Newer {
+            chunk.reverse();
+        }
+        let entries = chunk
             .into_iter()
-            .rev()
             .map(|event| {
-                event
-                    .raw()
-                    .deserialize()
-                    .map_err(|_| "history-invalid-page")?;
-                let value: serde_json::Value = serde_json::from_str(event.raw().json().get())
-                    .map_err(|_| "history-invalid-page")?;
-                if value["room_id"]
-                    .as_str()
-                    .is_some_and(|id| id != room.room_id().as_str())
-                {
-                    return Err("history-invalid-page");
-                }
+                let value = crate::details::value(room, &event)?;
                 Ok(decode(value, rules.keep_room_redaction_redacts))
             })
             .collect::<Result<Vec<_>, &'static str>>()?;
@@ -76,7 +168,9 @@ impl History {
         entries: Vec<Entry>,
         end: Option<String>,
     ) -> Result<(), &'static str> {
-        if kind == HistoryLoad::Older {
+        if kind == HistoryLoad::Newer {
+            self.apply_newer(entries, end)?;
+        } else if kind == HistoryLoad::Older {
             if end
                 .as_ref()
                 .is_some_and(|end| Some(end) == self.cursor.as_ref() || self.seen.contains(end))
@@ -102,6 +196,30 @@ impl History {
         self.initialized = true;
         Ok(())
     }
+    fn apply_newer(
+        &mut self,
+        entries: Vec<Entry>,
+        end: Option<String>,
+    ) -> Result<(), &'static str> {
+        if end.as_ref().is_some_and(|end| {
+            Some(end) == self.forward.as_ref() || self.seen_forward.contains(end)
+        }) {
+            return Err("history-stalled");
+        }
+        if let Some(cursor) = self.forward.take() {
+            self.seen_forward.insert(cursor);
+        }
+        for entry in deduplicate(entries) {
+            if let Some(old) = self.entries.iter_mut().find(|e| e.id == entry.id) {
+                *old = entry;
+            } else {
+                self.entries.push(entry);
+            }
+        }
+        self.forward = end;
+
+        Ok(())
+    }
     fn apply_recent(&mut self, kind: HistoryLoad, entries: Vec<Entry>, end: Option<String>) {
         let overlap = entries
             .iter()
@@ -114,6 +232,8 @@ impl History {
             self.entries = entries;
             self.cursor = end;
             self.seen.clear();
+            self.forward = None;
+            self.seen_forward.clear();
             self.limited = false;
             self.gap = gap || (kind == HistoryLoad::Recent && self.gap);
         } else if let Some(overlap) = overlap {
@@ -128,6 +248,9 @@ impl History {
         let at_limit =
             self.limited || self.entries.len() >= WINDOW_LIMIT || self.seen.len() >= PAGE_LIMIT;
         HistoryInfo {
+            can_load_newer: self.forward.is_some()
+                && !at_limit
+                && self.seen_forward.len() < PAGE_LIMIT,
             can_load_more: self.cursor.is_some() && !at_limit,
             at_limit,
             gap: self.gap,
@@ -151,17 +274,7 @@ mod tests {
 
     fn entries(ids: &[usize]) -> Vec<Entry> {
         ids.iter()
-            .map(|id| {
-                let mut entry = Entry::default();
-                entry.id = id.to_string();
-                entry.message = Some(Message {
-                    id: id.to_string(),
-                    sender: "@a:local".into(),
-                    body: Some(format!("message {id}")),
-                    ..Message::default()
-                });
-                entry
-            })
+            .map(|id| decode(serde_json::json!({"event_id":id.to_string(),"sender":"@a:local","type":"m.room.message","origin_server_ts":id,"content":{"msgtype":"m.text","body":format!("message {id}")}}),false))
             .collect()
     }
     fn ids(history: &History) -> Vec<String> {
@@ -176,6 +289,23 @@ mod tests {
         history
             .apply_page(kind, entries(ids), end.map(str::to_owned))
             .unwrap();
+    }
+    #[test]
+    fn incremental_sync_retains_history_and_applies_relations_without_http_refresh() {
+        let mut h = History::default();
+        page(&mut h, HistoryLoad::Recent, &[1, 2], Some("older"));
+        h.apply_sync(entries(&[2, 3]), false, Some("ignored".into()));
+        assert_eq!(ids(&h), ["1", "2", "3"]);
+        assert_eq!(h.cursor.as_deref(), Some("older"));
+        let edit = decode(
+            serde_json::json!({"type":"m.room.message","sender":"@a:local","event_id":"$edit","origin_server_ts":100,"content":{"msgtype":"m.text","body":"* edited","m.new_content":{"msgtype":"m.text","body":"edited"},"m.relates_to":{"rel_type":"m.replace","event_id":"2"}}}),
+            false,
+        );
+        h.apply_sync(vec![edit], false, None);
+        assert_eq!(h.snapshot().0[1].body.as_deref(), Some("edited"));
+        h.apply_sync(entries(&[10, 11]), true, Some("gap".into()));
+        assert!(h.info().gap);
+        assert_eq!(ids(&h), ["10", "11"]);
     }
     #[test]
     fn older_overlap_and_sync_preserve_chronological_history_without_duplicates() {

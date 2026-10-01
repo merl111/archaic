@@ -9,6 +9,7 @@ impl Model {
             || self.room_confirmation.is_some()
             || self.joining
             || self.creating
+            || (kind == HistoryLoad::Newer && !self.history_info.can_load_newer)
             || (kind == HistoryLoad::Older && !self.history_info.can_load_more)
         {
             return None;

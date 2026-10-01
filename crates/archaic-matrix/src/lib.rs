@@ -6,11 +6,14 @@ mod details;
 mod history;
 mod membership;
 mod message_actions;
+pub mod outbox;
 mod paging;
 mod room_tools;
 mod search;
+pub mod security;
 pub mod storage;
 mod timeline;
+mod token_store;
 mod worker;
 use matrix_sdk::ruma::OwnedTransactionId;
 pub use worker::{run, run_persistent, run_with_profile};
@@ -22,6 +25,33 @@ pub const CHANNEL_CAPACITY: usize = 32;
 
 // Deliberately not Debug: login commands contain a password.
 pub enum Command {
+    Context {
+        room_id: String,
+        event_id: String,
+    },
+    Typing {
+        room_id: String,
+        active: bool,
+    },
+    BrowserLogin {
+        epoch: u64,
+        server: String,
+    },
+    CancelLogin,
+    Enqueue {
+        room_id: String,
+        body: String,
+        transaction: TransactionId,
+    },
+    OutboxAction {
+        room_id: String,
+        id: String,
+        retry: bool,
+    },
+    Security {
+        id: TransactionId,
+        action: security::Action,
+    },
     DiscardUpload,
     Restore {
         epoch: u64,
@@ -90,6 +120,7 @@ pub struct RoomSummary {
 }
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Message {
+    pub thread_root: Option<String>,
     pub id: String,
     pub sender: String,
     pub body: Option<String>,
@@ -149,6 +180,7 @@ pub struct SearchPage {
 }
 #[derive(Clone, Debug)]
 pub struct MessageDetails {
+    pub thread: Vec<Message>,
     pub unavailable: usize,
     pub message: Message,
     pub reply: Option<Message>,
@@ -175,6 +207,8 @@ pub struct Reaction {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MessageAction {
+    Thread(String),
+    Forward(String),
     Reply(String),
     Edit(String),
     Delete,
@@ -195,12 +229,14 @@ pub struct Event {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HistoryLoad {
+    Newer,
     Recent,
     Older,
     Latest,
 }
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct HistoryInfo {
+    pub can_load_newer: bool,
     pub can_load_more: bool,
     pub at_limit: bool,
     pub gap: bool,
@@ -208,6 +244,21 @@ pub struct HistoryInfo {
 
 #[derive(Debug)]
 pub enum EventKind {
+    Activity {
+        room_id: String,
+        unread: u64,
+        typing: Option<Vec<String>>,
+    },
+    BrowserUrl(String),
+    Queued {
+        transaction: TransactionId,
+    },
+    Outbox(Vec<outbox::Item>),
+    SecuritySnapshot(security::Snapshot),
+    SecurityResult {
+        id: TransactionId,
+        result: Result<Option<security::Secret>, &'static str>,
+    },
     RoomToolResult {
         request: ToolRequest,
         result: Result<ToolData, &'static str>,

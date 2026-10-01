@@ -4,6 +4,8 @@ use archaic_i18n::Translator;
 use cui::{Result, Widget, sys};
 
 pub struct Login {
+    pub browser: Widget,
+    pub cancel: Widget,
     pub background: Widget,
     pub server: Widget,
     pub username: Widget,
@@ -52,6 +54,8 @@ impl Login {
         let password = field(&card, tr, "password", true)?;
         let submit = card.button(&tr.text("sign-in"))?;
         submit.set_role(sys::CUI_ROLE_PRIMARY)?;
+        let browser = card.button(&tr.text("sso-login"))?;
+        let cancel = card.button(&tr.text("cancel"))?;
         let temporary = card.button(&tr.text("temporary-session"))?;
         let error = card.label("")?;
         error.set_role(sys::CUI_ROLE_DANGER)?;
@@ -63,6 +67,8 @@ impl Login {
         row.box_layout(sys::CUI_HORIZONTAL, 0)?.expand(true)?;
         background.box_layout(sys::CUI_VERTICAL, 0)?.expand(true)?;
         Ok(Self {
+            browser,
+            cancel,
             background,
             server,
             username,

@@ -21,6 +21,10 @@ pub struct Outgoing {
 
 #[derive(Default)]
 pub struct Model {
+    pub activity: crate::activity::State,
+    pub browser_login: bool,
+    pub outbox: Vec<archaic_matrix::outbox::Item>,
+    pub security: crate::security::State,
     pub tools: crate::tool_state::ToolState,
     pub epoch: u64,
     pub temporary: bool,
@@ -58,7 +62,33 @@ impl Model {
             return;
         }
         match event.kind {
-            EventKind::RoomToolResult { request, result } => self.tool_result(request, result),
+            EventKind::Activity {
+                room_id,
+                unread,
+                typing,
+            } => {
+                self.activity.unread.insert(room_id.clone(), unread);
+                if let Some(names) = typing {
+                    self.activity
+                        .typing
+                        .insert(room_id, (names, std::time::Instant::now()));
+                }
+            }
+            EventKind::BrowserUrl(_) => {}
+            EventKind::SecuritySnapshot(snapshot) => self.security.snapshot = snapshot,
+            EventKind::SecurityResult { id, result } => {
+                if let Some(error) = self.security.complete(&id, result) {
+                    self.apply_error(error);
+                }
+            }
+            EventKind::RoomToolResult { request, result } => {
+                if matches!(request.action, archaic_matrix::ToolAction::MarkRead { .. })
+                    && result.is_err()
+                {
+                    self.activity.read.remove(&request.room_id);
+                }
+                self.tool_result(request, result)
+            }
             EventKind::SessionSaved(saved) => {
                 self.session_saved = saved;
                 if !saved && !self.temporary {
@@ -82,6 +112,8 @@ impl Model {
             EventKind::MessageActionResult { request, result } => {
                 self.message_result(request, result)
             }
+            EventKind::Outbox(items) => self.outbox = items,
+            EventKind::Queued { transaction } => self.confirm_sent(&transaction),
             EventKind::Sent { transaction } => self.confirm_sent(&transaction),
             EventKind::Joined(room) => self.joined(room),
             EventKind::ConversationOpened { room, warning } => {
@@ -445,6 +477,7 @@ mod tests {
                 messages: vec![],
                 kind: HistoryLoad::Recent,
                 info: HistoryInfo {
+                    can_load_newer: false,
                     can_load_more: true,
                     ..Default::default()
                 },

@@ -221,3 +221,88 @@ search-encrypted = Für verschlüsselte Räume lokale Suche verwenden; die Anfra
 search-failed = Suche fehlgeschlagen. Mit demselben Text erneut versuchen.
 
 events-unavailable = Ereignisse ohne lesbaren Inhalt
+
+security-title = Sicherheit & Wiederherstellung
+security-close = Zurück zu Unterhaltungen
+security-devices = Geräte & Verifizierung
+security-recovery = Wiederherstellung & Identität
+security-keys = Verschlüsselte Raumschlüsseldateien
+security-verify = Ausgewähltes Gerät verifizieren
+security-accept = Anfrage annehmen
+security-start = Vergleich starten
+security-confirm = Sie stimmen überein
+security-mismatch = Sie stimmen nicht überein
+security-compare-hint = Erst bestätigen, nachdem alle Emojis oder alle drei Zahlen auf beiden Geräten verglichen wurden.
+security-verification-none = Wähle ein anderes Gerät oder nimm eine eingehende Verifizierungsanfrage an.
+security-verification-waiting = Warte auf das andere Gerät…
+security-verification-requested = Eingehende Verifizierungsanfrage
+security-verification-ready = Bereit zum Vergleich
+security-verification-start = Das andere Gerät hat den Vergleich gestartet. Drücke Vergleich starten.
+security-verification-compare = Vergleiche die Codes auf beiden Geräten
+security-verification-confirmed = Lokal bestätigt; warte auf das andere Gerät
+security-verification-done = Verifizierung abgeschlossen
+security-verification-cancelled = Verifizierung abgebrochen oder Zeitlimit erreicht
+security-recovery-hint = Bestehende Identität? Mit dem Wiederherstellungsschlüssel entsperren. Neues Konto? Identität und danach Wiederherstellung einrichten. Bestehende Schlüssel werden hier nie zurückgesetzt.
+security-bootstrap = Identität für ein neues Konto einrichten
+security-recovery-key = Wiederherstellungsschlüssel oder Wiederherstellungspassphrase
+security-recover = Wiederherstellung entsperren
+security-enable = Wiederherstellungsschlüssel erstellen
+security-key-saved = Ich habe diesen Schlüssel sicher gespeichert — ausblenden
+security-keyfile-hint = Schlüsselexporte sind verschlüsselt. Wähle eine starke Passphrase (mindestens 12 Zeichen) und eine neue Zieldatei.
+security-keyfile-password = Passphrase der Schlüsseldatei
+security-export = Raumschlüssel exportieren…
+security-import = Raumschlüssel importieren…
+security-room-keys = Schlüssel des ausgewählten Raums aus Sicherung wiederherstellen
+security-recovery-enabled = Wiederherstellung aktiviert
+security-recovery-disabled = Wiederherstellung nicht eingerichtet
+security-recovery-incomplete = Wiederherstellung benötigt Aufmerksamkeit
+security-recovery-unknown = Wiederherstellungsstatus wird geprüft
+security-identity = Identitätsschlüssel
+security-backup = Sicherung entsperrt
+security-available = Verfügbar
+security-missing = Nicht verfügbar
+security-current = Dieses Gerät
+security-verified = Verifiziert
+security-unverified = Nicht verifiziert
+security-flow-stale = Dieser Verifizierungsschritt ist nicht mehr verfügbar. Aktualisiere und prüfe das andere Gerät.
+security-flow-active = Schließe zuerst die aktive Verifizierung ab oder brich sie ab.
+security-device-invalid = Wähle ein anderes verfügbares Gerät.
+security-failed = Die Sicherheitsaktion ist fehlgeschlagen. Prüfe die Verbindung und versuche es erneut.
+security-recover-first = Wiederherstellung besteht bereits. Entsperre sie mit dem vorhandenen Schlüssel; nichts wurde zurückgesetzt.
+security-bootstrap-first = Richte zuerst deine Identitätsschlüssel ein oder stelle sie wieder her.
+security-secret-required = Gib das erforderliche Passwort oder den Wiederherstellungsschlüssel ein.
+security-recovery-failed = Wiederherstellung konnte nicht entsperrt werden. Prüfe Schlüssel/Passphrase und Verbindung.
+security-import-failed = Schlüsseldatei konnte nicht importiert werden. Prüfe Passphrase und Format.
+security-export-password = Verwende für die Schlüsseldatei eine Passphrase mit mindestens 12 Zeichen.
+
+outbox-title = Ausgehende Nachrichten
+outbox-retry = Ausgewählte Nachricht erneut senden
+outbox-cancel = Ausgewählte Nachricht abbrechen
+outbox-paused = Erneuter Versuch erforderlich
+outbox-queued = Wartend / wird gesendet
+outbox-failed = Die Warteschlange konnte nicht aktualisiert werden. Die Nachrichten bleiben gespeichert.
+outbox-stale = Diese Nachricht ist nicht mehr in der Warteschlange.
+
+sso-login = Im Browser anmelden (SSO)
+sso-timeout = Die Browser-Anmeldung ist abgelaufen. Bitte erneut versuchen.
+sso-cancelled = Browser-Anmeldung abgebrochen.
+sso-browser-failed = Der Browser konnte nicht geöffnet werden.
+
+activity-typing = schreibt …
+activity-share-typing = Tippstatus teilen
+activity-private-read = Beim Schreiben privat als gelesen markieren
+
+timeline-messages = Nachrichten
+timeline-select = Eine Nachricht zum Lesen oder Bearbeiten auswählen.
+
+message-thread = Im Thread antworten
+message-forward = Text weiterleiten
+message-forward-hint = Zielraum-ID eingeben (!raum:server). Der ausgewählte Text wird mit dem ursprünglichen Absender gesendet.
+message-forward-text-only = Hier können nur Textnachrichten weitergeleitet werden.
+thread-replies = Thread-Antworten (geladene Beziehungen)
+thread-reply = Thread-Antwort
+
+history-newer = Neuere Nachrichten
+message-context = Nachrichten im Kontext anzeigen
+
+sso-unavailable = Dieser Homeserver bietet keine Browser-SSO-Anmeldung an. Verwende eine unterstützte Anmeldemethode.

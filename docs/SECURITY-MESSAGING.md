@@ -1,0 +1,74 @@
+# Security and messaging workflows
+
+Updated October 1, 2026. This increment covers work in priorities 1–3. It does **not** complete those priorities or Element parity. CUI remains a separate pinned dependency; no backend code was copied into Archaic.
+
+## Sign-in and token rotation
+
+Password login requests refresh tokens. Where supported, the SDK refreshes expired access tokens automatically. A synchronous session callback writes the latest access and refresh tokens into the existing authenticated, encrypted `session.enc` record. Writes retain the same device, crypto store and fingerprint. A failed save produces the session-storage warning on the next successful sync and is retried from current in-memory tokens. No plaintext token file is created. A crash between server-side rotation and durable local storage can still require reauthentication.
+
+**Sign in with your browser (SSO)** checks that the homeserver advertises classic Matrix SSO, opens its SDK-generated URL, and receives a one-time login token on an SDK-managed loopback listener. It uses the same encrypted persistence as password login. **Cancel** or a five-minute timeout drops the listener. A server may itself use an OIDC identity provider behind classic SSO; this is **not native Matrix OAuth/OIDC support**. Authentication-service registration, OAuth-session persistence, same-device soft logout and broader interactive-auth stages remain open.
+
+Closing a saved session keeps it. Sign-out revokes the login and clears the saved session record; encrypted stores remain retained. Temporary sessions keep credentials, encryption state and queued messages in memory and cannot survive process exit.
+
+## Security & recovery
+
+Open **Security & recovery** in the account sidebar. The mode selector exposes:
+
+1. **Devices & verification.** Refresh fetches current devices. Select another device and choose **Verify selected device**. Accept an incoming request or start comparison when ready. Compare all emoji/descriptions or the decimal numbers on both devices. Choose **They match** only after comparison, or **They do not match** / **Cancel**. Buttons follow SDK verification state; stale flow IDs and premature confirmation are rejected. This implements SAS verification. QR scanning, full other-user verification discovery, device rename/revocation and automatic incoming-request notifications are still pending. Refresh the device list after verification to update cached trust labels.
+2. **Recovery & identity.** For a new account, **Set up identity** asks the SDK to bootstrap missing cross-signing; password UI authentication is supported. Existing identities are not reset to work around missing private keys. Use **Unlock recovery** with an existing key/passphrase first. **Create recovery key** is available for a new setup and refuses to replace existing secret storage. Save the returned key somewhere safe, then explicitly acknowledge it to hide it. Secret command values have redacted Debug output and zeroizing application storage. Native password fields and SDK-internal buffers are not claimed to be guaranteed secure erasure.
+3. **Encrypted room-key files.** Export uses the SDK Megolm export format and a passphrase of at least 12 characters. The destination must not exist; a private temporary file is synced and persisted without overwriting another file. Import checks regular-file size (25 MiB maximum) and asks the SDK to decrypt/import. Incorrect passphrases fail without plaintext output. **Recover selected room keys** downloads that room’s keys from the configured backup. Successful import/recovery reloads the selected history. Automatic per-event missing-key retries, trusted-history explanations and recovery-aware cache deletion still need work.
+
+This is development software. The tests below establish specific real-server flows, not complete production encryption acceptance or interoperability with every Element version.
+
+## Outgoing messages and connectivity
+
+Ordinary composer text uses the Matrix SDK send queue. The composer clears only after queue insertion succeeds. Each queued item has an SDK-owned transaction ID. In saved sessions the SDK SQLite store retains pending messages across restart; retry reuses the transaction rather than creating another send. Existing queue tasks are restored when the account opens.
+
+The outgoing row shows the selected room’s pending text and whether sending has paused. **Retry selected message** clears a blocking error and enables that room’s queue. **Cancel selected message** uses the SDK cancellation handle; if a send wins the race, the SDK may redact it. Successful sends disappear from the queue and arrive through sync. Recoverable queues resume when sync reconnects; permission/encryption failures can remain blocked for explicit retry. A successful queue write is not a delivery acknowledgement.
+
+Only ordinary composer text uses the persistent queue in this increment. Reply/edit/reaction/forward actions and attachment uploads retain their earlier explicit retry behavior. Drafts that have not been queued remain process-local. Full offline history browsing, durable drafts and all-action queue integration remain open.
+
+## Typing, unread state and receipts
+
+The room list displays server unread notification counts. Incoming typing names expire locally after 30 seconds if no update clears them.
+
+**Share typing status** is off by default. When enabled, typing is announced only while the visible composer has focus and has changed recently. It stops after five idle seconds or when leaving the composer, with SDK throttling for continued typing. These controls reset on sign-out.
+
+**Mark read privately while composing** is also off by default. It sends a private unthreaded receipt through the latest loaded message only while the visible composer has focus; repeated attempts are throttled. Opening a background room, a security page or room tools does not mark messages read. Public receipts remain an explicit Room tools action. These controls are not yet persisted preferences, a full viewport-based read tracker, or thread-aware receipt handling.
+
+## Timeline and conversation actions
+
+The main timeline uses CUI’s native table model; Linux GTK recycles visible cells. It preserves event selection by ID, updates changed cells instead of rewriting every row, and shows plain-text message bodies, loaded replies, edits, reactions and attachments. This reuses the existing public CUI table API. It is not yet a dedicated rich chat component, and row insertion can still change scroll position.
+
+Successful sync applies new timeline events to the loaded window and recomputes loaded relations. Unchanged syncs do not fetch `/messages` or emit duplicate history snapshots. Explicit Refresh and operations that require a fresh target still fetch history. Limited, disjoint syncs retain an explicit gap indication instead of joining disconnected ranges.
+
+**Reply in thread** asks the SDK to construct the correct `m.thread` relationship, continuing an existing thread or starting one at the selected root. **Room tools → Message details** includes loaded thread replies and allows paging remaining relations. Thread unread state, a dedicated thread list and a continuously live thread panel remain unfinished.
+
+**Forward text** asks for the destination’s full `!room:server` ID, then sends the selected original text with its sender attribution. The destination must be joined; the SDK encrypts it when required. Attachments cannot be forwarded by this control. **Show surrounding messages** requests `/context` for the selected message, including targets opened from search. **Load older** and **Newer messages** follow separate cursors. **Latest** returns to the live end. An anchored context stays fixed while newer pages remain available.
+
+The selected window remains bounded to 500 raw events and 128 cursors per direction. Cursor loops and malformed/cross-room responses leave existing data intact. This is not unlimited scrollback or guaranteed pixel-stable positioning. Matrix formatted HTML, Markdown/rich editing, mention completion and full thread navigation remain pending.
+
+## Code map for agents
+
+- `archaic-matrix/src/security.rs`: SDK verification/recovery operations, safe secret wrapper, export/import boundary.
+- `connection.rs` / `token_store.rs`: authentication, sync task, encrypted rotation callbacks, queue observer lifecycle.
+- `outbox.rs`: queue projection and retry/cancel operations; SDK owns persistence and transactions.
+- `history.rs` / `timeline.rs`: bounded cursors, context and incremental relation projection.
+- `worker.rs`: serialized commands and epoch-scoped UI events; no CUI handles cross threads.
+- `archaic-app/src/security.rs`, `outbox.rs`, `activity.rs`, `timeline_view.rs`: native controls and presentation state. English/German strings live in `locales`.
+
+Keep authentication and sync epoch guards, preserve transaction identity, and never replace an existing cross-signing identity merely because this device lacks private keys. Add protocol and failure tests before expanding each boundary.
+
+## Validation and reproducible live test
+
+`python3 tools/dev.py test` runs the normal suite. The additional ignored test creates disposable accounts on an explicitly selected loopback Synapse. It covers two-device SAS code agreement, cross-signing, recovery on a second device, encrypted key export/import with a wrong-passphrase rejection, non-destructive recovery setup, encrypted messages in both directions, queued encrypted delivery and room backup-key retrieval. It does not inspect the user's account, Element data or credential vault.
+
+With Docker and the normal build prerequisites:
+
+```sh
+python3 tools/test_live_matrix.py
+```
+
+The helper uses an image pinned by digest, binds its registration-enabled server to loopback only, and removes its uniquely named container and volume on exit. Windows/macOS native UI verification remains deferred. A compatible server already running on loopback can instead be used with `ARCHAIC_TEST_SERVER=http://127.0.0.1:PORT` and the ignored `live_security` test. Never point this test at a production server.
+
+Normal protocol tests additionally cover queue persistence/retry identity after restart, encrypted token rotation/restoration, classic SSO callbacks and listener cancellation, thread/forward payloads, incremental edits without repeated history requests, and context/forward pagination. Native Xvfb checks inspect the Linux controls; no Windows/macOS run is claimed.

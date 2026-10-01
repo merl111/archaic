@@ -10,7 +10,7 @@ publish = false
 
 [workspace.dependencies]
 cui = "=0.2.0"
-matrix-sdk = { version = "=0.19.1", default-features = false, features = ["e2e-encryption", "rustls-aws-lc-rs", "bundled-sqlite"] }
+matrix-sdk = { version = "=0.19.1", default-features = false, features = ["e2e-encryption", "rustls-aws-lc-rs", "bundled-sqlite", "sso-login"] }
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros"] }
 url = "2"
 fluent-bundle = "0.16"

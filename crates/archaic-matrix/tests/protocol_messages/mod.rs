@@ -400,3 +400,42 @@ async fn mismatched_room_in_fetched_event_is_not_mutated() {
     drop(receiver);
     worker.await.unwrap();
 }
+
+#[tokio::test]
+async fn thread_reply_and_text_forward_use_sdk_relations_and_target_guards() {
+    let server = server().await;
+    target(
+        &server,
+        "$root",
+        "@bob:local",
+        "m.room.message",
+        json!({"msgtype":"m.text","body":"Original"}),
+    )
+    .await;
+    let (sender, mut receiver, worker) = login(&server).await;
+    let thread = request("$root", MessageAction::Thread("Thread response".into()));
+    assert_eq!(perform(&sender, &mut receiver, &thread).await, Ok(()));
+    let forward = request("$root", MessageAction::Forward("!studio:local".into()));
+    assert_eq!(perform(&sender, &mut receiver, &forward).await, Ok(()));
+    let invalid = request("$root", MessageAction::Forward("!notjoined:local".into()));
+    assert_eq!(
+        perform(&sender, &mut receiver, &invalid).await,
+        Err("room-unavailable")
+    );
+    let requests = server.received_requests().await.unwrap();
+    let sent = requests
+        .iter()
+        .filter(|r| r.method == "PUT" && r.url.path().contains("/send/"))
+        .collect::<Vec<_>>();
+    assert_eq!(sent.len(), 2);
+    let content = sent[0].body_json::<Value>().unwrap();
+    assert_eq!(content["m.relates_to"]["rel_type"], "m.thread");
+    assert_eq!(content["m.relates_to"]["event_id"], "$root");
+    assert_eq!(content["body"], "Thread response");
+    let content = sent[1].body_json::<Value>().unwrap();
+    assert_eq!(content["body"], "@bob:local:\nOriginal");
+    assert!(content.get("m.relates_to").is_none());
+    drop(sender);
+    drop(receiver);
+    worker.await.unwrap();
+}

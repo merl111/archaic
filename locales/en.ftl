@@ -220,3 +220,88 @@ search-encrypted = Use local history scan for encrypted rooms; the query was not
 search-failed = Search failed. Retry with the same query.
 
 events-unavailable = Events without readable content
+
+security-title = Security & recovery
+security-close = Back to conversations
+security-devices = Devices & verification
+security-recovery = Recovery & identity
+security-keys = Encrypted room-key files
+security-verify = Verify selected device
+security-accept = Accept request
+security-start = Start comparison
+security-confirm = They match
+security-mismatch = They do not match
+security-compare-hint = Confirm only after comparing every emoji or all three numbers on both devices.
+security-verification-none = Select another device, or accept an incoming verification request.
+security-verification-waiting = Waiting for the other device…
+security-verification-requested = Incoming verification request
+security-verification-ready = Ready to start comparison
+security-verification-start = The other device started a comparison. Press Start comparison.
+security-verification-compare = Compare the codes on both devices
+security-verification-confirmed = Confirmed locally; waiting for the other device
+security-verification-done = Verification completed
+security-verification-cancelled = Verification cancelled or timed out
+security-recovery-hint = Existing identity? Unlock with your recovery key. New account? Set up identity, then recovery. Existing keys are never reset here.
+security-bootstrap = Set up identity for a new account
+security-recovery-key = Recovery key or recovery passphrase
+security-recover = Unlock recovery
+security-enable = Create recovery key
+security-key-saved = I saved this key securely — hide it
+security-keyfile-hint = Key exports are encrypted. Choose a strong passphrase (at least 12 characters) and a new destination file.
+security-keyfile-password = Key-file passphrase
+security-export = Export room keys…
+security-import = Import room keys…
+security-room-keys = Recover selected room keys from backup
+security-recovery-enabled = Recovery enabled
+security-recovery-disabled = Recovery not set up
+security-recovery-incomplete = Recovery needs attention
+security-recovery-unknown = Checking recovery state
+security-identity = Identity keys
+security-backup = Backup unlocked
+security-available = Available
+security-missing = Not available
+security-current = This device
+security-verified = Verified
+security-unverified = Unverified
+security-flow-stale = This verification step is no longer available. Refresh and check the other device.
+security-flow-active = Finish or cancel the active verification first.
+security-device-invalid = Choose another available device.
+security-failed = The security operation failed. Check the connection and retry.
+security-recover-first = Recovery already exists. Unlock it with the existing key; nothing was reset.
+security-bootstrap-first = Set up or recover your identity keys first.
+security-secret-required = Enter the required password or recovery key.
+security-recovery-failed = Recovery could not be unlocked. Check the key/passphrase and connection.
+security-import-failed = Could not import the key file. Check its passphrase and format.
+security-export-password = Use a key-file passphrase of at least 12 characters.
+
+outbox-title = Outgoing messages
+outbox-retry = Retry selected message
+outbox-cancel = Cancel selected message
+outbox-paused = Needs retry
+outbox-queued = Queued / sending
+outbox-failed = The outgoing queue could not be updated. Your queued messages have been kept.
+outbox-stale = This message has already left the outgoing queue.
+
+sso-login = Sign in with your browser (SSO)
+sso-timeout = Browser sign-in timed out. Please try again.
+sso-cancelled = Browser sign-in cancelled.
+sso-browser-failed = Could not open the browser.
+
+activity-typing = typing…
+activity-share-typing = Share typing status
+activity-private-read = Mark read privately while composing
+
+timeline-messages = Messages
+timeline-select = Select a message to inspect it or use the actions below.
+
+message-thread = Reply in thread
+message-forward = Forward text
+message-forward-hint = Enter the destination room ID (!room:server). The selected text will be sent with its original sender.
+message-forward-text-only = Only text messages can be forwarded here.
+thread-replies = Thread replies (loaded relations)
+thread-reply = Thread reply
+
+history-newer = Newer messages
+message-context = Show surrounding messages
+
+sso-unavailable = This homeserver does not advertise browser SSO. Use a supported sign-in method.

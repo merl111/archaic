@@ -5,6 +5,14 @@ use archaic_i18n::Translator;
 use cui::{Result, Widget, sys};
 
 pub struct View {
+    pub typing_opt: Widget,
+    pub read_opt: Widget,
+    pub typing_status: Widget,
+    pub browser_login: Widget,
+    pub cancel_login: Widget,
+    pub outbox: crate::outbox::Controls,
+    pub security_toggle: Widget,
+    pub security: crate::security::Controls,
     pub thread: Widget,
     pub tools_toggle: Widget,
     pub tools: crate::tool_controls::ToolControls,
@@ -33,7 +41,7 @@ pub struct View {
     pub search: Widget,
     pub title: Widget,
     pub room_id: Widget,
-    pub timeline: Widget,
+    pub timeline: crate::timeline_view::Timeline,
     pub composer: Widget,
     pub send: Widget,
     pub refresh: Widget,
@@ -68,6 +76,7 @@ impl View {
         header_group.separator()?;
         let login = Login::new(root, tr)?;
 
+        let security = crate::security::Controls::new(root, tr)?;
         let new_conversation = crate::new_conversation::NewConversationForm::new(root, tr)?;
         let workspace = root.split(sys::CUI_HORIZONTAL, 0.26)?;
         workspace.expand(true)?;
@@ -93,6 +102,7 @@ impl View {
         sidebar.separator()?;
         label(&sidebar, &tr.text("signed-in-as"), sys::CUI_ROLE_CAPTION)?;
         let account = label(&sidebar, "", sys::CUI_ROLE_CAPTION)?;
+        let security_toggle = sidebar.button(&tr.text("security-title"))?;
         let sign_out = sidebar.button(&tr.text("sign-out"))?;
         let conversation = workspace.split_pane(1)?;
         conversation.box_set_padding(20)?;
@@ -108,10 +118,8 @@ impl View {
         thread.expand(true)?;
         let tools = crate::tool_controls::ToolControls::new(&conversation, tr)?;
         let history_controls = crate::history_controls::HistoryControls::new(&thread, tr)?;
-        let timeline = thread.textarea(&tr.text("choose-description"))?;
-        timeline.expand(true)?;
-        timeline.set_read_only(true)?;
-        timeline.accessibility(&tr.text("recent-only"), "")?;
+        let timeline = crate::timeline_view::Timeline::new(&thread, tr)?;
+        let outbox = crate::outbox::Controls::new(&thread, tr)?;
         let message_controls = crate::message_controls::MessageControls::new(&conversation, tr)?;
         let compose_group = conversation.box_layout(sys::CUI_VERTICAL, 10)?;
         compose_group.box_set_padding(12)?;
@@ -120,6 +128,10 @@ impl View {
         composer.set_min_size(300, 90)?;
         composer.set_placeholder(&tr.text("composer"))?;
         composer.accessibility(&tr.text("composer"), "")?;
+        let typing_status = label(&compose_group, "", sys::CUI_ROLE_CAPTION)?;
+        let privacy = compose_group.box_layout(sys::CUI_HORIZONTAL, 12)?;
+        let typing_opt = privacy.checkbox(&tr.text("activity-share-typing"), false)?;
+        let read_opt = privacy.checkbox(&tr.text("activity-private-read"), false)?;
         let composer_footer = compose_group.box_layout(sys::CUI_HORIZONTAL, 12)?;
         let hint = label(
             &composer_footer,
@@ -137,6 +149,14 @@ impl View {
         session_notice.expand(true)?;
         let status = label(&footer, "", sys::CUI_ROLE_CAPTION)?;
         Ok(Self {
+            typing_opt,
+            read_opt,
+            typing_status,
+            browser_login: login.browser,
+            cancel_login: login.cancel,
+            outbox,
+            security_toggle,
+            security,
             thread,
             tools_toggle,
             tools,
@@ -179,6 +199,10 @@ impl View {
     fn render_login(&self, model: &Model, tr: &Translator, connected: bool) -> Result<()> {
         self.footer.set_visible(connected)?;
         self.login.set_visible(!connected)?;
+        self.browser_login
+            .set_visible(model.phase == Phase::SignedOut)?;
+        self.cancel_login
+            .set_visible(model.browser_login && model.phase == Phase::Connecting)?;
         self.sign_in.set_enabled(matches!(
             model.phase,
             Phase::SignedOut | Phase::RestoreBlocked
@@ -253,8 +277,19 @@ impl View {
             Phase::Connected | Phase::SigningOut | Phase::LogoutCleanup
         );
         self.render_login(model, tr, connected)?;
-        self.workspace
-            .set_visible(connected && !(model.show_new && model.phase == Phase::Connected))?;
+        self.workspace.set_visible(
+            connected
+                && !(model.security.show && model.phase == Phase::Connected)
+                && !(model.show_new && model.phase == Phase::Connected),
+        )?;
+        self.security.render(model, tr, fixture)?;
+        self.security_toggle.set_enabled(
+            model.phase == Phase::Connected
+                && !model.tools_busy()
+                && model.message_draft.is_none()
+                && !model.sending
+                && !fixture,
+        )?;
         self.new_conversation.render(model, tr, fixture)?;
         self.new_toggle
             .set_enabled(model.can_create() && !fixture)?;
@@ -300,6 +335,7 @@ impl View {
             selected.is_some_and(|room| room.membership == archaic_matrix::Membership::Joined);
         self.room_controls.render(model, tr, fixture)?;
         self.history_controls.render(model, tr, fixture)?;
+        self.outbox.render(model, tr, fixture)?;
         self.thread.set_visible(!model.tools.show)?;
         self.tools.render(model, tr, fixture)?;
         self.tools_toggle
@@ -307,9 +343,7 @@ impl View {
         self.message_controls.render(model, tr, fixture)?;
         self.compose_group
             .set_visible(joined && model.message_draft.is_none() && !model.tools.show)?;
-        self.timeline.set_visible(joined || selected.is_none())?;
-        let history = history_text(model, tr, selected.is_some());
-        set_text(&self.timeline, &history)?;
+        self.timeline.render(model, tr)?;
         set_text(&self.composer, model.draft())?;
         self.composer.set_enabled(
             joined
@@ -356,35 +390,15 @@ pub fn set_text(widget: &Widget, text: &str) -> Result<()> {
     Ok(())
 }
 
-fn history_text(model: &Model, tr: &Translator, selected: bool) -> String {
-    if !selected {
-        tr.text(if model.rooms.is_empty() {
-            "no-rooms"
-        } else {
-            "choose-description"
-        })
-    } else if model.messages.is_empty() {
-        tr.text(if model.status == "loading" {
-            "loading"
-        } else {
-            "empty-history"
-        })
-    } else {
-        model
-            .messages
-            .iter()
-            .map(|message| message_text(message, model, tr))
-            .collect::<Vec<_>>()
-            .join("\n\n")
-    }
-}
-
 pub(crate) fn message_text(
     message: &archaic_matrix::Message,
     model: &Model,
     tr: &Translator,
 ) -> String {
     let mut text = message.sender.clone();
+    if message.thread_root.is_some() {
+        text.push_str(&format!(" · {}", tr.text("thread-reply")));
+    }
     if message.edited {
         text.push_str(&format!(" · {}", tr.text("message-edited")));
     }

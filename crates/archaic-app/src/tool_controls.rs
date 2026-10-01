@@ -287,6 +287,18 @@ impl ToolControls {
                 message_text(reply, model, tr)
             ));
         }
+        if !details.thread.is_empty() {
+            text.push_str(&format!(
+                "\n\n{}\n{}",
+                tr.text("thread-replies"),
+                details
+                    .thread
+                    .iter()
+                    .map(|m| message_text(m, model, tr))
+                    .collect::<Vec<_>>()
+                    .join("\n\n")
+            ));
+        }
         if details.reply_unavailable {
             text.push_str(&format!("\n{}", tr.text("reply-unavailable")));
         }

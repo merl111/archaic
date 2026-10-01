@@ -3,6 +3,8 @@ use archaic_matrix::{Command, Membership, Message, MessageAction, MessageRequest
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ActionKind {
+    Thread,
+    Forward,
     Reply,
     Edit,
     Delete,
@@ -11,6 +13,8 @@ pub enum ActionKind {
 impl ActionKind {
     pub fn key(self) -> &'static str {
         match self {
+            Self::Thread => "message-thread",
+            Self::Forward => "message-forward",
             Self::Reply => "message-reply",
             Self::Edit => "message-edit",
             Self::Delete => "message-delete",
@@ -130,6 +134,8 @@ impl Model {
             return None;
         }
         let action = match draft.kind {
+            ActionKind::Thread => MessageAction::Thread(draft.body.clone()),
+            ActionKind::Forward => MessageAction::Forward(draft.body.clone()),
             ActionKind::Reply => MessageAction::Reply(draft.body.clone()),
             ActionKind::Edit => MessageAction::Edit(draft.body.clone()),
             ActionKind::Delete => MessageAction::Delete,
