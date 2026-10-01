@@ -5,6 +5,9 @@ use archaic_i18n::Translator;
 use cui::{Result, Widget, sys};
 
 pub struct View {
+    pub thread: Widget,
+    pub tools_toggle: Widget,
+    pub tools: crate::tool_controls::ToolControls,
     pub appearance: Widget,
     pub appearance_error: Widget,
     pub new_toggle: Widget,
@@ -96,12 +99,16 @@ impl View {
         let room_header = conversation.box_layout(sys::CUI_HORIZONTAL, 12)?;
         let title = label(&room_header, &tr.text("choose-room"), sys::CUI_ROLE_HEADING)?;
         title.expand(true)?;
+        let tools_toggle = room_header.button(&tr.text("room-tools"))?;
         let refresh = room_header.symbol_button(sys::CUI_SYMBOL_REPEAT, &tr.text("refresh"))?;
         let room_id = label(&conversation, "", sys::CUI_ROLE_CAPTION)?;
         let room_controls = crate::room_controls::RoomControls::new(&conversation, tr)?;
         conversation.separator()?;
-        let history_controls = crate::history_controls::HistoryControls::new(&conversation, tr)?;
-        let timeline = conversation.textarea(&tr.text("choose-description"))?;
+        let thread = conversation.box_layout(sys::CUI_VERTICAL, 8)?;
+        thread.expand(true)?;
+        let tools = crate::tool_controls::ToolControls::new(&conversation, tr)?;
+        let history_controls = crate::history_controls::HistoryControls::new(&thread, tr)?;
+        let timeline = thread.textarea(&tr.text("choose-description"))?;
         timeline.expand(true)?;
         timeline.set_read_only(true)?;
         timeline.accessibility(&tr.text("recent-only"), "")?;
@@ -130,6 +137,9 @@ impl View {
         session_notice.expand(true)?;
         let status = label(&footer, "", sys::CUI_ROLE_CAPTION)?;
         Ok(Self {
+            thread,
+            tools_toggle,
+            tools,
             appearance,
             appearance_error,
             new_toggle,
@@ -290,9 +300,13 @@ impl View {
             selected.is_some_and(|room| room.membership == archaic_matrix::Membership::Joined);
         self.room_controls.render(model, tr, fixture)?;
         self.history_controls.render(model, tr, fixture)?;
+        self.thread.set_visible(!model.tools.show)?;
+        self.tools.render(model, tr, fixture)?;
+        self.tools_toggle
+            .set_enabled(model.can_tool() && !fixture)?;
         self.message_controls.render(model, tr, fixture)?;
         self.compose_group
-            .set_visible(joined && model.message_draft.is_none())?;
+            .set_visible(joined && model.message_draft.is_none() && !model.tools.show)?;
         self.timeline.set_visible(joined || selected.is_none())?;
         let history = history_text(model, tr, selected.is_some());
         set_text(&self.timeline, &history)?;
@@ -301,6 +315,7 @@ impl View {
             joined
                 && model.phase == Phase::Connected
                 && !fixture
+                && !model.tools_busy()
                 && !model.creating
                 && model.room_pending.is_none()
                 && model.room_confirmation.is_none(),
@@ -321,7 +336,8 @@ impl View {
         self.refresh
             .set_enabled(model.phase == Phase::Connected && !fixture)?;
         self.rooms.set_enabled(
-            model.message_draft.is_none()
+            !model.tools_busy()
+                && model.message_draft.is_none()
                 && model.phase == Phase::Connected
                 && !model.joining
                 && !model.creating,
@@ -363,7 +379,11 @@ fn history_text(model: &Model, tr: &Translator, selected: bool) -> String {
     }
 }
 
-fn message_text(message: &archaic_matrix::Message, model: &Model, tr: &Translator) -> String {
+pub(crate) fn message_text(
+    message: &archaic_matrix::Message,
+    model: &Model,
+    tr: &Translator,
+) -> String {
     let mut text = message.sender.clone();
     if message.edited {
         text.push_str(&format!(" · {}", tr.text("message-edited")));
@@ -389,6 +409,13 @@ fn message_text(message: &archaic_matrix::Message, model: &Model, tr: &Translato
                 .unwrap_or_else(|| tr.text("unavailable-message"))
         }
     ));
+    if let Some(file) = &message.attachment {
+        text.push_str(&format!(
+            "\n📎 {} · {}",
+            file.name,
+            file.size.map(|n| format!("{n} B")).unwrap_or_default()
+        ));
+    }
     let mut reactions = std::collections::BTreeMap::<&str, std::collections::BTreeSet<&str>>::new();
     for reaction in &message.reactions {
         reactions

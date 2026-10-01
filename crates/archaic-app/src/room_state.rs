@@ -8,7 +8,8 @@ impl Model {
             .and_then(|id| self.rooms.iter().find(|room| &room.id == id))
     }
     pub fn room_action_allowed(&self, action: &RoomAction) -> bool {
-        if self.message_draft.is_some()
+        if self.tools_busy()
+            || self.message_draft.is_some()
             || self.phase != Phase::Connected
             || self.room_pending.is_some()
             || self.joining

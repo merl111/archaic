@@ -16,7 +16,7 @@ use matrix_sdk::{
     },
 };
 
-fn failure(error: matrix_sdk::Error) -> &'static str {
+pub(crate) fn failure(error: matrix_sdk::Error) -> &'static str {
     use matrix_sdk::ruma::api::error::ErrorKind;
     match error.client_api_error_kind() {
         Some(ErrorKind::UnknownToken { .. }) => "session-expired",
@@ -24,7 +24,10 @@ fn failure(error: matrix_sdk::Error) -> &'static str {
         _ => "message-action-failed",
     }
 }
-async fn target(room: &Room, id: &EventId) -> Result<AnySyncTimelineEvent, &'static str> {
+pub(crate) async fn target(
+    room: &Room,
+    id: &EventId,
+) -> Result<AnySyncTimelineEvent, &'static str> {
     let event = room.event(id, None).await.map_err(failure)?;
     let room_id: Option<String> = event
         .raw()

@@ -277,15 +277,16 @@
       "feature": "Encrypted attachments and authenticated media",
       "phase": "P2",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "local SDK protocol and native Xvfb checks; full acceptance pending",
+        "windows": "implemented; verification deferred",
+        "macos": "implemented; verification deferred"
       },
       "acceptance": "Encrypt/decrypt files and thumbnails; keep content keys and authorization out of external URLs/logs.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/crypto",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "SDK encrypted/authenticated media transfer is connected to native upload/save UI. Encrypted attachment decryption and tamper rejection pass local protocol tests; multi-device encrypted uploads, thumbnails and real-server acceptance remain unfinished."
     },
     {
       "id": "ARC-02-09",
@@ -427,15 +428,16 @@
       "feature": "Unread markers and read receipts",
       "phase": "P2",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "local SDK protocol and native Xvfb checks; full acceptance pending",
+        "windows": "implemented; verification deferred",
+        "macos": "implemented; verification deferred"
       },
       "acceptance": "Respect receipt/privacy settings and thread-aware unread behavior across clients.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/timeline",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Explicit private/public unthreaded receipts and selected-event known public reader lists are implemented. Automatic viewport receipts, unread accounting, fully-read markers, threads and cross-client acceptance remain unfinished."
     },
     {
       "id": "ARC-03-08",
@@ -461,14 +463,14 @@
       "reference_availability": "Reference",
       "status": "partial",
       "platform_verification": {
-        "linux": "partial: unit/SDK protocol tests and native Xvfb interaction checks",
-        "windows": "unverified",
-        "macos": "unverified"
+        "linux": "local SDK protocol and native Xvfb checks; full acceptance pending",
+        "windows": "implemented; verification deferred",
+        "macos": "implemented; verification deferred"
       },
       "acceptance": "Preserve event identity and safe fallback rendering; update relations after redaction.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/timeline",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_note": "Bounded loaded-window projection applies edits and redactions with room-version target rules, keeps deleted tombstones and hides redacted edits/reactions. Unknown-event presentation, server-bundled relations, full remote history and encrypted interoperability remain unfinished.",
+      "implementation_note": "Timeline consumes valid bundled replacements and loaded edits/redactions; separate details pages fetch available remote relations beyond the loaded window. Unknown-event presentation, continuous relation updates and encrypted interoperability remain unfinished.",
       "implementation_evidence": "docs/IMPLEMENTATION.md"
     },
     {
@@ -527,14 +529,14 @@
       "reference_availability": "Reference",
       "status": "partial",
       "platform_verification": {
-        "linux": "partial: unit/SDK protocol tests and native Xvfb interaction checks",
-        "windows": "unverified",
-        "macos": "unverified"
+        "linux": "local SDK protocol and native Xvfb checks; full acceptance pending",
+        "windows": "implemented; verification deferred",
+        "macos": "implemented; verification deferred"
       },
       "acceptance": "Create/follow replies including missing originals, edits and encrypted events.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/composer",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_note": "Native action editor sends SDK unthreaded replies without implicit mention notifications. Loaded targets show a preview; absent targets retain their event ID. Jump-to-original, complete quoted context and encrypted multi-device acceptance remain unfinished.",
+      "implementation_note": "Native replies and separate targeted details fetch reply originals outside the timeline window. Missing originals are labeled; formatted quoting, forward/context navigation and threads remain unfinished.",
       "implementation_evidence": "docs/IMPLEMENTATION.md"
     },
     {
@@ -561,14 +563,14 @@
       "reference_availability": "Reference",
       "status": "partial",
       "platform_verification": {
-        "linux": "partial: unit/SDK protocol tests and native Xvfb interaction checks",
-        "windows": "unverified",
-        "macos": "unverified"
+        "linux": "local SDK protocol and native Xvfb checks; full acceptance pending",
+        "windows": "implemented; verification deferred",
+        "macos": "implemented; verification deferred"
       },
       "acceptance": "Edit own messages, inspect history and apply permission-aware redaction across clients.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/composer",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_note": "Own text messages can be edited or deleted with explicit confirmation, guarded targets and stable retry transactions. Loaded revisions update the original; redaction hides the message. Full edit history, broader event types, moderation and live multi-client acceptance remain unfinished.",
+      "implementation_note": "Own-text edit/delete and paginated non-redacted same-author revision history are implemented with stable transaction retries. No durable outbox, rich editor, general media editing or accepted encrypted interoperability yet.",
       "implementation_evidence": "docs/IMPLEMENTATION.md"
     },
     {
@@ -579,14 +581,14 @@
       "reference_availability": "Reference + Labs extension",
       "status": "partial",
       "platform_verification": {
-        "linux": "partial: unit/SDK protocol tests and native Xvfb interaction checks",
-        "windows": "unverified",
-        "macos": "unverified"
+        "linux": "local SDK protocol and native Xvfb checks; full acceptance pending",
+        "windows": "implemented; verification deferred",
+        "macos": "implemented; verification deferred"
       },
       "acceptance": "Toggle standard reactions without duplicate state; track custom-image flag separately.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/composer",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_note": "Native reaction entry adds or removes the current user's loaded matching annotation events. Counts deduplicate senders; retries preserve operation and per-event transaction IDs. Full relation loading, emoji picker/custom images, durable retry and live encrypted interoperability remain unfinished.",
+      "implementation_note": "Own annotation add/removal supports stable retries and paginated detail relations beyond loaded history. Emoji picker/custom images, continuous relation refresh, durable retry and live encrypted acceptance remain unfinished.",
       "implementation_evidence": "docs/IMPLEMENTATION.md"
     },
     {
@@ -725,15 +727,16 @@
       "feature": "Upload files, images and captions",
       "phase": "P2",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "local SDK protocol and native Xvfb checks; full acceptance pending",
+        "windows": "implemented; verification deferred",
+        "macos": "implemented; verification deferred"
       },
       "acceptance": "Choose/drop/paste files, preview and cancel; report size limits/progress/retry accurately.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/messages",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Native choose/send file UI with 25 MiB regular-file limit, PNG/JPEG/GIF signature detection and SDK media/encryption support. Retry preserves bytes and message transaction. Captions, upload progress/cancellation, durable outbox and media previews remain unfinished."
     },
     {
       "id": "ARC-05-02",
@@ -741,15 +744,16 @@
       "feature": "Downloads, save/open and file safety",
       "phase": "P3",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "local SDK protocol and native Xvfb checks; full acceptance pending",
+        "windows": "implemented; verification deferred",
+        "macos": "implemented; verification deferred"
       },
       "acceptance": "Sanitize filenames and require intended user actions before opening external handlers.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/messages",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Native save dialog and SDK authenticated/decrypted original-media download with integrity checks and atomic no-overwrite saves. Download size is checked after SDK buffering; streaming bounds, external open, previews and platform acceptance remain unfinished."
     },
     {
       "id": "ARC-05-03",
@@ -1081,15 +1085,16 @@
       "feature": "Server-side message search",
       "phase": "P3",
       "reference_availability": "Server-dependent",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "local SDK protocol and native Xvfb checks; full acceptance pending",
+        "windows": "implemented; verification deferred",
+        "macos": "implemented; verification deferred"
       },
       "acceptance": "Search supported unencrypted history with filters, pagination and jump-to-result.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/structures",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Room-scoped recent-first server search, result navigation and cursor continuation/retry implemented. Encrypted-room queries are blocked before disclosure. Global search and real-server acceptance remain unfinished."
     },
     {
       "id": "ARC-07-03",
@@ -1097,15 +1102,16 @@
       "feature": "Local encrypted-history search",
       "phase": "P3",
       "reference_availability": "Desktop reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "local SDK protocol and native Xvfb checks; full acceptance pending",
+        "windows": "implemented; verification deferred",
+        "macos": "implemented; verification deferred"
       },
       "acceptance": "Index decrypted content locally with defined at-rest protection, incremental updates and coverage reporting.",
       "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/desktop/src/seshat.ts",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "On-demand backward SDK-decrypted history scan, independent of the timeline window, with case-insensitive matching, unavailable-event counts, result navigation and bounded continuation. No persistent encrypted index, automatic key-recovery reindex, cross-page replacement matching or complete encrypted acceptance yet."
     },
     {
       "id": "ARC-07-04",

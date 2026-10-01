@@ -21,6 +21,7 @@ pub struct Outgoing {
 
 #[derive(Default)]
 pub struct Model {
+    pub tools: crate::tool_state::ToolState,
     pub epoch: u64,
     pub temporary: bool,
     pub session_saved: bool,
@@ -57,6 +58,7 @@ impl Model {
             return;
         }
         match event.kind {
+            EventKind::RoomToolResult { request, result } => self.tool_result(request, result),
             EventKind::SessionSaved(saved) => {
                 self.session_saved = saved;
                 if !saved && !self.temporary {
@@ -193,7 +195,8 @@ impl Model {
     }
 
     pub fn send_command(&mut self) -> Option<Command> {
-        if self.message_draft.is_some()
+        if self.tools_busy()
+            || self.message_draft.is_some()
             || self.sending
             || self.creating
             || self.phase != Phase::Connected
@@ -564,5 +567,68 @@ mod tests {
             kind: EventKind::SignedOut,
         });
         assert!(!model.show_new && model.create_error.is_none());
+    }
+    #[test]
+    fn room_tools_reject_stale_results_block_conflicts_and_preserve_composer() {
+        use archaic_matrix::{SearchMode, SearchPage, ToolAction, ToolData, ToolRequest};
+        let mut model = connected();
+        let request = ToolRequest {
+            room_id: "!a:local".into(),
+            id: transaction_id(),
+            action: ToolAction::Search {
+                query: "hello".into(),
+                mode: SearchMode::Local,
+                more: false,
+            },
+        };
+        model.tools.pending = Some(request.clone());
+        assert!(!model.can_tool());
+        assert!(model.send_command().is_none());
+        assert!(!model.can_message_action());
+        model.apply(Event {
+            epoch: 1,
+            kind: EventKind::RoomToolResult {
+                request: request.clone(),
+                result: Ok(ToolData::Search(SearchPage::default())),
+            },
+        });
+        assert!(model.tools.pending.is_some());
+        let mut wrong = request.clone();
+        wrong.room_id = "!other:local".into();
+        model.apply(Event {
+            epoch: 2,
+            kind: EventKind::RoomToolResult {
+                request: wrong,
+                result: Ok(ToolData::Search(SearchPage::default())),
+            },
+        });
+        assert!(model.tools.pending.is_some());
+        model.apply(Event {
+            epoch: 2,
+            kind: EventKind::RoomToolResult {
+                request: request.clone(),
+                result: Err("search-failed"),
+            },
+        });
+        assert!(model.tools.pending.is_none());
+        assert_eq!(model.tools.error, Some("search-failed"));
+        assert_eq!(model.draft(), "hello");
+        model.tools.pending = Some(request.clone());
+        model.apply(Event {
+            epoch: 2,
+            kind: EventKind::RoomToolResult {
+                request,
+                result: Ok(ToolData::Search(SearchPage::default())),
+            },
+        });
+        assert!(model.tools.error.is_none());
+        assert!(model.can_tool());
+        assert_eq!(
+            model.tools.search_key,
+            Some(("hello".into(), SearchMode::Local))
+        );
+        model.clear_history();
+        assert!(model.tools.search_key.is_none());
+        assert!(!model.tools_busy());
     }
 }

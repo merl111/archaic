@@ -129,6 +129,9 @@ async fn handle(
     }
     let result = match command {
         Command::Select(room_id) => {
+            if active.selected.as_ref() != Some(&room_id) {
+                active.tools = Default::default();
+            }
             active.selected = Some(room_id);
             history(active, events).await;
             Ok(())
@@ -149,6 +152,14 @@ async fn handle(
         }
         Command::LoadHistory { room_id, kind } => {
             load_history(active, events, room_id, kind).await;
+            Ok(())
+        }
+        Command::DiscardUpload => {
+            active.tools.attachments = Default::default();
+            Ok(())
+        }
+        Command::RoomTool(request) => {
+            room_tool(active, request, events).await;
             Ok(())
         }
         Command::MessageAction(request) => {
@@ -202,6 +213,29 @@ async fn handle(
     false
 }
 
+async fn room_tool(
+    active: &mut Session,
+    request: crate::ToolRequest,
+    events: &mpsc::Sender<Event>,
+) {
+    let result = active.tools.perform(&active.client, &request).await;
+    let expired = matches!(result, Err("session-expired"));
+    let refresh = matches!(result, Ok(crate::ToolData::Uploaded));
+    emit(
+        events,
+        active.epoch,
+        EventKind::RoomToolResult { request, result },
+    )
+    .await;
+    if expired {
+        active.revoked = true;
+        active.stop_sync();
+        emit(events, active.epoch, EventKind::Error("session-expired")).await;
+    } else if refresh {
+        history(active, events).await;
+    }
+}
+
 async fn message_action(
     active: &mut Session,
     request: crate::MessageRequest,
@@ -236,6 +270,7 @@ async fn room_action(
     {
         active.selected = None;
         active.history = crate::history::History::default();
+        active.tools = Default::default();
     }
     emit(
         events,
@@ -323,6 +358,7 @@ async fn snapshot(active: &mut Session, events: &mpsc::Sender<Event>) {
         active.selected.as_ref() == Some(&room.id) && room.membership == crate::Membership::Joined
     }) {
         active.history = crate::history::History::default();
+        active.tools = Default::default();
     }
     emit(events, active.epoch, EventKind::Rooms(rooms)).await;
     history(active, events).await;
@@ -351,6 +387,7 @@ async fn load_history(
     };
     if room.state() != matrix_sdk::RoomState::Joined {
         active.history = crate::history::History::default();
+        active.tools = Default::default();
         return;
     }
     let event = match active.history.load(&room, kind).await {

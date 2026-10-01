@@ -66,7 +66,8 @@ impl RoomControls {
         self.root.set_visible(room.is_some())?;
         let invited = room.is_some_and(|room| room.membership == Membership::Invited);
         let confirming = model.room_confirmation.is_some();
-        let enabled = model.phase == Phase::Connected
+        let enabled = !model.tools_busy()
+            && model.phase == Phase::Connected
             && !fixture
             && !model.creating
             && model.room_pending.is_none()

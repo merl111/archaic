@@ -10,6 +10,9 @@ mod new_conversation;
 mod options;
 mod room_controls;
 mod room_state;
+mod tool_controller;
+mod tool_controls;
+mod tool_state;
 mod view;
 mod widgets;
 use archaic_i18n::Translator;
@@ -24,6 +27,8 @@ use view::View;
 
 struct Controller {
     view: View,
+    window: cui::Window,
+    self_weak: RefCell<std::rc::Weak<Controller>>,
     model: RefCell<Model>,
     tr: Translator,
     sender: Sender,
@@ -141,7 +146,7 @@ impl Controller {
         Ok(())
     }
     fn select(&self) -> Result<()> {
-        if self.model.borrow().message_draft.is_some() {
+        if self.model.borrow().message_draft.is_some() || self.model.borrow().tools_busy() {
             return Ok(());
         }
         self.remember_draft()?;
@@ -273,7 +278,7 @@ impl Controller {
         self.render()
     }
     fn toggle_join(&self) -> Result<()> {
-        if self.model.borrow().message_draft.is_some() {
+        if self.model.borrow().message_draft.is_some() || self.model.borrow().tools_busy() {
             return Ok(());
         }
         let mut model = self.model.borrow_mut();
@@ -286,7 +291,7 @@ impl Controller {
         self.render()
     }
     fn join(&self) -> Result<()> {
-        if self.model.borrow().message_draft.is_some() {
+        if self.model.borrow().message_draft.is_some() || self.model.borrow().tools_busy() {
             return Ok(());
         }
         if self.fixture
@@ -406,6 +411,7 @@ impl Controller {
         for (widget, action) in [
             (&self.view.password, Self::login as fn(&Self) -> Result<()>),
             (&self.view.join.join_address, Self::join),
+            (&self.view.tools.query, Self::run_search),
             (
                 &self.view.new_conversation.person,
                 Self::create_conversation,
@@ -426,6 +432,22 @@ impl Controller {
             (&self.view.temporary, Self::temporary),
             (&self.view.rooms, Self::select),
             (&self.view.send, Self::send),
+            (&self.view.tools_toggle, Self::toggle_tools),
+            (&self.view.tools.mode, Self::tool_mode),
+            (&self.view.tools.choose_file, Self::choose_file),
+            (&self.view.tools.upload, Self::upload_file),
+            (&self.view.tools.discard, Self::discard_upload),
+            (&self.view.tools.search, Self::run_search),
+            (&self.view.tools.more_search, Self::more_search),
+            (&self.view.tools.search_mode, Self::search_input),
+            (&self.view.tools.query, Self::search_input),
+            (&self.view.tools.hits, Self::tool_selection),
+            (&self.view.tools.open_hit, Self::open_hit),
+            (&self.view.tools.details, Self::load_details),
+            (&self.view.tools.more_details, Self::more_details),
+            (&self.view.tools.original, Self::open_original),
+            (&self.view.tools.download, Self::download_file),
+            (&self.view.tools.mark_read, Self::mark_read),
             (&self.view.message_controls.select, Self::choose_message),
             (&self.view.message_controls.reply, Self::reply_message),
             (&self.view.message_controls.edit, Self::edit_message),
@@ -514,6 +536,8 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let tr = Translator::new(&options.locale);
     let controller = Rc::new(Controller {
         view: View::new(&root, &tr)?,
+        window: window.clone(),
+        self_weak: RefCell::new(std::rc::Weak::new()),
         model: RefCell::new(if options.fixture_mode {
             fixture()
         } else {
@@ -535,6 +559,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         app: Rc::downgrade(&app),
         preference_path,
     });
+    *controller.self_weak.borrow_mut() = Rc::downgrade(&controller);
     controller
         .view
         .appearance

@@ -56,8 +56,11 @@ impl MessageControls {
         })
     }
     pub fn render(&self, model: &Model, tr: &Translator, fixture: bool) -> Result<()> {
-        self.root
-            .set_visible(!model.messages.is_empty() || model.message_draft.is_some())?;
+        self.root.set_visible(
+            !model.messages.is_empty()
+                || model.message_draft.is_some()
+                || model.tools.details.is_some(),
+        )?;
         let mut labels: Vec<_> = model
             .messages
             .iter()

@@ -2,7 +2,7 @@
 
 Baseline: [Element v1.12.30](https://github.com/element-hq/element-web/releases/tag/v1.12.30), commit `f19cfd9030429240a4209bf5175b372175cf0464`, researched October 1, 2026.
 
-94 feature families mapped. Sixteen families now have **partial** implementations; none has passed full parity acceptance. The first native client increment is described in [implementation status](IMPLEMENTATION.md). Windows/macOS verification remains deferred. This is an initial source-based inventory, not an exhaustive runtime audit. Phase P0 expands families into scenarios and reconciles the full settings/test index.
+94 feature families mapped. Twenty-two families now have **partial** implementations; none has passed full parity acceptance. The first native client increment is described in [implementation status](IMPLEMENTATION.md). Windows/macOS verification remains deferred. This is an initial source-based inventory, not an exhaustive runtime audit. Phase P0 expands families into scenarios and reconciles the full settings/test index.
 
 The [machine-readable inventory](parity.json) contains acceptance criteria and platform status. The [upstream index](upstream-index.json) records 176 setting entries, 24 feature-marked entries, release configuration, 158 reference test files and hashes of 63 retrieved source files. Source/test presence identifies a feature surface, not whether a particular deployment enables it.
 
@@ -184,3 +184,5 @@ The reference release turns on both video-room flags in its release configs. Use
 - Encrypted local search is an experimental SDK feature and has distinct storage/privacy requirements.
 - CUI has known gaps in rich/virtualized chat, worker dispatch, lifetime disposal and RTL/accessibility. See [CUI work packages](CUI-GAPS.md).
 - Enterprise or deployment-specific modules cannot be assumed to work as native features; keep their support decisions explicit.
+
+The room-tools increment adds partial attachment upload/save, authenticated encrypted media, explicit read receipts, server search and local decrypted-history scanning. Existing relation/reply/revision families gain separate pagination beyond the text timeline. See [workflows and limits](ROOM-TOOLS.md); no family has full parity acceptance.

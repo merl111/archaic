@@ -2,7 +2,8 @@ use crate::model::{Model, Phase};
 use archaic_matrix::{EventKind, HistoryLoad, Membership};
 impl Model {
     pub fn history_command(&self, kind: HistoryLoad) -> Option<archaic_matrix::Command> {
-        if self.phase != Phase::Connected
+        if self.tools_busy()
+            || self.phase != Phase::Connected
             || self.history_pending.is_some()
             || self.room_pending.is_some()
             || self.room_confirmation.is_some()
@@ -19,6 +20,7 @@ impl Model {
         })
     }
     pub fn clear_history(&mut self) {
+        self.tools = Default::default();
         self.messages.clear();
         self.message_selected = None;
         self.message_draft = None;

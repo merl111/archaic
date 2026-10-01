@@ -1,9 +1,14 @@
 //! Matrix-only application service. No GUI handles or callbacks cross this boundary.
+mod attachments;
 mod connection;
 mod conversations;
+mod details;
 mod history;
 mod membership;
 mod message_actions;
+mod paging;
+mod room_tools;
+mod search;
 pub mod storage;
 mod timeline;
 mod worker;
@@ -17,6 +22,7 @@ pub const CHANNEL_CAPACITY: usize = 32;
 
 // Deliberately not Debug: login commands contain a password.
 pub enum Command {
+    DiscardUpload,
     Restore {
         epoch: u64,
     },
@@ -47,6 +53,7 @@ pub enum Command {
         transaction: OwnedTransactionId,
     },
     MessageAction(MessageRequest),
+    RoomTool(ToolRequest),
     Logout,
 }
 
@@ -91,6 +98,73 @@ pub struct Message {
     pub edited: bool,
     pub reply_to: Option<String>,
     pub reactions: Vec<Reaction>,
+    pub attachment: Option<Attachment>,
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Attachment {
+    pub name: String,
+    pub kind: String,
+    pub size: Option<u64>,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SearchMode {
+    Server,
+    Local,
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ToolAction {
+    Upload {
+        path: std::path::PathBuf,
+    },
+    Download {
+        event_id: String,
+        path: std::path::PathBuf,
+    },
+    MarkRead {
+        event_id: String,
+        private: bool,
+    },
+    Search {
+        query: String,
+        mode: SearchMode,
+        more: bool,
+    },
+    Details {
+        event_id: String,
+        more: bool,
+    },
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ToolRequest {
+    pub room_id: String,
+    pub id: TransactionId,
+    pub action: ToolAction,
+}
+#[derive(Clone, Debug, Default)]
+pub struct SearchPage {
+    pub unavailable: usize,
+    pub messages: Vec<Message>,
+    pub more: bool,
+    pub scanned: usize,
+}
+#[derive(Clone, Debug)]
+pub struct MessageDetails {
+    pub unavailable: usize,
+    pub message: Message,
+    pub reply: Option<Message>,
+    pub reply_unavailable: bool,
+    pub revisions: Vec<String>,
+    pub read_by: Vec<String>,
+    pub more: bool,
+    pub loaded: usize,
+}
+#[derive(Clone, Debug)]
+pub enum ToolData {
+    Uploaded,
+    Downloaded,
+    Read,
+    Search(SearchPage),
+    Details(Box<MessageDetails>),
 }
 /// One loaded reaction event. Counts are deduplicated by sender in the view.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -134,6 +208,10 @@ pub struct HistoryInfo {
 
 #[derive(Debug)]
 pub enum EventKind {
+    RoomToolResult {
+        request: ToolRequest,
+        result: Result<ToolData, &'static str>,
+    },
     Connected(String),
     SessionSaved(bool),
     RestoreBlocked(&'static str),

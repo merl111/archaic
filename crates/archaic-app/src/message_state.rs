@@ -53,12 +53,20 @@ impl ActionDraft {
 }
 impl Model {
     pub fn selected_message(&self) -> Option<&Message> {
-        self.messages
-            .iter()
-            .find(|m| self.message_selected.as_ref() == Some(&m.id))
+        self.tools
+            .details
+            .as_ref()
+            .map(|d| &d.message)
+            .filter(|m| self.message_selected.as_ref() == Some(&m.id))
+            .or_else(|| {
+                self.messages
+                    .iter()
+                    .find(|m| self.message_selected.as_ref() == Some(&m.id))
+            })
     }
     pub fn can_message_action(&self) -> bool {
-        self.phase == Phase::Connected
+        !self.tools_busy()
+            && self.phase == Phase::Connected
             && !self.sending
             && !self.joining
             && !self.creating
@@ -110,9 +118,8 @@ impl Model {
             return Some(Command::MessageAction(request.clone()));
         }
         let target = self
-            .messages
-            .iter()
-            .find(|m| m.id == draft.target && !m.deleted && m.body.is_some());
+            .selected_message()
+            .filter(|m| m.id == draft.target && !m.deleted && m.body.is_some());
         let Some(target) = target else {
             self.message_draft.as_mut()?.error = Some("message-unavailable");
             return None;
@@ -153,6 +160,7 @@ impl Model {
             draft.pending = false;
             draft.error = Some(key);
         } else {
+            self.tools.details = None;
             self.message_draft = None;
             self.status = "message-action-done";
         }

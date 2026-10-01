@@ -11,6 +11,7 @@ pub(crate) struct Entry {
     timestamp: u64,
     msgtype: String,
     room_message: bool,
+    bundled: Option<Box<Entry>>,
     relation: Option<Relation>,
 }
 #[derive(Clone)]
@@ -94,12 +95,45 @@ pub(crate) fn decode(value: Value, redacts_in_content: bool) -> Entry {
                 reply_to: relation["m.in_reply_to"]["event_id"]
                     .as_str()
                     .map(str::to_owned),
+                attachment: if deleted { None } else { attachment(content) },
                 ..Message::default()
             });
         }
         _ => {}
     }
+    entry.bundled = bundled_replacement(&value, redacts_in_content);
+
     entry
+}
+
+fn attachment(content: &Value) -> Option<crate::Attachment> {
+    matches!(
+        content["msgtype"].as_str(),
+        Some("m.file" | "m.image" | "m.video" | "m.audio")
+    )
+    .then(|| crate::Attachment {
+        name: content["filename"]
+            .as_str()
+            .or(content["body"].as_str())
+            .unwrap_or("attachment")
+            .to_owned(),
+        kind: string(content, "msgtype"),
+        size: content["info"]["size"].as_u64(),
+    })
+}
+fn bundled_replacement(value: &Value, redacts_in_content: bool) -> Option<Box<Entry>> {
+    let mut bundled = value["unsigned"]["m.relations"].get("m.replace")?.clone();
+    // Strip nested bundles before decoding to bound recursion on untrusted content.
+    bundled.as_object_mut()?.remove("unsigned");
+    if bundled["room_id"]
+        .as_str()
+        .is_some_and(|room| value["room_id"].as_str() != Some(room))
+    {
+        return None;
+    }
+    serde_json::from_value::<matrix_sdk::ruma::events::AnySyncTimelineEvent>(bundled.clone())
+        .ok()?;
+    Some(Box::new(decode(bundled, redacts_in_content)))
 }
 
 pub(crate) fn aggregate(entries: &[Entry]) -> Vec<Message> {
@@ -126,7 +160,12 @@ pub(crate) fn aggregate(entries: &[Entry]) -> Vec<Message> {
         .map(|e| (e.id.as_str(), e))
         .collect();
     let mut edits: HashMap<&str, (u64, &str)> = HashMap::new();
-    for entry in entries {
+    let bundled: Vec<_> = entries
+        .iter()
+        .filter_map(|entry| entry.bundled.as_deref())
+        .filter(|b| !entries.iter().any(|e| e.id == b.id))
+        .collect();
+    for entry in entries.iter().chain(bundled) {
         if redacted.contains(entry.id.as_str()) {
             continue;
         }
@@ -156,6 +195,7 @@ pub(crate) fn aggregate(entries: &[Entry]) -> Vec<Message> {
             message.edited = false;
             message.reply_to = None;
             message.reactions.clear();
+            message.attachment = None;
         }
     }
     messages
@@ -190,6 +230,44 @@ fn apply_edit<'a>(
     message.edited = true;
     message.editable = original.msgtype == "m.text" && msgtype == "m.text";
     edits.insert(target, rank);
+}
+
+pub(crate) fn revisions(entries: &[Entry], target: &str) -> Vec<String> {
+    let Some(original) = entries
+        .iter()
+        .find(|e| e.id == target && e.message.is_some())
+    else {
+        return vec![];
+    };
+    if aggregate(entries)
+        .iter()
+        .find(|m| m.id == target)
+        .is_none_or(|m| m.deleted)
+    {
+        return vec![];
+    }
+    let redacted: HashSet<_> = entries
+        .iter()
+        .filter_map(|e| match &e.relation {
+            Some(Relation::Redaction(id)) => Some(id),
+            _ => None,
+        })
+        .collect();
+    let mut edits: Vec<_> = entries
+        .iter()
+        .filter(|e| e.sender == original.sender && !redacted.contains(&e.id))
+        .filter_map(|e| match &e.relation {
+            Some(Relation::Edit {
+                target: t, body, ..
+            }) if t == target => Some((e.timestamp, &e.id, body)),
+            _ => None,
+        })
+        .collect();
+    edits.sort();
+    edits
+        .into_iter()
+        .map(|(timestamp, id, body)| format!("{timestamp} · {id}\n{body}"))
+        .collect()
 }
 
 #[cfg(test)]
@@ -326,5 +404,57 @@ mod tests {
             false,
         );
         assert!(aggregate(&[text("$original", "secret"), legacy])[0].deleted);
+    }
+    #[test]
+    fn bundled_edits_are_validated_and_live_redaction_overrides_bundle() {
+        let original = json!({"type":"m.room.message","event_id":"$original","room_id":"!room:local","sender":"@a:local","origin_server_ts":1,"content":{"msgtype":"m.text","body":"Original"}});
+        let replacement = json!({"type":"m.room.message","event_id":"$edit","sender":"@a:local","origin_server_ts":2,"content":{"msgtype":"m.text","body":"* Edited","m.new_content":{"msgtype":"m.text","body":"Edited"},"m.relates_to":{"rel_type":"m.replace","event_id":"$original"}}});
+        let mut raw = original.clone();
+        raw["unsigned"] = json!({"m.relations":{"m.replace":replacement}});
+        let entry = decode(raw.clone(), true);
+        assert_eq!(
+            aggregate(std::slice::from_ref(&entry))[0].body.as_deref(),
+            Some("Edited")
+        );
+        assert_eq!(
+            aggregate(&[entry, redact("$edit")])[0].body.as_deref(),
+            Some("Original")
+        );
+        raw["unsigned"]["m.relations"]["m.replace"]["sender"] = json!("@foreign:local");
+        assert_eq!(
+            aggregate(&[decode(raw.clone(), true)])[0].body.as_deref(),
+            Some("Original")
+        );
+        raw["unsigned"]["m.relations"]["m.replace"]["sender"] = json!("@a:local");
+        raw["unsigned"]["m.relations"]["m.replace"]["room_id"] = json!("!other:local");
+        assert_eq!(
+            aggregate(&[decode(raw, true)])[0].body.as_deref(),
+            Some("Original")
+        );
+    }
+    #[test]
+    fn redaction_removes_attachment_and_revision_history() {
+        let attachment = event(
+            "$original",
+            "@a:local",
+            "m.room.message",
+            json!({"msgtype":"m.file","body":"File","filename":"report.pdf","url":"mxc://local/file","info":{"size":42}}),
+            1,
+        );
+        assert_eq!(
+            aggregate(std::slice::from_ref(&attachment))[0]
+                .attachment
+                .as_ref()
+                .unwrap()
+                .name,
+            "report.pdf"
+        );
+        let entries = [
+            attachment,
+            edit("$edit", "@a:local", "Changed", 2),
+            redact("$original"),
+        ];
+        assert!(aggregate(&entries)[0].attachment.is_none());
+        assert!(revisions(&entries, "$original").is_empty());
     }
 }

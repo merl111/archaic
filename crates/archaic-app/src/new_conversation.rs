@@ -125,6 +125,7 @@ fn field(parent: &Widget, tr: &Translator, key: &str, placeholder: &str) -> Resu
 impl Model {
     pub fn can_create(&self) -> bool {
         self.message_draft.is_none()
+            && !self.tools_busy()
             && self.phase == Phase::Connected
             && !self.creating
             && !self.joining
