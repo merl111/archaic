@@ -14,15 +14,17 @@
       "feature": "Discovery and custom homeservers",
       "phase": "P2",
       "reference_availability": "Server-dependent",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests and native Xvfb interaction check",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Resolve Matrix IDs/well-known and manual homeservers; show TLS/network/discovery failures.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/structures/auth",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Manual HTTPS homeserver URL, input validation and loopback HTTP for tests. Matrix-ID/well-known discovery remains unfinished.",
+      "implementation_evidence": "docs/IMPLEMENTATION.md"
     },
     {
       "id": "ARC-01-02",
@@ -30,15 +32,17 @@
       "feature": "Password login and interactive authentication",
       "phase": "P2",
       "reference_availability": "Server-dependent",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests and native Xvfb interaction check",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Sign in to a classic homeserver; complete supported UI-auth stages; never log secrets.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/structures/auth",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Password login through Matrix SDK; interactive authentication and other login methods remain unfinished.",
+      "implementation_evidence": "docs/IMPLEMENTATION.md"
     },
     {
       "id": "ARC-01-03",
@@ -94,15 +98,17 @@
       "feature": "Logout and session revocation",
       "phase": "P2",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests and native Xvfb interaction check",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Revoke the correct session and remove its local secrets/caches; handle offline failure honestly.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/structures/auth",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Explicit server-side logout and in-memory state clearing. Persistence cleanup and broader failure scenarios remain unfinished.",
+      "implementation_evidence": "docs/IMPLEMENTATION.md"
     },
     {
       "id": "ARC-01-07",
@@ -318,15 +324,17 @@
       "feature": "Initial and incremental sync",
       "phase": "P2",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests and native Xvfb interaction check",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Catch up live events, state and unread counts without freezing the UI.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/timeline",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Initial and ongoing classic sync with retry delay. Incremental timeline diffing, durable state and offline restoration remain unfinished.",
+      "implementation_evidence": "docs/IMPLEMENTATION.md"
     },
     {
       "id": "ARC-03-02",
@@ -334,15 +342,17 @@
       "feature": "Classic sync compatibility",
       "phase": "P2",
       "reference_availability": "Compatibility requirement",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests and native Xvfb interaction check",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Operate on a homeserver without MSC4186; validate adapters instead of assuming high-level SDK fallback.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/timeline",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Classic /sync works in protocol and native-input local-server tests. Real homeserver interoperability remains unverified.",
+      "implementation_evidence": "docs/IMPLEMENTATION.md"
     },
     {
       "id": "ARC-03-03",
@@ -606,15 +616,17 @@
       "feature": "Per-room drafts and send preferences",
       "phase": "P2",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests and native Xvfb interaction check",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Restore drafts per account/room/thread; support multiline and configurable Enter behavior.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/composer",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "In-memory per-room drafts and transaction-preserving retries. Persistence and configurable send preferences remain unfinished.",
+      "implementation_evidence": "docs/IMPLEMENTATION.md"
     },
     {
       "id": "ARC-04-10",
@@ -1390,15 +1402,17 @@
       "feature": "Translated UI and language selection",
       "phase": "P1–P6",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests and native Xvfb interaction check",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Externalize all strings and validate fallback, plural/select rules and reviewed catalogs.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/user",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Embedded English/German Fluent catalogs and CLI locale selection; runtime selection, locale detection, more languages and RTL remain unfinished.",
+      "implementation_evidence": "docs/IMPLEMENTATION.md"
     },
     {
       "id": "ARC-10-02",

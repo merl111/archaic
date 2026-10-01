@@ -1,0 +1,15 @@
+[package]
+name = "archaic-matrix"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+matrix-sdk.workspace = true
+tokio.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+wiremock = "0.6"
+serde_json = "1"
