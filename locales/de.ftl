@@ -92,3 +92,23 @@ join-not-found = Raum nicht gefunden.
     Alias prüfen und erneut versuchen.
 join-failed = Beitritt fehlgeschlagen. Adresse
     und Verbindung prüfen.
+
+invitation = Einladung
+invited-by = Eingeladen von
+accept-invitation = Annehmen
+decline-invitation = Ablehnen
+invite-user = Einladen
+invite-user-placeholder = @person:server
+leave-room = Raum verlassen
+confirm = Bestätigen
+leave-confirmation = Diesen Raum verlassen? Dein Entwurf wird verworfen.
+    Eine Rückkehr kann eine Einladung erfordern. Frühere Raumversionen werden ebenfalls verlassen.
+decline-confirmation = Einladung ablehnen? Für die Rückkehr kann eine neue Einladung nötig sein.
+room-action-pending = Server wird kontaktiert…
+room-left = Raum aus deinen Unterhaltungen entfernt
+room-unavailable = Dieser Raum ist nicht mehr verfügbar. Unterhaltungen aktualisieren.
+room-membership-changed = Deine Mitgliedschaft hat sich geändert. Aktualisieren und erneut versuchen.
+invite-invalid-user = Vollständige Matrix-ID eingeben, zum Beispiel @person:server.
+room-action-forbidden = Der Server hat den Vorgang verweigert. Raumberechtigungen prüfen.
+room-action-failed = Vorgang nicht bestätigt. Verbindung prüfen und erneut versuchen.
+invite-sent = Einladung gesendet.

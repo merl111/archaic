@@ -2,7 +2,7 @@
 
 A native Matrix desktop client built with Rust and CUI, targeting Linux, Windows and macOS.
 
-**Early development build.** The first implementation connects to a real Matrix homeserver using password login, synchronizes joined rooms, loads recent text messages, sends text and signs out. It is not yet an Element replacement. Use a test account: device verification/recovery are not implemented. Saved sessions now reopen with the same Matrix device and encryption store. Closing the window keeps a saved session; **Sign out** revokes it.
+**Early development build.** The first implementation connects to a real Matrix homeserver using password login, synchronizes joined rooms and invitations, loads recent text messages, sends text and signs out. It is not yet an Element replacement. Use a test account: device verification/recovery are not implemented. Saved sessions now reopen with the same Matrix device and encryption store. Closing the window keeps a saved session; **Sign out** revokes it.
 
 ## Build and run
 
@@ -35,14 +35,16 @@ The sign-in screen uses a centered native card and a CUI ambient background. It 
 ## Connect
 
 1. Enter the HTTPS homeserver base URL, your Matrix ID or username, and password. Loopback HTTP addresses are accepted for local testing only.
-2. Sign in, wait for the joined room list, then select a conversation.
+2. Sign in, wait for the room and invitation list, then select a conversation.
 3. Write a message and press **Send**. **Refresh** reloads recent history. Filtering the room list preserves selection and drafts.
-4. Use **+** beside Conversations to join by `#room:server` alias (recommended) or `!room:server` ID. Enter submits; failures preserve the address for retry. A successful join opens the room and preserves other-room drafts. This does not yet include directory browsing, Matrix links, invitation management or explicit federation routing servers.
-5. Use **Sign out** to revoke the current device session and clear the view. Failed server revocation permits retry. If revocation succeeds but clearing the local sign-in fails, messaging is disabled and **Sign out** retries only local cleanup.
+4. Use **+** beside Conversations to join by `#room:server` alias (recommended) or `!room:server` ID. Enter submits; failures preserve the address for retry. A successful join opens the room and preserves other-room drafts. This does not yet include directory browsing, Matrix links or explicit federation routing servers.
+5. Select a conversation marked **Invitation** to see the inviter (when supplied by the server). **Accept** joins it; **Decline** asks for confirmation before rejecting it. History and sending stay disabled until you join.
+6. In a joined room, enter a full `@person:server` ID and press **Invite**. Permission/network errors preserve the ID for retry. **Leave room** asks for confirmation and warns that the unsent draft is discarded and returning may require an invitation. The SDK also leaves known predecessor versions of upgraded rooms. Cancelling makes no server request.
+7. Use **Sign out** to revoke the current device session and clear the view. Failed server revocation permits retry. If revocation succeeds but clearing the local sign-in fails, messaging is disabled and **Sign out** retries only local cleanup.
 
 Only password login is implemented; OIDC/SSO and interactive authentication flows come later. The Matrix SDK's encryption implementation is enabled, but verification and backup/recovery UI remain unfinished. This is **not a production E2EE client**. Unavailable encrypted messages are shown as placeholders. Avoid using this build for valuable conversations.
 
-The timeline currently shows text from the latest 50 room events in a selectable native text view. Rich messages, history pagination, edits, threads, attachments, invitations, room creation, receipts and calling are unfinished. The native view is a temporary foundation for the planned CUI virtualized rich timeline.
+The timeline currently shows text from the latest 50 room events in a selectable native text view. Rich messages, history pagination, edits, threads, attachments, room creation, receipts and calling are unfinished. The native view is a temporary foundation for the planned CUI virtualized rich timeline.
 
 Appearance preferences are stored separately from credentials: `$XDG_CONFIG_HOME/archaic/appearance` (or `~/.config/archaic/appearance`) on Linux, `~/Library/Preferences/archaic/appearance` on macOS, and `%APPDATA%\archaic\appearance` on Windows. Failed writes leave the selected theme active and show a warning. Missing/unrecognized preferences fall back to System.
 
@@ -89,7 +91,7 @@ python3 tools/dev.py run -- --fixture --smoke-test
 
 The UI currently drains up to eight events per 50 ms CUI timer tick. A reusable CUI worker dispatcher remains a separate planned library change. Widget callbacks are registered once; room updates reuse existing controls. Worker shutdown aborts synchronization and bounds runtime shutdown. Passwords are never deliberately logged or saved; access tokens are saved only in the encrypted session record. The profile key and temporary decrypted record buffers use zeroizing wrappers; the password entry is cleared after submitting login. No claim is made that every temporary allocator copy is securely erased.
 
-Protocol tests use a local HTTP mock server and the real Matrix SDK, without external accounts. They cover login, classic sync, room discovery, history ordering, authorization, transaction IDs, sending, rejected credentials, restart without another login, corrupted saved data, token revocation and local logout cleanup retries. Storage tests cover encryption/authentication, missing keys/stores and exclusive profile locking. `python3 tools/test_linux_vault.py` additionally exercises the real Linux credential adapter in a disposable D-Bus session/keyring; it never uses the desktop vault. They do not replace interoperability or encrypted multi-device tests against a real homeserver.
+Protocol tests use a local HTTP mock server and the real Matrix SDK, without external accounts. They cover login, classic sync, room discovery, history ordering, authorization, transaction IDs, sending, invitation acceptance/decline, user invitations, leave retries, external membership changes, rejected credentials, restart without another login, corrupted saved data, token revocation and local logout cleanup retries. Storage tests cover encryption/authentication, missing keys/stores and exclusive profile locking. `python3 tools/test_linux_vault.py` additionally exercises the real Linux credential adapter in a disposable D-Bus session/keyring; it never uses the desktop vault. They do not replace interoperability or encrypted multi-device tests against a real homeserver.
 
 ## Roadmap and architecture
 

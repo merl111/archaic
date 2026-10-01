@@ -1,4 +1,4 @@
-use crate::{Command, Event, EventKind, Message, RoomSummary};
+use crate::{Command, Event, EventKind, Message, RoomAction, membership};
 use crate::{
     connection::{self, Persistence, Session, SyncUpdate},
     storage::Profile,
@@ -147,6 +147,10 @@ async fn handle(
             }
             Ok(())
         }
+        Command::RoomAction { room_id, action } => {
+            room_action(active, room_id, action, events).await;
+            Ok(())
+        }
         Command::Refresh => {
             snapshot(active, events).await;
             Ok(())
@@ -160,7 +164,9 @@ async fn handle(
                 .ok()
                 .and_then(|id| active.client.get_room(&id))
             {
-                Some(room) if !body.trim().is_empty() => {
+                Some(room)
+                    if room.state() == matrix_sdk::RoomState::Joined && !body.trim().is_empty() =>
+                {
                     match room
                         .send(RoomMessageEventContent::text_plain(body))
                         .with_transaction_id(transaction.clone())
@@ -191,6 +197,38 @@ async fn handle(
     false
 }
 
+async fn room_action(
+    active: &mut Session,
+    room_id: String,
+    action: RoomAction,
+    events: &mpsc::Sender<Event>,
+) {
+    let result = membership::perform(&active.client, &room_id, &action).await;
+    if result.is_ok()
+        && matches!(action, RoomAction::Leave | RoomAction::Decline)
+        && active.selected.as_ref() == Some(&room_id)
+    {
+        active.selected = None;
+    }
+    emit(
+        events,
+        active.epoch,
+        EventKind::RoomActionResult {
+            room_id,
+            action,
+            result,
+        },
+    )
+    .await;
+    if result == Err("session-expired") {
+        active.revoked = true;
+        active.stop_sync();
+        emit(events, active.epoch, EventKind::Error("session-expired")).await;
+    } else {
+        snapshot(active, events).await;
+    }
+}
+
 async fn join_room(
     active: &mut Session,
     address: &str,
@@ -207,19 +245,9 @@ async fn join_room(
             Some(matrix_sdk::ruma::api::error::ErrorKind::NotFound) => "join-not-found",
             _ => "join-failed",
         })?;
-    let id = room.room_id().to_string();
-    let name = room
-        .display_name()
-        .await
-        .map(|name| name.to_string())
-        .unwrap_or_else(|_| id.clone());
-    active.selected = Some(id.clone());
-    emit(
-        events,
-        active.epoch,
-        EventKind::Joined(RoomSummary { id, name }),
-    )
-    .await;
+    let summary = membership::summary(&room).await;
+    active.selected = Some(summary.id.clone());
+    emit(events, active.epoch, EventKind::Joined(summary)).await;
     snapshot(active, events).await;
     Ok(())
 }
@@ -246,20 +274,23 @@ async fn logout(active: &mut Session, persistence: &Persistence) -> Result<(), &
 
 async fn snapshot(active: &Session, events: &mpsc::Sender<Event>) {
     let mut rooms = Vec::new();
-    for room in active.client.joined_rooms() {
-        let id = room.room_id().to_string();
-        let name = room
-            .display_name()
-            .await
-            .map(|name| name.to_string())
-            .unwrap_or_else(|_| id.clone());
-        rooms.push(RoomSummary { id, name });
+    for room in active.client.rooms() {
+        if matches!(
+            room.state(),
+            matrix_sdk::RoomState::Joined | matrix_sdk::RoomState::Invited
+        ) {
+            rooms.push(membership::summary(&room).await);
+        }
     }
     rooms.sort_by(|a, b| {
-        a.name
-            .to_lowercase()
-            .cmp(&b.name.to_lowercase())
-            .then(a.id.cmp(&b.id))
+        (a.membership != crate::Membership::Invited)
+            .cmp(&(b.membership != crate::Membership::Invited))
+            .then(
+                a.name
+                    .to_lowercase()
+                    .cmp(&b.name.to_lowercase())
+                    .then(a.id.cmp(&b.id)),
+            )
     });
     emit(events, active.epoch, EventKind::Rooms(rooms)).await;
     if let Err(key) = history(active, events).await {
@@ -273,6 +304,9 @@ async fn history(active: &Session, events: &mpsc::Sender<Event>) -> Result<(), &
     };
     let id = RoomId::parse(room_id).map_err(|_| "load-failed")?;
     let room = active.client.get_room(&id).ok_or("load-failed")?;
+    if room.state() != matrix_sdk::RoomState::Joined {
+        return Ok(());
+    }
     let mut options = MessagesOptions::backward();
     options.limit = uint!(50);
     let response = room.messages(options).await.map_err(|_| "load-failed")?;

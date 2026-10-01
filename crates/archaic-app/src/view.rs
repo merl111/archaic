@@ -10,6 +10,7 @@ pub struct View {
     pub join_toggle: Widget,
     pub join: crate::join_form::JoinForm,
     pub compose_group: Widget,
+    pub room_controls: crate::room_controls::RoomControls,
     pub footer: Widget,
     pub session_notice: Widget,
     pub temporary: Widget,
@@ -89,6 +90,7 @@ impl View {
         title.expand(true)?;
         let refresh = room_header.symbol_button(sys::CUI_SYMBOL_REPEAT, &tr.text("refresh"))?;
         let room_id = label(&conversation, "", sys::CUI_ROLE_CAPTION)?;
+        let room_controls = crate::room_controls::RoomControls::new(&conversation, tr)?;
         conversation.separator()?;
         let timeline = conversation.textarea(&tr.text("choose-description"))?;
         timeline.expand(true)?;
@@ -123,6 +125,7 @@ impl View {
             join_toggle,
             join,
             compose_group,
+            room_controls,
             footer,
             session_notice,
             temporary: login.temporary,
@@ -233,14 +236,22 @@ impl View {
         )?;
         set_text(&self.account, &model.user)?;
         self.render_status(model, tr, fixture)?;
-        self.join_toggle
-            .set_enabled(model.phase == Phase::Connected && !model.joining && !fixture)?;
+        self.join_toggle.set_enabled(
+            model.phase == Phase::Connected
+                && !model.joining
+                && model.room_pending.is_none()
+                && !fixture,
+        )?;
         self.join.render(model, tr, fixture)?;
         set_text(
             &self.error,
             &model.error.map(|key| tr.text(key)).unwrap_or_default(),
         )?;
         self.error.set_visible(connected && model.error.is_some())?;
+        self.render_conversation(model, tr, fixture)
+    }
+
+    fn render_conversation(&self, model: &Model, tr: &Translator, fixture: bool) -> Result<()> {
         let selected = model
             .selected
             .as_ref()
@@ -255,14 +266,28 @@ impl View {
             &self.room_id,
             &selected.map(|room| room.id.clone()).unwrap_or_default(),
         )?;
-        self.compose_group.set_visible(selected.is_some())?;
+        let joined =
+            selected.is_some_and(|room| room.membership == archaic_matrix::Membership::Joined);
+        self.room_controls.render(model, tr, fixture)?;
+        self.compose_group.set_visible(joined)?;
+        self.timeline.set_visible(joined || selected.is_none())?;
         let history = history_text(model, tr, selected.is_some());
         set_text(&self.timeline, &history)?;
         set_text(&self.composer, model.draft())?;
-        self.composer
-            .set_enabled(selected.is_some() && model.phase == Phase::Connected && !fixture)?;
+        self.composer.set_enabled(
+            joined
+                && model.phase == Phase::Connected
+                && !fixture
+                && model.room_pending.is_none()
+                && model.room_confirmation.is_none(),
+        )?;
         self.send.set_enabled(
-            selected.is_some() && !model.sending && !fixture && model.phase == Phase::Connected,
+            joined
+                && !model.sending
+                && !fixture
+                && model.phase == Phase::Connected
+                && model.room_pending.is_none()
+                && model.room_confirmation.is_none(),
         )?;
         set_text(
             &self.send,

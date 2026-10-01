@@ -91,3 +91,23 @@ join-not-found = Room not found.
     Check the alias and retry.
 join-failed = Could not join. Check the address
     and connection, then retry.
+
+invitation = Invitation
+invited-by = Invited by
+accept-invitation = Accept
+decline-invitation = Decline
+invite-user = Invite
+invite-user-placeholder = @person:server
+leave-room = Leave room
+confirm = Confirm
+leave-confirmation = Leave this room? Your unsent draft will be discarded.
+    You may need an invitation to return. Older versions of this room are also left.
+decline-confirmation = Decline this invitation? You may need a new invitation to return.
+room-action-pending = Contacting the server…
+room-left = Room removed from your conversations
+room-unavailable = This room is no longer available. Refresh your conversations.
+room-membership-changed = Your membership changed. Refresh and try again.
+invite-invalid-user = Enter a complete Matrix ID, such as @person:server.
+room-action-forbidden = The server denied this operation. Check your room permissions.
+room-action-failed = The operation could not be confirmed. Check your connection and retry.
+invite-sent = Invitation sent.

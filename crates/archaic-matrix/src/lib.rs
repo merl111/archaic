@@ -1,5 +1,6 @@
 //! Matrix-only application service. No GUI handles or callbacks cross this boundary.
 mod connection;
+mod membership;
 pub mod storage;
 mod worker;
 use matrix_sdk::ruma::OwnedTransactionId;
@@ -27,6 +28,10 @@ pub enum Command {
     Select(String),
     Refresh,
     Join(String),
+    RoomAction {
+        room_id: String,
+        action: RoomAction,
+    },
     Send {
         room_id: String,
         body: String,
@@ -35,10 +40,26 @@ pub enum Command {
     Logout,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Membership {
+    Joined,
+    Invited,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RoomAction {
+    Accept,
+    Decline,
+    Leave,
+    Invite(String),
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RoomSummary {
     pub id: String,
     pub name: String,
+    pub membership: Membership,
+    pub inviter: Option<String>,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Message {
@@ -65,6 +86,11 @@ pub enum EventKind {
         transaction: OwnedTransactionId,
     },
     Joined(RoomSummary),
+    RoomActionResult {
+        room_id: String,
+        action: RoomAction,
+        result: Result<(), &'static str>,
+    },
     JoinFailed(&'static str),
     SignedOut,
     Status(&'static str),

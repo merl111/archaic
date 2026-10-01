@@ -3,10 +3,12 @@ mod join_form;
 mod login;
 mod model;
 mod options;
+mod room_controls;
+mod room_state;
 mod view;
 mod widgets;
 use archaic_i18n::Translator;
-use archaic_matrix::{Command, Event, Sender};
+use archaic_matrix::{Command, Event, Membership, RoomAction, Sender};
 use cui::{App, Result};
 use model::{Model, Phase};
 use std::{
@@ -39,7 +41,17 @@ impl Controller {
         let visible = model.visible_rooms();
         let labels = visible
             .iter()
-            .map(|room| room.name.replace('\0', "�"))
+            .map(|room| {
+                if room.membership == Membership::Invited {
+                    format!(
+                        "{} · {}",
+                        self.tr.text("invitation"),
+                        room.name.replace('\0', "�")
+                    )
+                } else {
+                    room.name.replace('\0', "�")
+                }
+            })
             .collect::<Vec<_>>();
         if *self.room_labels.borrow() != labels {
             self.view
@@ -134,9 +146,17 @@ impl Controller {
             if self.fixture || self.enqueue(Command::Select(id.clone())) {
                 let mut model = self.model.borrow_mut();
                 model.selected = Some(id);
+                model.room_confirmation = None;
+                model.room_feedback = None;
+                self.view.room_controls.invite_user.set_text("")?;
                 model.messages.clear();
                 model.status = if self.fixture {
                     "preview-fixture"
+                } else if model
+                    .selected_room()
+                    .is_some_and(|room| room.membership == Membership::Invited)
+                {
+                    "ready"
                 } else {
                     "loading"
                 };
@@ -202,6 +222,7 @@ impl Controller {
     }
     fn join(&self) -> Result<()> {
         if self.fixture
+            || self.model.borrow().room_pending.is_some()
             || self.model.borrow().joining
             || self.model.borrow().phase != Phase::Connected
         {
@@ -216,10 +237,73 @@ impl Controller {
         }
         self.render()
     }
+    fn accept_invitation(&self) -> Result<()> {
+        self.room_action(RoomAction::Accept, false)
+    }
+    fn decline_invitation(&self) -> Result<()> {
+        self.room_action(RoomAction::Decline, true)
+    }
+    fn leave_room(&self) -> Result<()> {
+        self.room_action(RoomAction::Leave, true)
+    }
+    fn invite_user(&self) -> Result<()> {
+        self.room_action(
+            RoomAction::Invite(self.view.room_controls.invite_user.text()?),
+            false,
+        )
+    }
+    fn cancel_room_action(&self) -> Result<()> {
+        if self.model.borrow().room_pending.is_none() {
+            self.model.borrow_mut().room_confirmation = None;
+        }
+        self.render()
+    }
+    fn confirm_room_action(&self) -> Result<()> {
+        let confirmation = self.model.borrow().room_confirmation.clone();
+        let selected = self.model.borrow().selected.clone();
+        if let Some((id, action)) = confirmation
+            && selected.as_ref() == Some(&id)
+        {
+            return self.room_action(action, false);
+        }
+        Ok(())
+    }
+    fn room_action(&self, action: RoomAction, confirm: bool) -> Result<()> {
+        if self.fixture || !self.model.borrow().room_action_allowed(&action) {
+            return Ok(());
+        }
+        self.remember_draft()?;
+        let Some(room_id) = self.model.borrow().selected.clone() else {
+            return Ok(());
+        };
+        if confirm {
+            let mut model = self.model.borrow_mut();
+            model.room_confirmation = Some((room_id, action));
+            model.room_feedback = None;
+        } else if self.enqueue(Command::RoomAction {
+            room_id: room_id.clone(),
+            action: action.clone(),
+        }) {
+            let mut model = self.model.borrow_mut();
+            model.room_pending = Some((room_id, action));
+            model.room_feedback = None;
+        }
+        self.render()
+    }
     fn event(&self, event: Event) -> Result<()> {
         self.remember_draft()?;
         let joined = event.epoch == self.model.borrow().epoch
             && matches!(event.kind, archaic_matrix::EventKind::Joined(_));
+        if event.epoch == self.model.borrow().epoch
+            && let archaic_matrix::EventKind::RoomActionResult {
+                room_id,
+                action: RoomAction::Invite(_),
+                result: Ok(()),
+            } = &event.kind
+            && self.model.borrow().selected.as_ref() == Some(room_id)
+        {
+            self.view.room_controls.invite_user.set_text("")?;
+        }
         self.model.borrow_mut().apply(event);
         if joined {
             self.rendering.set(true);
@@ -264,6 +348,12 @@ impl Controller {
             (&self.view.join.join_cancel, Self::toggle_join),
             (&self.view.join.join_submit, Self::join),
             (&self.view.appearance, Self::appearance),
+            (&self.view.room_controls.accept, Self::accept_invitation),
+            (&self.view.room_controls.decline, Self::decline_invitation),
+            (&self.view.room_controls.leave, Self::leave_room),
+            (&self.view.room_controls.invite, Self::invite_user),
+            (&self.view.room_controls.confirm, Self::confirm_room_action),
+            (&self.view.room_controls.cancel, Self::cancel_room_action),
         ] {
             let controller = self.clone();
             widget.on_action(move |_| {
@@ -280,7 +370,7 @@ fn fixture() -> Model {
     use archaic_matrix::{Message, RoomSummary};
     Model {
         phase: Phase::Connected, user: "@alex:example.org".into(),
-        rooms: vec![RoomSummary { id: "!design:example.org".into(), name: "Design studio".into() }, RoomSummary { id: "!general:example.org".into(), name: "Archaic".into() }],
+        rooms: vec![RoomSummary { membership: archaic_matrix::Membership::Joined, inviter: None, id: "!design:example.org".into(), name: "Design studio".into() }, RoomSummary { membership: archaic_matrix::Membership::Joined, inviter: None, id: "!general:example.org".into(), name: "Archaic".into() }],
         selected: Some("!design:example.org".into()),
         messages: vec![Message { id: "1".into(), sender: "@maya:example.org".into(), body: Some("A place for thoughtful conversations.\nNative controls, a calm workspace, and room to focus.".into()) }, Message { id: "2".into(), sender: "@alex:example.org".into(), body: Some("This is an explicit offline visual-test fixture.\nThe normal application starts at real Matrix sign-in.".into()) }],
         ..Model::default()

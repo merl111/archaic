@@ -35,6 +35,9 @@ pub struct Model {
     pub sending: bool,
     pub show_join: bool,
     pub joining: bool,
+    pub room_pending: Option<(String, archaic_matrix::RoomAction)>,
+    pub room_confirmation: Option<(String, archaic_matrix::RoomAction)>,
+    pub room_feedback: Option<(String, &'static str)>,
     pub join_error: Option<&'static str>,
     pub status: &'static str,
     pub error: Option<&'static str>,
@@ -62,25 +65,24 @@ impl Model {
                 self.phase = Phase::Connected;
                 self.status = "syncing";
             }
-            EventKind::Rooms(rooms) => {
-                if self
-                    .selected
-                    .as_ref()
-                    .is_some_and(|id| !rooms.iter().any(|room| &room.id == id))
-                {
-                    self.selected = None;
-                    self.messages.clear();
-                }
-                self.rooms = rooms;
-            }
+            EventKind::Rooms(rooms) => self.update_rooms(rooms),
             EventKind::History { room_id, messages } => {
-                if self.selected.as_ref() == Some(&room_id) {
+                if self.selected.as_ref() == Some(&room_id)
+                    && self
+                        .selected_room()
+                        .is_some_and(|room| room.membership == archaic_matrix::Membership::Joined)
+                {
                     self.messages = messages;
                     self.status = "ready";
                 }
             }
             EventKind::Sent { transaction } => self.confirm_sent(&transaction),
             EventKind::Joined(room) => self.joined(room),
+            EventKind::RoomActionResult {
+                room_id,
+                action,
+                result,
+            } => self.room_action_result(room_id, action, result),
             EventKind::JoinFailed(key) => {
                 self.joining = false;
                 self.show_join = true;
@@ -101,7 +103,13 @@ impl Model {
 
     fn joined(&mut self, room: RoomSummary) {
         self.selected = Some(room.id.clone());
-        if !self.rooms.iter().any(|existing| existing.id == room.id) {
+        if let Some(existing) = self
+            .rooms
+            .iter_mut()
+            .find(|existing| existing.id == room.id)
+        {
+            *existing = room;
+        } else {
             self.rooms.push(room);
         }
         self.messages.clear();
@@ -165,7 +173,14 @@ impl Model {
         if self.sending || self.phase != Phase::Connected {
             return None;
         }
-        let room_id = self.selected.clone()?;
+        let room = self.selected_room()?;
+        if room.membership != archaic_matrix::Membership::Joined
+            || self.room_pending.is_some()
+            || self.room_confirmation.is_some()
+        {
+            return None;
+        }
+        let room_id = room.id.clone();
         let body = self.draft().to_string();
         if body.trim().is_empty() {
             return None;
@@ -197,6 +212,15 @@ mod tests {
         Model {
             epoch: 2,
             phase: Phase::Connected,
+            rooms: ["!a:local", "!b:local"]
+                .into_iter()
+                .map(|id| RoomSummary {
+                    id: id.into(),
+                    name: id.into(),
+                    membership: archaic_matrix::Membership::Joined,
+                    inviter: None,
+                })
+                .collect(),
             selected: Some("!a:local".into()),
             drafts: HashMap::from([("!a:local".into(), "hello".into())]),
             ..Model::default()
@@ -219,6 +243,8 @@ mod tests {
         model.apply(Event {
             epoch: 2,
             kind: EventKind::Joined(RoomSummary {
+                membership: archaic_matrix::Membership::Joined,
+                inviter: None,
                 id: "!b:local".into(),
                 name: "New room".into(),
             }),
@@ -226,7 +252,12 @@ mod tests {
         assert_eq!(model.selected.as_deref(), Some("!b:local"));
         assert!(model.filter.is_empty() && !model.show_join && model.join_error.is_none());
         assert_eq!(model.drafts["!a:local"], "hello");
-        assert_eq!(model.visible_rooms()[0].id, "!b:local");
+        assert!(
+            model
+                .visible_rooms()
+                .iter()
+                .any(|room| room.id == "!b:local")
+        );
         model.apply(Event {
             epoch: 2,
             kind: EventKind::SignedOut,
