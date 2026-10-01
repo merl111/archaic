@@ -1,7 +1,9 @@
 //! Matrix-only application service. No GUI handles or callbacks cross this boundary.
+mod connection;
+pub mod storage;
 mod worker;
 use matrix_sdk::ruma::OwnedTransactionId;
-pub use worker::run;
+pub use worker::{run, run_persistent, run_with_profile};
 pub type TransactionId = OwnedTransactionId;
 use tokio::sync::mpsc;
 use url::Url;
@@ -10,6 +12,12 @@ pub const CHANNEL_CAPACITY: usize = 32;
 
 // Deliberately not Debug: login commands contain a password.
 pub enum Command {
+    Restore {
+        epoch: u64,
+    },
+    Temporary {
+        epoch: u64,
+    },
     Login {
         epoch: u64,
         server: String,
@@ -45,6 +53,8 @@ pub struct Event {
 #[derive(Debug)]
 pub enum EventKind {
     Connected(String),
+    SessionSaved(bool),
+    RestoreBlocked(&'static str),
     Rooms(Vec<RoomSummary>),
     History {
         room_id: String,

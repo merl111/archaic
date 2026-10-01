@@ -7,6 +7,8 @@ use cui::{Result, Widget, sys};
 pub struct View {
     pub header: Widget,
     pub footer: Widget,
+    pub session_notice: Widget,
+    pub temporary: Widget,
     pub login_error: Widget,
     pub login_status: Widget,
     pub login: Widget,
@@ -85,11 +87,14 @@ impl View {
         let error = label(root, "", sys::CUI_ROLE_DANGER)?;
         let footer = root.box_layout(sys::CUI_HORIZONTAL, 12)?;
         footer.box_set_padding(16)?;
-        label(&footer, &tr.text("preview"), sys::CUI_ROLE_CAPTION)?.expand(true)?;
+        let session_notice = label(&footer, &tr.text("preview"), sys::CUI_ROLE_CAPTION)?;
+        session_notice.expand(true)?;
         let status = label(&footer, "", sys::CUI_ROLE_CAPTION)?;
         Ok(Self {
             header: header_group,
             footer,
+            session_notice,
+            temporary: login.temporary,
             login_error: login.error,
             login_status: login.status,
             login: login.background,
@@ -117,7 +122,21 @@ impl View {
         self.header.set_visible(connected)?;
         self.footer.set_visible(connected)?;
         self.login.set_visible(!connected)?;
-        self.sign_in.set_enabled(model.phase == Phase::SignedOut)?;
+        self.sign_in.set_enabled(matches!(
+            model.phase,
+            Phase::SignedOut | Phase::RestoreBlocked
+        ))?;
+        set_text(
+            &self.sign_in,
+            &tr.text(if model.phase == Phase::RestoreBlocked {
+                "retry-session"
+            } else {
+                "sign-in"
+            }),
+        )?;
+        self.temporary.set_visible(
+            !model.temporary && matches!(model.phase, Phase::SignedOut | Phase::RestoreBlocked),
+        )?;
         self.server.set_enabled(model.phase == Phase::SignedOut)?;
         self.username.set_enabled(model.phase == Phase::SignedOut)?;
         self.password.set_enabled(model.phase == Phase::SignedOut)?;
@@ -127,20 +146,33 @@ impl View {
         )?;
         self.login_error
             .set_visible(!connected && model.error.is_some())?;
-        set_text(&self.login_status, &tr.text("signing-in"))?;
-        self.login_status
-            .set_visible(model.phase == Phase::Connecting)?;
+        set_text(
+            &self.login_status,
+            &tr.text(if model.phase == Phase::Restoring {
+                "restoring-session"
+            } else if model.temporary && model.phase == Phase::SignedOut {
+                "temporary-login-notice"
+            } else {
+                "signing-in"
+            }),
+        )?;
+        self.login_status.set_visible(
+            matches!(model.phase, Phase::Connecting | Phase::Restoring) || model.temporary,
+        )?;
         Ok(())
     }
 
-    pub fn render(&self, model: &Model, tr: &Translator, fixture: bool) -> Result<()> {
-        let connected = matches!(model.phase, Phase::Connected | Phase::SigningOut);
-        self.render_login(model, tr, connected)?;
-        self.workspace.set_visible(connected)?;
-        self.sign_out.set_visible(connected)?;
-        self.sign_out
-            .set_enabled(model.phase == Phase::Connected && !fixture)?;
-        set_text(&self.account, &model.user)?;
+    fn render_status(&self, model: &Model, tr: &Translator, fixture: bool) -> Result<()> {
+        set_text(
+            &self.session_notice,
+            &tr.text(if fixture {
+                "preview-fixture"
+            } else if model.session_saved {
+                "session-saved"
+            } else {
+                "temporary-notice"
+            }),
+        )?;
         set_text(
             &self.status,
             &if model.status.is_empty() && !fixture {
@@ -155,6 +187,22 @@ impl View {
                 })
             },
         )?;
+        Ok(())
+    }
+
+    pub fn render(&self, model: &Model, tr: &Translator, fixture: bool) -> Result<()> {
+        let connected = matches!(
+            model.phase,
+            Phase::Connected | Phase::SigningOut | Phase::LogoutCleanup
+        );
+        self.render_login(model, tr, connected)?;
+        self.workspace.set_visible(connected)?;
+        self.sign_out.set_visible(connected)?;
+        self.sign_out.set_enabled(
+            matches!(model.phase, Phase::Connected | Phase::LogoutCleanup) && !fixture,
+        )?;
+        set_text(&self.account, &model.user)?;
+        self.render_status(model, tr, fixture)?;
         set_text(
             &self.error,
             &model.error.map(|key| tr.text(key)).unwrap_or_default(),
@@ -186,7 +234,10 @@ impl View {
             &self.send,
             &tr.text(if model.sending { "sending" } else { "send" }),
         )?;
-        self.refresh.set_enabled(connected && !fixture)?;
+        self.refresh
+            .set_enabled(model.phase == Phase::Connected && !fixture)?;
+        self.rooms.set_enabled(model.phase == Phase::Connected)?;
+        self.search.set_enabled(model.phase == Phase::Connected)?;
         Ok(())
     }
 }

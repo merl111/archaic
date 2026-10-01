@@ -15,7 +15,7 @@ October 1, 2026. This is a partial implementation of the approved plan; no entir
 
 ## Deliberate limits
 
-This version stores sessions and crypto state only in memory. Each login creates a new server device. Successful explicit sign-out revokes it; closing or crashing the application does not. Secure persistence, access-token storage, refresh, verification and backup/recovery are the next security work package. These limits are displayed before login.
+Normal startup now restores a saved session and the SDK SQLite crypto/state stores. Tokens live in an authenticated encrypted record; its key lives in the platform credential vault. Explicit temporary sessions remain available. See the saved-session increment below and the README for storage/retention details. Refresh-token rotation, same-device soft logout, verification and backup/recovery remain unfinished.
 
 The Matrix SDK has E2EE enabled, but production encrypted messaging is not an accepted feature yet. There are no multi-device verification/recovery tests or recovery UI. Password login only: SSO/OIDC and authentication challenges are not implemented. Never label a missing supported login method as a successful connection.
 
@@ -25,7 +25,7 @@ English/German are the initial catalogs. Runtime language changes, OS locale det
 
 ## Next implementation order
 
-1. Persistent encrypted state store and platform credential-vault boundary, crash-safe session restoration and explicit device cleanup/recovery behavior.
+1. Complete session lifecycle acceptance: refresh-token rotation, same-device soft logout, recovery-aware local-data purge and real-server failure/crash testing. The initial vault/store/restore boundary is now implemented.
 2. Device verification and recovery UX, real-homeserver integration tests with multiple devices, reconnect/token-expiry/logout cases.
 3. CUI dispatcher and disposable callback/subtree lifetime contracts; virtualized rich timeline and editable composer capabilities in CUI, with bindings and tests.
 4. Incremental SDK timeline models, pagination, edits, reactions, replies, attachments, room joining/invitations and spaces.
@@ -52,3 +52,17 @@ CUI now owns the reusable AMBIENT container role and platform implementations. G
 Light/dark backgrounds are implemented; use `--theme system|light|dark` to select one at launch. **Follow-up: add a visible System/Light/Dark switcher in Settings, persist the preference and apply it without restarting.** This switcher is not implemented yet.
 
 Checked on Linux: native login/send/logout mouse and keyboard flow, English light/dark layouts, German at 600×660 logical pixels and 200% scaling, nine app tests, strict Clippy, GTK title-bar/control/container tests and complete binding declaration coverage. Windows/macOS runtime verification remains deferred.
+
+## Saved-session increment
+
+Implemented automatic restoration of the same Matrix device, its encrypted SDK SQLite store, and a checked device-key fingerprint. Session tokens are serialized only into an authenticated XChaCha20-Poly1305 envelope; an OS-vault key unlocks it and the SDK stores. The profile is exclusively locked, record replacement is atomic, and malformed/oversized records, missing keys and missing crypto databases are rejected without replacing the saved login.
+
+The native sign-in card now has restoration progress, localized retry errors and an explicit temporary-session action. The conversation footer distinguishes saved from unsaved sessions. Revoked tokens stop synchronization and disable messaging; logout retries distinguish failed server revocation from failed local cleanup. Temporary/fixture/smoke modes do not open the real profile. App state and all SDK calls remain separate from CUI handles.
+
+Sign-out clears the saved token record but retains encrypted SDK databases and the OS-vault key. There is no secure-erase or full-disk-encryption claim. The SDK's encrypted values do not hide all SQLite metadata. Refresh tokens are deliberately not requested yet. No existing in-memory session can be recovered retroactively from an older build.
+
+Validation includes isolated real-SDK protocol tests for restart without another login, logout/cleanup retry and revoked tokens, storage corruption/lost-key/locking tests, and UI state/catalog tests. Native Linux checks exercise temporary login, room selection, text sending and sign-out, and inspect light/dark, compact German and 200% layouts. `tools/test_linux_vault.py` provides an isolated real Secret Service check, separate from the user's keyring. Windows/macOS adapters are implemented through the keyring crate but still await platform qualification.
+
+The accepted login composition is preserved. The main timeline is still the initial text view; the conversation design pass, runtime appearance switcher, verification/recovery, rich timeline, invitations and attachments remain upcoming work rather than implied completed features.
+
+Checked this increment on Linux: 18 automated workspace tests, a separate passing real Secret Service round trip in an isolated keyring, strict Clippy, formatting, the native login/send/logout flow and rendered vault-error recovery controls. Structural review prompted separation of error/status/logout handling; remaining ripwire flags concern short wrapper duplication, recent UI churn, Rust test-module size and callback discovery rather than a passing structural gate.

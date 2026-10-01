@@ -82,15 +82,16 @@
       "feature": "Restore session, refresh and soft logout",
       "phase": "P2",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "automated SDK restore/corruption/revocation tests; native temporary-session flow checked",
+        "windows": "implemented adapter; runtime verification deferred",
+        "macos": "implemented adapter; runtime verification deferred"
       },
       "acceptance": "Restart without a fresh device; refresh safely; reauthenticate without losing recoverable data.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/structures/auth",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation": "OS-vault key, encrypted session record and SDK SQLite stores; same-device restoration, explicit temporary mode and revoked-token handling. Refresh rotation and soft-logout reauthentication remain unfinished."
     },
     {
       "id": "ARC-01-06",

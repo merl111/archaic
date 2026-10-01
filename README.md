@@ -2,7 +2,7 @@
 
 A native Matrix desktop client built with Rust and CUI, targeting Linux, Windows and macOS.
 
-**Early development build.** The first implementation connects to a real Matrix homeserver using password login, synchronizes joined rooms, loads recent text messages, sends text and signs out. It is not yet an Element replacement. Use a test account: sessions and encryption keys are currently memory-only, and device verification/recovery are not implemented. Closing the window does not revoke the server session; use **Sign out** while connected before closing, or remove the device in another client.
+**Early development build.** The first implementation connects to a real Matrix homeserver using password login, synchronizes joined rooms, loads recent text messages, sends text and signs out. It is not yet an Element replacement. Use a test account: device verification/recovery are not implemented. Saved sessions now reopen with the same Matrix device and encryption store. Closing the window keeps a saved session; **Sign out** revokes it.
 
 ## Build and run
 
@@ -14,7 +14,7 @@ workspace/
   archaic/
 ```
 
-Requirements: Rust 1.96 or newer, Cargo, Python 3.10+, CMake, a native C compiler and Git. The first build downloads Rust dependencies, including the Matrix SDK and its TLS/cryptography implementation. Linux additionally needs GTK 4.6+ development files, Xext and pkg-config; runtime GTK remains a system dependency. macOS uses the Xcode command-line tools/AppKit. Windows uses an MSVC developer terminal with the Windows SDK. Windows/macOS build and runtime verification are still pending.
+Requirements: Rust 1.96 or newer, Cargo, Python 3.10+, CMake, a native C compiler and Git. The first build downloads Rust dependencies, including the Matrix SDK and its TLS/cryptography implementation. Linux additionally needs GTK 4.6+ development files, Xext, D-Bus development files and pkg-config; runtime GTK and libdbus remain system dependencies. Saved sign-in also requires a running Secret Service provider (such as GNOME Keyring or a compatible KWallet configuration). SQLite is compiled into the app through the Matrix SDK. macOS uses the Xcode command-line tools/AppKit. Windows uses an MSVC developer terminal with the Windows SDK. Windows/macOS build and runtime verification are still pending.
 
 From this directory:
 
@@ -37,11 +37,35 @@ The sign-in screen uses a centered native card and a CUI ambient background. It 
 1. Enter the HTTPS homeserver base URL, your Matrix ID or username, and password. Loopback HTTP addresses are accepted for local testing only.
 2. Sign in, wait for the joined room list, then select a conversation.
 3. Write a message and press **Send**. **Refresh** reloads recent history. Filtering the room list preserves selection and drafts.
-4. Use **Sign out** to revoke the current device session and clear the view. A failed sign-out leaves the session available for retry.
+4. Use **Sign out** to revoke the current device session and clear the view. Failed server revocation permits retry. If revocation succeeds but clearing the local sign-in fails, messaging is disabled and **Sign out** retries only local cleanup.
 
-Only password login is implemented; OIDC/SSO and interactive authentication flows come later. The Matrix SDK's encryption implementation is enabled, but there is no verification, backup/recovery or persistence UI yet. This is **not a production E2EE client**. Unavailable encrypted messages are shown as placeholders. Avoid using this build for valuable conversations.
+Only password login is implemented; OIDC/SSO and interactive authentication flows come later. The Matrix SDK's encryption implementation is enabled, but verification and backup/recovery UI remain unfinished. This is **not a production E2EE client**. Unavailable encrypted messages are shown as placeholders. Avoid using this build for valuable conversations.
 
 The timeline currently shows text from the latest 50 room events in a selectable native text view. Rich messages, history pagination, edits, threads, attachments, invitations, room creation, receipts and calling are unfinished. The native view is a temporary foundation for the planned CUI virtualized rich timeline.
+
+## Saved and temporary sessions
+
+Normal sign-in saves the Matrix device session automatically. On restart, Archaic restores its existing device ID and checks the encryption-key fingerprint before starting synchronization. An exclusive profile lock prevents two persistent instances from using the same crypto store.
+
+The session file uses authenticated XChaCha20-Poly1305 encryption with a random 256-bit key held by Linux Secret Service, macOS Keychain or Windows Credential Manager. The Matrix SDK's SQLite stores are configured with a passphrase derived from that key. This protects the SDK's encrypted values; it is **not whole-database or disk encryption**, and database structure/metadata can remain visible. No hand-written cryptographic primitives are used.
+
+Default profile locations:
+
+- Linux: `$XDG_DATA_HOME/archaic`, or `~/.local/share/archaic`.
+- macOS: `~/Library/Application Support/Archaic`.
+- Windows: `%LOCALAPPDATA%\Archaic`.
+
+The vault entry uses service `org.archaic.desktop`, account `default-profile-v1`. Keep the profile and its credential-vault key together when backing up; copying only the directory is insufficient. The encrypted `session.enc` record is replaced atomically. Private profile directories use owner-only permissions on Unix; Windows uses the current user's profile-directory ACLs.
+
+If the vault is unavailable or the saved session cannot be opened, **Retry saved sign-in** retries without deleting it. **Use a temporary session** switches explicitly to memory-only operation and leaves any saved profile intact. You can also launch with:
+
+```sh
+python3 tools/dev.py run -- --temporary-session
+```
+
+Temporary sessions create a new Matrix device. Use **Sign out** before closing to revoke that device. A disk failure after successful authentication leaves a usable temporary session with a visible warning; it is never reported as saved. If the process exits between server login and local persistence, remove the resulting device from another client.
+
+Successful sign-out revokes the access token and replaces the saved-login record with an encrypted empty record. **Encrypted SDK caches, crypto stores and the vault key are currently retained**; sign-out is not a local-data purge or secure erase. Cache removal and recovery-aware device management need their own UI. Revoked/expired tokens stop synchronization and sending; explicit sign-out clears their saved login. Refresh tokens are not requested, and same-device soft-logout reauthentication remains unfinished.
 
 ## Development and verification
 
@@ -52,7 +76,7 @@ python3 tools/dev.py run -- --fixture --locale de
 python3 tools/dev.py run -- --fixture --smoke-test
 ```
 
-`--fixture` is an explicitly labeled offline visual-test screen with network actions disabled. Normal startup always shows real sign-in. `--smoke-test` exits after approximately 1.8 seconds and still requires a graphical display; Linux CI can use Xvfb.
+`--fixture` is an explicitly labeled offline visual-test screen with network actions disabled. Normal startup first tries the saved session; without one it shows real sign-in. `--fixture` and `--smoke-test` never open the profile or credential vault. `--smoke-test` exits after approximately 1.8 seconds and still requires a graphical display; Linux CI can use Xvfb.
 
 - `crates/archaic-app`: native CUI views and UI state; no SDK calls on the UI thread.
 - `crates/archaic-matrix`: bounded command/event channels, SDK client, classic sync and room operations.
@@ -60,9 +84,9 @@ python3 tools/dev.py run -- --fixture --smoke-test
 - `locales`: all application chrome and error messages. Choose the language with `--locale`; live locale switching, platform locale discovery and RTL layout remain unfinished.
 - `tools/dev.py`: portable native-library and Rust build entry point.
 
-The UI currently drains up to eight events per 50 ms CUI timer tick. A reusable CUI worker dispatcher remains a separate planned library change. Widget callbacks are registered once; room updates reuse existing controls. Worker shutdown aborts synchronization and bounds runtime shutdown. Credentials are never deliberately logged or persisted; the password entry is cleared after submitting login. No claim is made that every temporary allocator copy is securely erased.
+The UI currently drains up to eight events per 50 ms CUI timer tick. A reusable CUI worker dispatcher remains a separate planned library change. Widget callbacks are registered once; room updates reuse existing controls. Worker shutdown aborts synchronization and bounds runtime shutdown. Passwords are never deliberately logged or saved; access tokens are saved only in the encrypted session record. The profile key and temporary decrypted record buffers use zeroizing wrappers; the password entry is cleared after submitting login. No claim is made that every temporary allocator copy is securely erased.
 
-Protocol tests use a local HTTP mock server and the real Matrix SDK, without external accounts. They cover login, classic sync, room discovery, history ordering, authorization, transaction IDs, sending, logout and rejected credentials. They do not replace interoperability or encrypted multi-device tests against a real homeserver.
+Protocol tests use a local HTTP mock server and the real Matrix SDK, without external accounts. They cover login, classic sync, room discovery, history ordering, authorization, transaction IDs, sending, rejected credentials, restart without another login, corrupted saved data, token revocation and local logout cleanup retries. Storage tests cover encryption/authentication, missing keys/stores and exclusive profile locking. `python3 tools/test_linux_vault.py` additionally exercises the real Linux credential adapter in a disposable D-Bus session/keyring; it never uses the desktop vault. They do not replace interoperability or encrypted multi-device tests against a real homeserver.
 
 ## Roadmap and architecture
 

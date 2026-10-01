@@ -1,5 +1,5 @@
 app-tagline = Ein ruhiger Ort für Gespräche.
-preview = Entwicklungsvorschau · Sitzungen werden nicht gespeichert
+preview = Entwicklungsvorschau
 welcome = Dein Raum für Gespräche
 login-description = Mit Passwort am Matrix-Homeserver anmelden.
 homeserver = Homeserver
@@ -38,7 +38,37 @@ logout-failed = Sitzung konnte nicht widerrufen werden. Verbindung prüfen und e
 queue-full = Ein Vorgang wartet bereits. Bitte kurz warten.
 preview-fixture = Offline-Oberflächentest · Keine Matrix-Verbindung
 login-preview = Entwicklungsvorschau · Nur Testkonten
-login-safety = Sitzungen werden noch nicht gespeichert.
+login-safety = Speicherung im System-Schlüsselbund.
     Verifizierung und Wiederherstellung folgen.
-    Vor dem Schließen abmelden, um dieses
-    Gerät zu widerrufen.
+    Abmelden widerruft dieses Gerät.
+temporary-session = Temporäre Sitzung verwenden
+retry-session = Gespeicherte Anmeldung erneut öffnen
+restoring-session = Gespeicherte Sitzung wird geöffnet…
+temporary-notice = Temporäre Sitzung · Anmeldung nicht gespeichert
+session-saved = Anmeldung auf diesem Computer sicher gespeichert
+vault-unavailable = System-Schlüsselbund entsperren und erneut
+    versuchen oder temporäre Sitzung verwenden.
+vault-key-invalid = Gespeicherter Schlüssel nicht lesbar.
+    Die gespeicherte Anmeldung bleibt erhalten.
+vault-key-missing = Der Profilschlüssel fehlt im Schlüsselbund.
+    Zugriff wiederherstellen und erneut versuchen.
+storage-failed = Lokales Profil nicht lesbar oder speicherbar.
+    Speicherplatz und Zugriffsrechte prüfen.
+profile-in-use = Archaic verwendet dieses Profil bereits.
+    Andere Instanz schließen und erneut versuchen.
+session-invalid = Gespeicherte Sitzung konnte nicht geöffnet
+    werden. Die gespeicherte Anmeldung bleibt erhalten.
+session-store-missing = Die Verschlüsselungsdatenbank fehlt.
+    Vor erneutem Versuch die Sicherung wiederherstellen.
+session-exists = Eine gespeicherte Sitzung existiert bereits.
+    Archaic neu starten oder temporäre Sitzung verwenden.
+session-not-saved = Angemeldet, aber Speichern fehlgeschlagen. Die Sitzung ist temporär.
+    Vor dem Schließen abmelden, um dieses Gerät zu widerrufen.
+logout-cleanup-failed = Serversitzung widerrufen, lokale Bereinigung fehlgeschlagen.
+    Speicherplatz und Zugriffsrechte prüfen und erneut abmelden.
+temporary-login-notice = Temporäre Sitzung · Vor dem Schließen
+    abmelden, um dieses Gerät zu widerrufen.
+session-key-mismatch = Geräteschlüssel und gespeicherte Sitzung passen
+    nicht zusammen. Bitte Profilsicherung wiederherstellen.
+session-expired = Sitzung widerrufen oder abgelaufen. Abmelden löscht die
+    gespeicherte Anmeldung. Lokale Schlüssel bleiben erhalten.

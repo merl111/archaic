@@ -2,6 +2,22 @@
 
 Design proposal, not a screenshot of an implemented client. The deliverable will be a real CUI application. No browser-based shell or web screenshot should be presented as proof that a native view works.
 
+## Design skill and review workflow
+
+Use the [Qt Company desktop UI design skill](https://github.com/theqtcompanyrnd/agent-skills/tree/main/skills/qt-ui-design) before new UI compositions and during visual reviews. The reviewed v1.1 skill is installed locally at `/home/mathias/.codex/skills/qt-ui-design/SKILL.md`; it is agent guidance, not an application dependency. Read the skill when applying it. Keep this document and the user's accepted designs authoritative where the skill gives generic defaults.
+
+Apply its desktop layout, hierarchy, semantic color, keyboard, accessibility, and localization guidance through CUI's public API. Qt/QML examples are illustrative only: Archaic remains a Rust/CUI application. Preserve native platform window controls and menus, use the actual platform's system font (including the user's Linux font settings), and use logical units and native metrics rather than copying web pixel sizes or prescribing one font for every OS. Do not mirror media playback symbols merely because the interface is RTL; distinguish directional navigation from content and media conventions.
+
+For each substantial UI change:
+
+1. Identify the primary task, content hierarchy, supported window range, and interaction states before building the view. Reuse established Archaic styling and CUI roles.
+2. Cover loading, empty, offline, error, success, and disabled states where relevant. Keep recovery actions visible and explain security state in words.
+3. Inspect the actual native view in light and dark themes, a compact window, enlarged text, and high DPI. Exercise translated labels and keyboard focus/activation. A browser mockup is not native verification.
+4. Record what was checked, screenshots where useful, and any remaining platform/accessibility checks. Windows/macOS runtime qualification remains deferred at the user's request; Linux evidence does not establish those platforms' behavior.
+5. Fix material layout, contrast, truncation, focus, and interaction problems before calling the screen finished.
+
+The accepted centered login card and ambient background are the current sign-in baseline. Future functionality should preserve that composition unless a concrete usability need or user feedback calls for a change. The conversation workspace still needs its planned visual design pass; adopting this workflow does not mark it complete.
+
 ## Visual direction
 
 A quiet, precise communication app: generous but adjustable spacing, restrained accent color, sharp typography, high-quality avatars/icons and clear information hierarchy. The conversation owns the screen; settings and advanced tools appear in context. The app should feel deliberately designed on each OS rather than forcing an identical title bar and control treatment everywhere.

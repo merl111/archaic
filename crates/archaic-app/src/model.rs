@@ -6,6 +6,9 @@ pub enum Phase {
     #[default]
     SignedOut,
     Connecting,
+    Restoring,
+    RestoreBlocked,
+    LogoutCleanup,
     Connected,
     SigningOut,
 }
@@ -19,6 +22,8 @@ pub struct Outgoing {
 #[derive(Default)]
 pub struct Model {
     pub epoch: u64,
+    pub temporary: bool,
+    pub session_saved: bool,
     pub phase: Phase,
     pub user: String,
     pub rooms: Vec<RoomSummary>,
@@ -38,6 +43,17 @@ impl Model {
             return;
         }
         match event.kind {
+            EventKind::SessionSaved(saved) => {
+                self.session_saved = saved;
+                if !saved && !self.temporary {
+                    self.error = Some("session-not-saved");
+                }
+            }
+            EventKind::RestoreBlocked(key) => {
+                self.phase = Phase::RestoreBlocked;
+                self.status = "";
+                self.error = Some(key);
+            }
             EventKind::Connected(user) => {
                 self.user = user;
                 self.phase = Phase::Connected;
@@ -65,24 +81,30 @@ impl Model {
                 let epoch = self.epoch;
                 *self = Self {
                     epoch,
+                    temporary: self.temporary,
                     ..Self::default()
                 };
             }
             EventKind::Status(status) => self.status = status,
-            EventKind::Error(key) => {
-                if self.phase == Phase::Connecting {
-                    self.phase = Phase::SignedOut;
-                    self.status = "";
-                }
-                if key == "send-failed" {
-                    self.sending = false;
-                }
-                if key == "logout-failed" {
-                    self.phase = Phase::Connected;
-                }
-                self.error = Some(key);
-            }
+            EventKind::Error(key) => self.apply_error(key),
         }
+    }
+
+    fn apply_error(&mut self, key: &'static str) {
+        if self.phase == Phase::Connecting {
+            self.phase = Phase::SignedOut;
+            self.status = "";
+        }
+        match key {
+            "send-failed" => self.sending = false,
+            "logout-cleanup-failed" | "session-expired" => {
+                self.phase = Phase::LogoutCleanup;
+                self.status = "";
+            }
+            "logout-failed" => self.phase = Phase::Connected,
+            _ => {}
+        }
+        self.error = Some(key);
     }
 
     fn confirm_sent(&mut self, transaction: &archaic_matrix::TransactionId) {
@@ -258,5 +280,31 @@ mod tests {
             kind: EventKind::SignedOut,
         });
         assert!(model.drafts.is_empty() && model.rooms.is_empty() && model.selected.is_none());
+    }
+    #[test]
+    fn restoration_failure_blocks_login_and_cleanup_failure_blocks_messaging() {
+        let mut model = Model {
+            phase: Phase::Restoring,
+            ..Model::default()
+        };
+        model.apply(Event {
+            epoch: 0,
+            kind: EventKind::RestoreBlocked("vault-unavailable"),
+        });
+        assert!(model.phase == Phase::RestoreBlocked);
+        assert_eq!(model.error, Some("vault-unavailable"));
+        model.temporary = true;
+        model.apply(Event {
+            epoch: 0,
+            kind: EventKind::SignedOut,
+        });
+        assert!(model.phase == Phase::SignedOut && model.temporary);
+        model = connected();
+        model.apply(Event {
+            epoch: 2,
+            kind: EventKind::Error("logout-cleanup-failed"),
+        });
+        assert!(model.phase == Phase::LogoutCleanup);
+        assert!(model.send_command().is_none());
     }
 }

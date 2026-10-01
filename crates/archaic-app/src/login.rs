@@ -10,6 +10,7 @@ pub struct Login {
     pub password: Widget,
     pub submit: Widget,
     pub error: Widget,
+    pub temporary: Widget,
     pub status: Widget,
 }
 
@@ -51,6 +52,7 @@ impl Login {
         let password = field(&card, tr, "password", true)?;
         let submit = card.button(&tr.text("sign-in"))?;
         submit.set_role(sys::CUI_ROLE_PRIMARY)?;
+        let temporary = card.button(&tr.text("temporary-session"))?;
         let error = card.label("")?;
         error.set_role(sys::CUI_ROLE_DANGER)?;
         let status = label(&card, "", sys::CUI_ROLE_CAPTION)?;
@@ -67,6 +69,7 @@ impl Login {
             password,
             submit,
             error,
+            temporary,
             status,
         })
     }

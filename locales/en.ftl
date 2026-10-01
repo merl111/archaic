@@ -1,5 +1,5 @@
 app-tagline = A quieter place to connect.
-preview = Development preview · Sessions are not saved
+preview = Development preview
 welcome = Sign in to your space
 login-description = Connect to your Matrix homeserver with a password.
 homeserver = Homeserver
@@ -38,6 +38,37 @@ logout-failed = Could not revoke this session. Check your connection and try sig
 queue-full = An operation is already queued. Please wait.
 preview-fixture = Offline UI fixture · No Matrix connection
 login-preview = Development preview · Test accounts only
-login-safety = Sessions are not saved yet. Verification and
-    recovery are still in development. Sign out
-    before closing to revoke this device.
+login-safety = Saved sign-in uses your system keychain.
+    Verification and recovery are still in development.
+    Use Sign out to revoke this device.
+temporary-session = Use a temporary session
+retry-session = Retry saved sign-in
+restoring-session = Opening your saved session…
+temporary-notice = Temporary session · Sign-in is not saved
+session-saved = Sign-in saved securely on this computer
+vault-unavailable = Unlock your system keychain and retry,
+    or use a temporary session.
+vault-key-invalid = The saved key could not be read.
+    Your saved sign-in has been kept.
+vault-key-missing = This profile's key is missing from the keychain.
+    Restore access to your keychain and retry.
+storage-failed = Could not read or save the local profile.
+    Check disk space and directory permissions.
+profile-in-use = Archaic is already using this profile.
+    Close the other instance and retry.
+session-invalid = Could not open the saved session.
+    Your saved sign-in has been kept.
+session-store-missing = The saved encryption database is missing.
+    Restore your profile backup before retrying.
+session-exists = A saved session already exists. Restart
+    Archaic to restore it, or use a temporary session.
+session-not-saved = Signed in, but saving failed. This session is temporary.
+    Sign out before closing to revoke this device.
+logout-cleanup-failed = The server session was revoked, but local cleanup failed.
+    Check disk space and permissions, then click Sign out again.
+temporary-login-notice = Temporary session · Sign out before closing
+    to revoke this device.
+session-key-mismatch = The device keys do not match the saved session.
+    Restore your profile backup before retrying.
+session-expired = This session was revoked or expired. Use Sign out to clear
+    the saved sign-in, then sign in again. Local keys are retained.

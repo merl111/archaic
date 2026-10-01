@@ -61,7 +61,29 @@ impl Controller {
             false
         }
     }
+    fn session_action(&self, temporary: bool) -> Result<()> {
+        let epoch = self.model.borrow().epoch + 1;
+        let command = if temporary {
+            Command::Temporary { epoch }
+        } else {
+            Command::Restore { epoch }
+        };
+        if self.enqueue(command) {
+            let mut model = self.model.borrow_mut();
+            model.epoch = epoch;
+            model.phase = Phase::Restoring;
+            model.temporary = temporary;
+            model.error = None;
+        }
+        self.render()
+    }
+    fn temporary(&self) -> Result<()> {
+        self.session_action(true)
+    }
     fn login(&self) -> Result<()> {
+        if self.model.borrow().phase == Phase::RestoreBlocked {
+            return self.session_action(false);
+        }
         if self.model.borrow().phase != Phase::SignedOut {
             return Ok(());
         }
@@ -169,6 +191,7 @@ impl Controller {
         })?;
         for (widget, action) in [
             (&self.view.sign_in, Self::login as fn(&Self) -> Result<()>),
+            (&self.view.temporary, Self::temporary),
             (&self.view.rooms, Self::select),
             (&self.view.send, Self::send),
             (&self.view.sign_out, Self::logout),
@@ -198,17 +221,12 @@ fn fixture() -> Model {
 }
 
 fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let Some(options::Options {
-        locale,
-        theme,
-        fixture_mode,
-        smoke,
-    }) = options::parse()?
-    else {
+    let Some(options) = options::parse()? else {
         return Ok(());
     };
+    let temporary = options.temporary || options.fixture_mode || options.smoke;
     let app = App::new()?;
-    app.theme(theme);
+    app.theme(options.theme);
     let window = app.window("Archaic", 1180, 800)?;
     window.scrollable(true)?;
     let root = window.root()?;
@@ -217,20 +235,34 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         .enable_all()
         .build()?;
     let (sender, commands, events, mut receiver) = archaic_matrix::channels();
-    let worker = runtime.spawn(archaic_matrix::run(commands, events));
-    let tr = Translator::new(&locale);
+    let worker = runtime.spawn(async move {
+        if temporary {
+            archaic_matrix::run(commands, events).await;
+        } else {
+            archaic_matrix::run_persistent(commands, events).await;
+        }
+    });
+    let tr = Translator::new(&options.locale);
     let controller = Rc::new(Controller {
         view: View::new(&root, &tr)?,
-        model: RefCell::new(if fixture_mode {
+        model: RefCell::new(if options.fixture_mode {
             fixture()
         } else {
-            Model::default()
+            Model {
+                temporary,
+                phase: if temporary {
+                    Phase::SignedOut
+                } else {
+                    Phase::Restoring
+                },
+                ..Model::default()
+            }
         }),
         tr,
         sender,
         rendering: Cell::new(false),
         room_labels: RefCell::new(Vec::new()),
-        fixture: fixture_mode,
+        fixture: options.fixture_mode,
     });
     controller.bind()?;
     controller.render()?;
@@ -244,7 +276,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             updates.event(event).expect("live CUI controls");
         }
     })?;
-    let _smoke_timer = if smoke {
+    let _smoke_timer = if options.smoke {
         Some(app.every(1800, move || {
             root.quit().expect("live root");
         })?)

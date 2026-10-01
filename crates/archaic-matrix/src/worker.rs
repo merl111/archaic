@@ -1,7 +1,9 @@
-use crate::{Command, Event, EventKind, Message, RoomSummary, homeserver_url};
+use crate::{Command, Event, EventKind, Message, RoomSummary};
+use crate::{
+    connection::{self, Persistence, Session, SyncUpdate},
+    storage::Profile,
+};
 use matrix_sdk::{
-    Client,
-    config::{RequestConfig, SyncSettings},
     room::MessagesOptions,
     ruma::{
         RoomId,
@@ -12,52 +14,112 @@ use matrix_sdk::{
         uint,
     },
 };
-use std::time::Duration;
-use tokio::{sync::mpsc, task::JoinHandle};
-
-struct Session {
-    epoch: u64,
-    client: Client,
-    selected: Option<String>,
-    sync: JoinHandle<()>,
-}
-impl Drop for Session {
-    fn drop(&mut self) {
-        self.sync.abort();
-    }
-}
+use tokio::sync::mpsc;
 
 async fn emit(events: &mpsc::Sender<Event>, epoch: u64, kind: EventKind) {
     let _ = events.send(Event { epoch, kind }).await;
 }
 
-pub async fn run(mut commands: mpsc::Receiver<Command>, events: mpsc::Sender<Event>) {
-    let (updates, mut update_rx) = mpsc::channel::<(u64, bool)>(1);
-    let mut session: Option<Session> = None;
+/// Explicitly memory-only service, used for temporary sessions and protocol tests.
+pub async fn run(commands: mpsc::Receiver<Command>, events: mpsc::Sender<Event>) {
+    run_inner(commands, events, Persistence::Temporary, false).await;
+}
+pub async fn run_persistent(commands: mpsc::Receiver<Command>, events: mpsc::Sender<Event>) {
+    run_inner(commands, events, Persistence::Unavailable, true).await;
+}
+pub async fn run_with_profile(
+    commands: mpsc::Receiver<Command>,
+    events: mpsc::Sender<Event>,
+    profile: Profile,
+) {
+    run_inner(commands, events, Persistence::Ready(profile), true).await;
+}
+
+async fn announce(events: &mpsc::Sender<Event>, active: &Session) {
+    let user = active
+        .client
+        .user_id()
+        .map(ToString::to_string)
+        .unwrap_or_default();
+    emit(events, active.epoch, EventKind::Connected(user)).await;
+    emit(events, active.epoch, EventKind::SessionSaved(active.saved)).await;
+}
+
+async fn restore(
+    epoch: u64,
+    persistence: &mut Persistence,
+    updates: mpsc::Sender<(u64, SyncUpdate)>,
+    events: &mpsc::Sender<Event>,
+) -> Option<Session> {
+    match connection::restore(epoch, persistence, updates).await {
+        Ok(Some(active)) => {
+            announce(events, &active).await;
+            Some(active)
+        }
+        Ok(None) => {
+            emit(events, epoch, EventKind::SignedOut).await;
+            None
+        }
+        Err(key) => {
+            emit(events, epoch, EventKind::RestoreBlocked(key)).await;
+            None
+        }
+    }
+}
+
+async fn run_inner(
+    mut commands: mpsc::Receiver<Command>,
+    events: mpsc::Sender<Event>,
+    mut persistence: Persistence,
+    restore_on_start: bool,
+) {
+    let (updates, mut update_rx) = mpsc::channel::<(u64, SyncUpdate)>(1);
+    let mut session = if restore_on_start {
+        restore(0, &mut persistence, updates.clone(), &events).await
+    } else {
+        None
+    };
     loop {
         tokio::select! {
             command = commands.recv() => {
                 let Some(command) = command else { break };
-                if let Command::Login { epoch, server, username, password } = command {
-                    // The UI permits login only when disconnected. Do not orphan an active device.
-                    if session.is_none() {
-                        match connect(epoch, &server, &username, &password, updates.clone()).await {
+                match command {
+                    Command::Restore { epoch } if session.is_none() => {
+                        session = restore(epoch, &mut persistence, updates.clone(), &events).await;
+                    }
+                    Command::Temporary { epoch } if session.is_none() => {
+                        persistence = Persistence::Temporary;
+                        emit(&events, epoch, EventKind::SignedOut).await;
+                    }
+                    Command::Login { epoch, server, username, password } if session.is_none() => {
+                        match connection::connect(epoch, &server, &username, &password, &mut persistence, updates.clone()).await {
                             Ok(connected) => {
-                                let user = connected.client.user_id().map(ToString::to_string).unwrap_or_default();
-                                emit(&events, epoch, EventKind::Connected(user)).await;
+                                announce(&events, &connected).await;
                                 session = Some(connected);
                             }
                             Err(key) => emit(&events, epoch, EventKind::Error(key)).await,
                         }
                     }
-                } else if let Some(active) = &mut session
-                    && handle(command, active, &events).await { session = None; }
+                    command => {
+                        if let Some(active) = &mut session
+                            && handle(command, active, &mut persistence, &events).await { session = None; }
+                    }
+                }
             }
             update = update_rx.recv() => {
-                if let (Some((epoch, success)), Some(active)) = (update, &session) {
-                    if epoch != active.epoch { continue; }
-                    emit(&events, epoch, EventKind::Status(if success { "ready" } else { "reconnecting" })).await;
-                    if success { snapshot(active, &events).await; }
+                if let (Some((epoch, update)), Some(active)) = (update, &mut session) {
+                    if epoch != active.epoch || active.revoked { continue; }
+                    match update {
+                        SyncUpdate::Expired => {
+                            active.revoked = true;
+                            emit(&events, epoch, EventKind::Error("session-expired")).await;
+                        }
+                        SyncUpdate::Ready => {
+                            emit(&events, epoch, EventKind::Status("ready")).await;
+                            snapshot(active, &events).await;
+                        }
+                        SyncUpdate::Retrying => emit(&events, epoch, EventKind::Status("reconnecting")).await,
+                    }
                 }
             }
             _ = events.closed() => break,
@@ -65,56 +127,15 @@ pub async fn run(mut commands: mpsc::Receiver<Command>, events: mpsc::Sender<Eve
     }
 }
 
-async fn connect(
-    epoch: u64,
-    server: &str,
-    username: &str,
-    password: &str,
-    updates: mpsc::Sender<(u64, bool)>,
-) -> Result<Session, &'static str> {
-    let url = homeserver_url(server)?;
-    if username.trim().is_empty() || password.is_empty() {
-        return Err("missing-credentials");
+async fn handle(
+    command: Command,
+    active: &mut Session,
+    persistence: &mut Persistence,
+    events: &mpsc::Sender<Event>,
+) -> bool {
+    if active.revoked && !matches!(command, Command::Logout) {
+        return false;
     }
-    let client = Client::builder()
-        .homeserver_url(url.as_str())
-        .request_config(
-            RequestConfig::default()
-                .timeout(Duration::from_secs(12))
-                .retry_limit(0),
-        )
-        .build()
-        .await
-        .map_err(|_| "login-failed")?;
-    client
-        .matrix_auth()
-        .login_username(username.trim(), password)
-        .initial_device_display_name("Archaic development preview")
-        .await
-        .map_err(|_| "login-failed")?;
-    let syncing = client.clone();
-    let sync = tokio::spawn(async move {
-        loop {
-            let success = syncing
-                .sync_once(SyncSettings::default().timeout(Duration::from_secs(15)))
-                .await
-                .is_ok();
-            if updates.send((epoch, success)).await.is_err() {
-                break;
-            }
-            // Also avoid a tight loop against a server that immediately returns empty syncs.
-            tokio::time::sleep(Duration::from_millis(if success { 250 } else { 3000 })).await;
-        }
-    });
-    Ok(Session {
-        epoch,
-        client,
-        selected: None,
-        sync,
-    })
-}
-
-async fn handle(command: Command, active: &mut Session, events: &mpsc::Sender<Event>) -> bool {
     let result = match command {
         Command::Select(room_id) => {
             active.selected = Some(room_id);
@@ -149,19 +170,39 @@ async fn handle(command: Command, active: &mut Session, events: &mpsc::Sender<Ev
                 _ => Err("send-failed"),
             }
         }
-        Command::Logout => {
-            if active.client.matrix_auth().logout().await.is_ok() {
+        Command::Logout => match logout(active, persistence).await {
+            Ok(()) => {
                 emit(events, active.epoch, EventKind::SignedOut).await;
                 return true;
             }
-            Err("logout-failed")
-        }
-        Command::Login { .. } => Ok(()),
+            Err(key) => Err(key),
+        },
+        Command::Login { .. } | Command::Restore { .. } | Command::Temporary { .. } => Ok(()),
     };
     if let Err(key) = result {
         emit(events, active.epoch, EventKind::Error(key)).await;
     }
     false
+}
+
+async fn logout(active: &mut Session, persistence: &Persistence) -> Result<(), &'static str> {
+    if !active.revoked {
+        match active.client.matrix_auth().logout().await {
+            Ok(_) => {}
+            Err(error)
+                if matches!(
+                    error.client_api_error_kind(),
+                    Some(matrix_sdk::ruma::api::error::ErrorKind::UnknownToken { .. })
+                ) => {}
+            Err(_) => return Err("logout-failed"),
+        }
+        active.revoked = true;
+        active.stop_sync();
+    }
+    if let Persistence::Ready(profile) = persistence {
+        profile.save(None).map_err(|_| "logout-cleanup-failed")?;
+    }
+    Ok(())
 }
 
 async fn snapshot(active: &Session, events: &mpsc::Sender<Event>) {

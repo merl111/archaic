@@ -10,11 +10,11 @@ async fn next(events: &mut Receiver, predicate: impl Fn(&EventKind) -> bool) -> 
     tokio::time::timeout(Duration::from_secs(15), async {
         loop {
             let event = events.recv().await.expect("worker still running");
-            if let EventKind::Error(key) = event.kind {
-                panic!("unexpected worker error: {key}");
-            }
             if predicate(&event.kind) {
                 return event;
+            }
+            if let EventKind::Error(key) = event.kind {
+                panic!("unexpected worker error: {key}");
             }
         }
     })
@@ -229,4 +229,217 @@ async fn rejected_credentials_report_safe_error_and_allow_retry() {
     }
     drop(sender);
     worker.await.unwrap();
+}
+
+#[derive(Default)]
+struct MemoryVault(std::sync::Mutex<Option<Vec<u8>>>);
+impl archaic_matrix::storage::Vault for MemoryVault {
+    fn load(&self) -> Result<Option<Vec<u8>>, &'static str> {
+        Ok(self.0.lock().unwrap().clone())
+    }
+    fn save(&self, key: &[u8]) -> Result<(), &'static str> {
+        *self.0.lock().unwrap() = Some(key.to_vec());
+        Ok(())
+    }
+}
+
+#[tokio::test]
+async fn restart_restores_the_same_device_and_logout_removes_saved_login() {
+    use archaic_matrix::storage::Profile;
+    let server = server().await;
+    let directory = tempfile::tempdir().unwrap();
+    let vault = MemoryVault::default();
+    let profile = Profile::open(directory.path().into(), &vault).unwrap();
+    let (sender, commands, events, mut receiver) = channels();
+    let worker = tokio::spawn(archaic_matrix::run_with_profile(commands, events, profile));
+    next(&mut receiver, |event| matches!(event, EventKind::SignedOut)).await;
+    sender
+        .send(Command::Login {
+            epoch: 1,
+            server: server.uri(),
+            username: "alice".into(),
+            password: "test-password".into(),
+        })
+        .await
+        .unwrap();
+    next(&mut receiver, |event| {
+        matches!(event, EventKind::SessionSaved(true))
+    })
+    .await;
+    next(
+        &mut receiver,
+        |event| matches!(event, EventKind::Rooms(rooms) if !rooms.is_empty()),
+    )
+    .await;
+    drop(sender);
+    worker.await.unwrap();
+    let envelope = std::fs::read(directory.path().join("session.enc")).unwrap();
+    assert!(!String::from_utf8_lossy(&envelope).contains("test-access-token"));
+    let profile = Profile::open(directory.path().into(), &vault).unwrap();
+    let (sender, commands, events, mut receiver) = channels();
+    let worker = tokio::spawn(archaic_matrix::run_with_profile(commands, events, profile));
+    let restored = next(&mut receiver, |event| {
+        matches!(event, EventKind::Connected(_))
+    })
+    .await;
+    assert_eq!(restored.epoch, 0);
+    next(&mut receiver, |event| {
+        matches!(event, EventKind::SessionSaved(true))
+    })
+    .await;
+    next(
+        &mut receiver,
+        |event| matches!(event, EventKind::Rooms(rooms) if !rooms.is_empty()),
+    )
+    .await;
+    sender.send(Command::Logout).await.unwrap();
+    next(&mut receiver, |event| matches!(event, EventKind::SignedOut)).await;
+    drop(sender);
+    worker.await.unwrap();
+    let profile = Profile::open(directory.path().into(), &vault).unwrap();
+    let (sender, commands, events, mut receiver) = channels();
+    let worker = tokio::spawn(archaic_matrix::run_with_profile(commands, events, profile));
+    next(&mut receiver, |event| matches!(event, EventKind::SignedOut)).await;
+    drop(sender);
+    worker.await.unwrap();
+    let requests = server.received_requests().await.unwrap();
+    assert_eq!(
+        requests
+            .iter()
+            .filter(|r| r.method == "POST" && r.url.path().ends_with("/login"))
+            .count(),
+        1
+    );
+    assert_eq!(
+        requests
+            .iter()
+            .filter(|r| r.url.path().ends_with("/logout"))
+            .count(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn corrupt_saved_login_is_preserved_and_temporary_mode_is_explicit() {
+    let directory = tempfile::tempdir().unwrap();
+    let profile =
+        archaic_matrix::storage::Profile::open(directory.path().into(), &MemoryVault::default())
+            .unwrap();
+    let path = directory.path().join("session.enc");
+    std::fs::write(&path, b"corrupt").unwrap();
+    let (sender, commands, events, mut receiver) = channels();
+    let worker = tokio::spawn(archaic_matrix::run_with_profile(commands, events, profile));
+    next(&mut receiver, |event| {
+        matches!(event, EventKind::RestoreBlocked("session-invalid"))
+    })
+    .await;
+    sender.send(Command::Restore { epoch: 4 }).await.unwrap();
+    assert_eq!(
+        next(&mut receiver, |event| matches!(
+            event,
+            EventKind::RestoreBlocked(_)
+        ))
+        .await
+        .epoch,
+        4
+    );
+    sender.send(Command::Temporary { epoch: 5 }).await.unwrap();
+    assert_eq!(
+        next(&mut receiver, |event| matches!(event, EventKind::SignedOut))
+            .await
+            .epoch,
+        5
+    );
+    assert_eq!(std::fs::read(path).unwrap(), b"corrupt");
+    drop(sender);
+    worker.await.unwrap();
+}
+
+#[tokio::test]
+async fn failed_local_logout_cleanup_can_retry_without_revoking_twice() {
+    let server = server().await;
+    let directory = tempfile::tempdir().unwrap();
+    let vault = MemoryVault::default();
+    let profile = archaic_matrix::storage::Profile::open(directory.path().into(), &vault).unwrap();
+    let (sender, commands, events, mut receiver) = channels();
+    let worker = tokio::spawn(archaic_matrix::run_with_profile(commands, events, profile));
+    next(&mut receiver, |event| matches!(event, EventKind::SignedOut)).await;
+    sender
+        .send(Command::Login {
+            epoch: 1,
+            server: server.uri(),
+            username: "alice".into(),
+            password: "test-password".into(),
+        })
+        .await
+        .unwrap();
+    next(&mut receiver, |event| {
+        matches!(event, EventKind::SessionSaved(true))
+    })
+    .await;
+    let record = directory.path().join("session.enc");
+    let backup = directory.path().join("record-backup");
+    std::fs::rename(&record, &backup).unwrap();
+    std::fs::create_dir(&record).unwrap();
+    sender.send(Command::Logout).await.unwrap();
+    next(&mut receiver, |event| {
+        matches!(event, EventKind::Error("logout-cleanup-failed"))
+    })
+    .await;
+    std::fs::remove_dir(&record).unwrap();
+    std::fs::rename(backup, record).unwrap();
+    sender.send(Command::Logout).await.unwrap();
+    next(&mut receiver, |event| matches!(event, EventKind::SignedOut)).await;
+    drop(sender);
+    worker.await.unwrap();
+    let requests = server.received_requests().await.unwrap();
+    assert_eq!(
+        requests
+            .iter()
+            .filter(|r| r.url.path().ends_with("/logout"))
+            .count(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn revoked_token_stops_sync_and_can_be_signed_out_locally() {
+    let server = server().await;
+    Mock::given(method("GET"))
+        .and(path_regex(r".*/sync$"))
+        .respond_with(
+            ResponseTemplate::new(401)
+                .set_body_json(json!({"errcode":"M_UNKNOWN_TOKEN","error":"revoked"})),
+        )
+        .with_priority(1)
+        .mount(&server)
+        .await;
+    let (sender, commands, events, mut receiver) = channels();
+    let worker = tokio::spawn(archaic_matrix::run(commands, events));
+    sender
+        .send(Command::Login {
+            epoch: 1,
+            server: server.uri(),
+            username: "alice".into(),
+            password: "test-password".into(),
+        })
+        .await
+        .unwrap();
+    next(&mut receiver, |event| {
+        matches!(event, EventKind::Error("session-expired"))
+    })
+    .await;
+    sender.send(Command::Logout).await.unwrap();
+    next(&mut receiver, |event| matches!(event, EventKind::SignedOut)).await;
+    drop(sender);
+    worker.await.unwrap();
+    let requests = server.received_requests().await.unwrap();
+    assert_eq!(
+        requests
+            .iter()
+            .filter(|r| r.url.path().ends_with("/sync"))
+            .count(),
+        1
+    );
+    assert!(!requests.iter().any(|r| r.url.path().ends_with("/logout")));
 }
