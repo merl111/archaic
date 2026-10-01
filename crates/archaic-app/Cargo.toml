@@ -10,3 +10,4 @@ cui.workspace = true
 archaic-matrix = { path = "../archaic-matrix" }
 archaic-i18n = { path = "../archaic-i18n" }
 tokio.workspace = true
+tempfile = "3"

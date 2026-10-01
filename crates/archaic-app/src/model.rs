@@ -33,6 +33,9 @@ pub struct Model {
     pub drafts: HashMap<String, String>,
     pub outgoing: HashMap<String, Outgoing>,
     pub sending: bool,
+    pub show_join: bool,
+    pub joining: bool,
+    pub join_error: Option<&'static str>,
     pub status: &'static str,
     pub error: Option<&'static str>,
 }
@@ -77,6 +80,12 @@ impl Model {
                 }
             }
             EventKind::Sent { transaction } => self.confirm_sent(&transaction),
+            EventKind::Joined(room) => self.joined(room),
+            EventKind::JoinFailed(key) => {
+                self.joining = false;
+                self.show_join = true;
+                self.join_error = Some(key);
+            }
             EventKind::SignedOut => {
                 let epoch = self.epoch;
                 *self = Self {
@@ -88,6 +97,19 @@ impl Model {
             EventKind::Status(status) => self.status = status,
             EventKind::Error(key) => self.apply_error(key),
         }
+    }
+
+    fn joined(&mut self, room: RoomSummary) {
+        self.selected = Some(room.id.clone());
+        if !self.rooms.iter().any(|existing| existing.id == room.id) {
+            self.rooms.push(room);
+        }
+        self.messages.clear();
+        self.filter.clear();
+        self.joining = false;
+        self.show_join = false;
+        self.join_error = None;
+        self.status = "loading";
     }
 
     fn apply_error(&mut self, key: &'static str) {
@@ -179,6 +201,37 @@ mod tests {
             drafts: HashMap::from([("!a:local".into(), "hello".into())]),
             ..Model::default()
         }
+    }
+
+    #[test]
+    fn join_failure_preserves_conversation_and_success_selects_without_losing_drafts() {
+        let mut model = connected();
+        model.show_join = true;
+        model.joining = true;
+        model.apply(Event {
+            epoch: 2,
+            kind: EventKind::JoinFailed("join-forbidden"),
+        });
+        assert!(!model.joining && model.show_join);
+        assert_eq!(model.selected.as_deref(), Some("!a:local"));
+        assert_eq!(model.join_error, Some("join-forbidden"));
+        model.filter = "old room filter".into();
+        model.apply(Event {
+            epoch: 2,
+            kind: EventKind::Joined(RoomSummary {
+                id: "!b:local".into(),
+                name: "New room".into(),
+            }),
+        });
+        assert_eq!(model.selected.as_deref(), Some("!b:local"));
+        assert!(model.filter.is_empty() && !model.show_join && model.join_error.is_none());
+        assert_eq!(model.drafts["!a:local"], "hello");
+        assert_eq!(model.visible_rooms()[0].id, "!b:local");
+        model.apply(Event {
+            epoch: 2,
+            kind: EventKind::SignedOut,
+        });
+        assert!(!model.show_join && !model.joining && model.join_error.is_none());
     }
     #[test]
     fn stale_sessions_and_other_room_history_cannot_replace_current_view() {

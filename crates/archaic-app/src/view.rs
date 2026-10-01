@@ -5,7 +5,11 @@ use archaic_i18n::Translator;
 use cui::{Result, Widget, sys};
 
 pub struct View {
-    pub header: Widget,
+    pub appearance: Widget,
+    pub appearance_error: Widget,
+    pub join_toggle: Widget,
+    pub join: crate::join_form::JoinForm,
+    pub compose_group: Widget,
     pub footer: Widget,
     pub session_notice: Widget,
     pub temporary: Widget,
@@ -36,12 +40,23 @@ impl View {
         root.box_set_padding(0)?;
         let header_group = root.box_layout(sys::CUI_VERTICAL, 0)?;
         let header = header_group.box_layout(sys::CUI_HORIZONTAL, 20)?;
-        header.box_set_padding(24)?;
-        label(&header, "Archaic", sys::CUI_ROLE_TITLE)?;
+        header.box_set_padding(12)?;
+        label(&header, "Archaic", sys::CUI_ROLE_HEADING)?;
         let subtitle = label(&header, &tr.text("app-tagline"), sys::CUI_ROLE_CAPTION)?;
         subtitle.expand(true)?;
-        let account = label(&header, "", sys::CUI_ROLE_CAPTION)?;
-        let sign_out = header.button(&tr.text("sign-out"))?;
+        label(&header, &tr.text("appearance"), sys::CUI_ROLE_CAPTION)?;
+        let appearance = header.select(&[
+            &tr.text("theme-system"),
+            &tr.text("theme-light"),
+            &tr.text("theme-dark"),
+        ])?;
+        appearance.accessibility(&tr.text("appearance"), "")?;
+        let appearance_error = label(
+            &header_group,
+            &tr.text("appearance-save-failed"),
+            sys::CUI_ROLE_DANGER,
+        )?;
+        appearance_error.set_visible(false)?;
         header_group.separator()?;
         let login = Login::new(root, tr)?;
 
@@ -51,12 +66,22 @@ impl View {
         sidebar.box_set_padding(16)?;
         sidebar.set_min_size(240, 260)?;
         sidebar.set_role(sys::CUI_ROLE_PANEL)?;
-        label(&sidebar, &tr.text("rooms"), sys::CUI_ROLE_HEADING)?;
+        let sidebar_header = sidebar.box_layout(sys::CUI_HORIZONTAL, 12)?;
+        label(&sidebar_header, &tr.text("rooms"), sys::CUI_ROLE_HEADING)?.expand(true)?;
+        let join_toggle =
+            sidebar_header.symbol_button(sys::CUI_SYMBOL_PLUS, &tr.text("join-room"))?;
+        join_toggle.set_tooltip(&tr.text("join-room"))?;
+        join_toggle.accessibility(&tr.text("join-room"), "")?;
+        let join = crate::join_form::JoinForm::new(&sidebar, tr)?;
         let search = sidebar.search(&tr.text("room-search"))?;
         search.accessibility(&tr.text("room-search"), "")?;
         let rooms = sidebar.list(&[])?;
         rooms.expand(true)?;
         rooms.accessibility(&tr.text("rooms"), "")?;
+        sidebar.separator()?;
+        label(&sidebar, &tr.text("signed-in-as"), sys::CUI_ROLE_CAPTION)?;
+        let account = label(&sidebar, "", sys::CUI_ROLE_CAPTION)?;
+        let sign_out = sidebar.button(&tr.text("sign-out"))?;
         let conversation = workspace.split_pane(1)?;
         conversation.box_set_padding(20)?;
         let room_header = conversation.box_layout(sys::CUI_HORIZONTAL, 12)?;
@@ -69,12 +94,14 @@ impl View {
         timeline.expand(true)?;
         timeline.set_read_only(true)?;
         timeline.accessibility(&tr.text("recent-only"), "")?;
-        label(&conversation, &tr.text("composer"), sys::CUI_ROLE_CAPTION)?;
-        let composer = conversation.textarea("")?;
+        let compose_group = conversation.box_layout(sys::CUI_VERTICAL, 10)?;
+        compose_group.box_set_padding(12)?;
+        compose_group.set_role(sys::CUI_ROLE_CARD)?;
+        let composer = compose_group.textarea("")?;
         composer.set_min_size(300, 90)?;
         composer.set_placeholder(&tr.text("composer"))?;
         composer.accessibility(&tr.text("composer"), "")?;
-        let composer_footer = conversation.box_layout(sys::CUI_HORIZONTAL, 12)?;
+        let composer_footer = compose_group.box_layout(sys::CUI_HORIZONTAL, 12)?;
         let hint = label(
             &composer_footer,
             &tr.text("recent-only"),
@@ -91,7 +118,11 @@ impl View {
         session_notice.expand(true)?;
         let status = label(&footer, "", sys::CUI_ROLE_CAPTION)?;
         Ok(Self {
-            header: header_group,
+            appearance,
+            appearance_error,
+            join_toggle,
+            join,
+            compose_group,
             footer,
             session_notice,
             temporary: login.temporary,
@@ -119,7 +150,6 @@ impl View {
     }
 
     fn render_login(&self, model: &Model, tr: &Translator, connected: bool) -> Result<()> {
-        self.header.set_visible(connected)?;
         self.footer.set_visible(connected)?;
         self.login.set_visible(!connected)?;
         self.sign_in.set_enabled(matches!(
@@ -203,6 +233,9 @@ impl View {
         )?;
         set_text(&self.account, &model.user)?;
         self.render_status(model, tr, fixture)?;
+        self.join_toggle
+            .set_enabled(model.phase == Phase::Connected && !model.joining && !fixture)?;
+        self.join.render(model, tr, fixture)?;
         set_text(
             &self.error,
             &model.error.map(|key| tr.text(key)).unwrap_or_default(),
@@ -222,6 +255,7 @@ impl View {
             &self.room_id,
             &selected.map(|room| room.id.clone()).unwrap_or_default(),
         )?;
+        self.compose_group.set_visible(selected.is_some())?;
         let history = history_text(model, tr, selected.is_some());
         set_text(&self.timeline, &history)?;
         set_text(&self.composer, model.draft())?;
@@ -236,7 +270,8 @@ impl View {
         )?;
         self.refresh
             .set_enabled(model.phase == Phase::Connected && !fixture)?;
-        self.rooms.set_enabled(model.phase == Phase::Connected)?;
+        self.rooms
+            .set_enabled(model.phase == Phase::Connected && !model.joining)?;
         self.search.set_enabled(model.phase == Phase::Connected)?;
         Ok(())
     }

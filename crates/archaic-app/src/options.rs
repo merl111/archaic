@@ -1,6 +1,6 @@
 pub struct Options {
     pub locale: String,
-    pub theme: cui::sys::cui_theme,
+    pub theme: Option<crate::appearance::Appearance>,
     pub fixture_mode: bool,
     pub smoke: bool,
     pub temporary: bool,
@@ -9,7 +9,7 @@ pub struct Options {
 pub fn parse() -> Result<Option<Options>, Box<dyn std::error::Error>> {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     let mut locale = "en".to_string();
-    let mut theme = cui::sys::CUI_THEME_SYSTEM;
+    let mut theme = None;
     let mut fixture_mode = false;
     let mut smoke = false;
     let mut temporary = false;
@@ -18,12 +18,12 @@ pub fn parse() -> Result<Option<Options>, Box<dyn std::error::Error>> {
         match arg.as_str() {
             "--locale" => locale = args.next().ok_or("--locale requires en or de")?.clone(),
             "--theme" => {
-                theme = match args.next().map(String::as_str) {
-                    Some("system") => cui::sys::CUI_THEME_SYSTEM,
-                    Some("light") => cui::sys::CUI_THEME_LIGHT,
-                    Some("dark") => cui::sys::CUI_THEME_DARK,
+                theme = Some(match args.next().map(String::as_str) {
+                    Some("system") => crate::appearance::Appearance::System,
+                    Some("light") => crate::appearance::Appearance::Light,
+                    Some("dark") => crate::appearance::Appearance::Dark,
                     _ => return Err("--theme requires system, light or dark".into()),
-                }
+                });
             }
             "--temporary-session" => temporary = true,
             "--fixture" => fixture_mode = true,

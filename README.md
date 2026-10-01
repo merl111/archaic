@@ -30,18 +30,21 @@ On Windows, use `py -3 tools/dev.py run` from the developer terminal. The helper
 
 The development executable is `target/debug/archaic` (`archaic.exe` on Windows). Release builds use `target/release`. These are development binaries, not signed installers or macOS application bundles.
 
-The sign-in screen uses a centered native card and a CUI ambient background. It follows system appearance by default. `--theme light`, `--theme dark` and `--theme system` let you preview both palettes now; a persistent in-app System/Light/Dark switcher is planned for the settings screen. Native window controls retain the desktop theme.
+The sign-in screen uses a centered native card and a CUI ambient background. It follows system appearance by default. `--theme light`, `--theme dark` and `--theme system` let you preview both palettes now; the **Appearance** selector applies changes immediately on both the sign-in and conversation screens. Normal launches save that preference; `--theme` overrides it for the launch until you change the selector. Temporary, fixture and smoke launches do not read or write appearance preferences. Native window controls retain the desktop theme.
 
 ## Connect
 
 1. Enter the HTTPS homeserver base URL, your Matrix ID or username, and password. Loopback HTTP addresses are accepted for local testing only.
 2. Sign in, wait for the joined room list, then select a conversation.
 3. Write a message and press **Send**. **Refresh** reloads recent history. Filtering the room list preserves selection and drafts.
-4. Use **Sign out** to revoke the current device session and clear the view. Failed server revocation permits retry. If revocation succeeds but clearing the local sign-in fails, messaging is disabled and **Sign out** retries only local cleanup.
+4. Use **+** beside Conversations to join by `#room:server` alias (recommended) or `!room:server` ID. Enter submits; failures preserve the address for retry. A successful join opens the room and preserves other-room drafts. This does not yet include directory browsing, Matrix links, invitation management or explicit federation routing servers.
+5. Use **Sign out** to revoke the current device session and clear the view. Failed server revocation permits retry. If revocation succeeds but clearing the local sign-in fails, messaging is disabled and **Sign out** retries only local cleanup.
 
 Only password login is implemented; OIDC/SSO and interactive authentication flows come later. The Matrix SDK's encryption implementation is enabled, but verification and backup/recovery UI remain unfinished. This is **not a production E2EE client**. Unavailable encrypted messages are shown as placeholders. Avoid using this build for valuable conversations.
 
 The timeline currently shows text from the latest 50 room events in a selectable native text view. Rich messages, history pagination, edits, threads, attachments, invitations, room creation, receipts and calling are unfinished. The native view is a temporary foundation for the planned CUI virtualized rich timeline.
+
+Appearance preferences are stored separately from credentials: `$XDG_CONFIG_HOME/archaic/appearance` (or `~/.config/archaic/appearance`) on Linux, `~/Library/Preferences/archaic/appearance` on macOS, and `%APPDATA%\archaic\appearance` on Windows. Failed writes leave the selected theme active and show a warning. Missing/unrecognized preferences fall back to System.
 
 ## Saved and temporary sessions
 

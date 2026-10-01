@@ -1,3 +1,5 @@
+mod appearance;
+mod join_form;
 mod login;
 mod model;
 mod options;
@@ -21,6 +23,8 @@ struct Controller {
     rendering: Cell<bool>,
     room_labels: RefCell<Vec<String>>,
     fixture: bool,
+    app: std::rc::Weak<App>,
+    preference_path: Option<std::path::PathBuf>,
 }
 
 impl Controller {
@@ -174,9 +178,59 @@ impl Controller {
         self.model.borrow_mut().filter = self.view.search.text()?;
         self.render()
     }
+    fn appearance(&self) -> Result<()> {
+        let appearance = appearance::Appearance::from_index(self.view.appearance.get_selected()?);
+        if let Some(app) = self.app.upgrade() {
+            app.theme(appearance.theme());
+        }
+        let failed = self
+            .preference_path
+            .as_ref()
+            .is_some_and(|path| appearance.save(path).is_err());
+        self.view.appearance_error.set_visible(failed)?;
+        Ok(())
+    }
+    fn toggle_join(&self) -> Result<()> {
+        let mut model = self.model.borrow_mut();
+        if model.phase != Phase::Connected || model.joining || self.fixture {
+            return Ok(());
+        }
+        model.show_join = !model.show_join;
+        model.join_error = None;
+        drop(model);
+        self.render()
+    }
+    fn join(&self) -> Result<()> {
+        if self.fixture
+            || self.model.borrow().joining
+            || self.model.borrow().phase != Phase::Connected
+        {
+            return Ok(());
+        }
+        self.remember_draft()?;
+        let address = self.view.join.join_address.text()?;
+        if self.enqueue(Command::Join(address)) {
+            let mut model = self.model.borrow_mut();
+            model.joining = true;
+            model.join_error = None;
+        }
+        self.render()
+    }
     fn event(&self, event: Event) -> Result<()> {
         self.remember_draft()?;
+        let joined = event.epoch == self.model.borrow().epoch
+            && matches!(event.kind, archaic_matrix::EventKind::Joined(_));
         self.model.borrow_mut().apply(event);
+        if joined {
+            self.rendering.set(true);
+            let cleared = self
+                .view
+                .search
+                .set_text("")
+                .and_then(|_| self.view.join.join_address.set_text(""));
+            self.rendering.set(false);
+            cleared?;
+        }
         self.render()
     }
     fn bind(self: &Rc<Self>) -> Result<()> {
@@ -184,6 +238,15 @@ impl Controller {
         self.view.password.on_key(move |key, _| {
             if key == cui::sys::CUI_KEY_ENTER && !controller.rendering.get() {
                 controller.login().expect("live CUI controls");
+                true
+            } else {
+                false
+            }
+        })?;
+        let controller = self.clone();
+        self.view.join.join_address.on_key(move |key, _| {
+            if key == cui::sys::CUI_KEY_ENTER && !controller.rendering.get() {
+                controller.join().expect("live CUI controls");
                 true
             } else {
                 false
@@ -197,6 +260,10 @@ impl Controller {
             (&self.view.sign_out, Self::logout),
             (&self.view.refresh, Self::refresh),
             (&self.view.search, Self::filter),
+            (&self.view.join_toggle, Self::toggle_join),
+            (&self.view.join.join_cancel, Self::toggle_join),
+            (&self.view.join.join_submit, Self::join),
+            (&self.view.appearance, Self::appearance),
         ] {
             let controller = self.clone();
             widget.on_action(move |_| {
@@ -225,8 +292,19 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     };
     let temporary = options.temporary || options.fixture_mode || options.smoke;
-    let app = App::new()?;
-    app.theme(options.theme);
+    let preference_path = if temporary {
+        None
+    } else {
+        appearance::preference_path()
+    };
+    let appearance = options.theme.unwrap_or_else(|| {
+        preference_path
+            .as_deref()
+            .map(appearance::Appearance::load)
+            .unwrap_or_default()
+    });
+    let app = Rc::new(App::new()?);
+    app.theme(appearance.theme());
     let window = app.window("Archaic", 1180, 800)?;
     window.scrollable(true)?;
     let root = window.root()?;
@@ -263,7 +341,13 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         rendering: Cell::new(false),
         room_labels: RefCell::new(Vec::new()),
         fixture: options.fixture_mode,
+        app: Rc::downgrade(&app),
+        preference_path,
     });
+    controller
+        .view
+        .appearance
+        .set_selected(appearance.index())?;
     controller.bind()?;
     controller.render()?;
     let updates = controller.clone();

@@ -24,7 +24,7 @@ syncing = Synchronizing…
 reconnecting = Connection interrupted. Retrying…
 loading = Loading recent messages…
 empty-history = No text messages in the latest 50 events.
-no-rooms = No joined rooms yet. Joining and invitations are coming next.
+no-rooms = No conversations yet. Use + to join a room.
 recent-only = Latest 50 events · Full history and rich messages coming next
 unavailable-message = [Encrypted or unsupported message]
 login-failed = Could not sign in. Check your server,
@@ -72,3 +72,22 @@ session-key-mismatch = The device keys do not match the saved session.
     Restore your profile backup before retrying.
 session-expired = This session was revoked or expired. Use Sign out to clear
     the saved sign-in, then sign in again. Local keys are retained.
+
+appearance = Appearance
+theme-system = System
+theme-light = Light
+theme-dark = Dark
+appearance-save-failed = Theme changed, but could not be saved.
+join-room = Join a room
+join-address = Room alias or ID
+join = Join
+joining = Joining…
+cancel = Cancel
+signed-in-as = Signed in as
+join-invalid = Enter #room:server or !room:server.
+join-forbidden = An invitation may be required.
+    The server denied access.
+join-not-found = Room not found.
+    Check the alias and retry.
+join-failed = Could not join. Check the address
+    and connection, then retry.

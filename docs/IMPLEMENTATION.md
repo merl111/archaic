@@ -28,7 +28,7 @@ English/German are the initial catalogs. Runtime language changes, OS locale det
 1. Complete session lifecycle acceptance: refresh-token rotation, same-device soft logout, recovery-aware local-data purge and real-server failure/crash testing. The initial vault/store/restore boundary is now implemented.
 2. Device verification and recovery UX, real-homeserver integration tests with multiple devices, reconnect/token-expiry/logout cases.
 3. CUI dispatcher and disposable callback/subtree lifetime contracts; virtualized rich timeline and editable composer capabilities in CUI, with bindings and tests.
-4. Incremental SDK timeline models, pagination, edits, reactions, replies, attachments, room joining/invitations and spaces.
+4. Incremental SDK timeline models, pagination, edits, reactions, replies, attachments, room directory/invitations and spaces.
 5. Continue the feature acceptance checks in the parity inventory. Calls, widgets, admin, notifications, accessibility and release packaging remain independent work packages.
 
 ## Repository boundary
@@ -45,11 +45,11 @@ Windows/macOS, real-server interoperability, E2EE multi-device behavior, long-se
 
 ## Sign-in design update
 
-The login is a compact centered card with intrinsic-width native fields, a violet/teal ambient background, localized inline errors and Enter-to-submit from the password field. Extra window space surrounds the card instead of stretching the fields; a scrollable root keeps the form accessible in short windows. The application header and conversation footer appear only after login.
+The login is a compact centered card with intrinsic-width native fields, a violet/teal ambient background, localized inline errors and Enter-to-submit from the password field. Extra window space surrounds the card instead of stretching the fields; a scrollable root keeps the form accessible in short windows. The conversation footer appears only after login; the compact appearance toolbar is now available on both screens.
 
 CUI now owns the reusable AMBIENT container role and platform implementations. GTK application button styles are scoped to the content root so native title-bar buttons retain their original metrics. The library regression compares close-button padding and measured size with a plain GTK window in both themes. The Rust binding and static library must be built from the updated pinned CUI commit.
 
-Light/dark backgrounds are implemented; use `--theme system|light|dark` to select one at launch. **Follow-up: add a visible System/Light/Dark switcher in Settings, persist the preference and apply it without restarting.** This switcher is not implemented yet.
+Light/dark backgrounds are implemented; use `--theme system|light|dark` to select one at launch. The workspace increment below adds the visible, persistent System/Light/Dark switcher.
 
 Checked on Linux: native login/send/logout mouse and keyboard flow, English light/dark layouts, German at 600×660 logical pixels and 200% scaling, nine app tests, strict Clippy, GTK title-bar/control/container tests and complete binding declaration coverage. Windows/macOS runtime verification remains deferred.
 
@@ -63,6 +63,28 @@ Sign-out clears the saved token record but retains encrypted SDK databases and t
 
 Validation includes isolated real-SDK protocol tests for restart without another login, logout/cleanup retry and revoked tokens, storage corruption/lost-key/locking tests, and UI state/catalog tests. Native Linux checks exercise temporary login, room selection, text sending and sign-out, and inspect light/dark, compact German and 200% layouts. `tools/test_linux_vault.py` provides an isolated real Secret Service check, separate from the user's keyring. Windows/macOS adapters are implemented through the keyring crate but still await platform qualification.
 
-The accepted login composition is preserved. The main timeline is still the initial text view; the conversation design pass, runtime appearance switcher, verification/recovery, rich timeline, invitations and attachments remain upcoming work rather than implied completed features.
+The accepted login composition is preserved. The main timeline is still the initial text view; verification/recovery, rich timeline, invitations and attachments remain upcoming work rather than implied completed features.
 
 Checked this increment on Linux: 18 automated workspace tests, a separate passing real Secret Service round trip in an isolated keyring, strict Clippy, formatting, the native login/send/logout flow and rendered vault-error recovery controls. Structural review prompted separation of error/status/logout handling; remaining ripwire flags concern short wrapper duplication, recent UI churn, Rust test-module size and callback discovery rather than a passing structural gate.
+
+## Conversation workspace and joining
+
+Added a compact appearance toolbar shared by sign-in and conversations, sidebar account controls, a grouped composer hidden until a room is selected, and an inline Join a room form. Native window chrome is unchanged. The view continues to use CUI public controls; no framework change or pin update is needed for this increment. The plain-text latest-50-events timeline remains a deliberate limitation.
+
+System/Light/Dark applies immediately. Normal-mode preferences are atomically replaced in a separate configuration file, with a visible save-failure warning. Launch overrides do not automatically rewrite the preference. Explicit temporary, fixture and smoke launches bypass preference storage. English and German strings cover the new controls and failure states.
+
+Joining uses the SDK's authenticated join-by-ID-or-alias operation. Invalid input fails before a network join; forbidden/not-found/other failures preserve the entered address. Successful joining selects the returned room ID, clears the room filter, and retains existing per-room drafts. The worker updates the room list and loads recent history. Room creation, directory browsing, Matrix URI parsing, explicit `via` routing, invitations and restricted/knock flows are not implemented.
+
+Validated on Linux with 22 passing automated workspace tests (the isolated real-vault test remains a separate opt-in check), strict Clippy and formatting. Tests exercise rejected input, authorization failure, alias retry, ID join, authenticated SDK requests, selected-room history, preference replacement/failure and view-state preservation. Native Xvfb input checks cover sign-in, send, join rejection/retry, room selection, live theme switching and sign-out. Light/dark, compact German and 200% layouts were rendered and inspected. Windows/macOS and live-server interoperability remain pending.
+
+Structural review separated the join form and join-result reducer. Remaining ripwire findings include recent UI churn, declarative view/bootstrap length and Rust callback/test discovery; this is not a clean structural-gate claim.
+
+## Existing Element account onboarding (researched, not implemented)
+
+The desired additional entry point is “Connect an existing account,” alongside normal sign-in. Local Element account/server detection can be investigated as an opt-in convenience; an installation or saved-profile marker does not prove a live session. No Element profile or credentials are read by the current app.
+
+Prefer supported authorization of a new Archaic device: capability-discovered one-time login-token flows, or OAuth/device/QR authorization when both homeserver and authorizing client support it. The login-token endpoint is optional and requires explicit user verification; this is not a universal password-free handoff. Verification/recovery of encrypted history is part of the acceptance criteria, not something guaranteed by obtaining a token.
+
+Do not run Archaic and Element with a copied device token and divergent crypto stores. An exact local-session import would require explicit consent, a fully stopped Element instance, versioned credential/store conversion, preservation of encryption state, and rollback/interoperability tests. It remains a research task rather than a supported feature.
+
+References checked October 1, 2026: [Element session lifecycle](https://github.com/element-hq/element-web/blob/develop/apps/web/src/Lifecycle.ts), [Matrix login-token specification](https://spec.matrix.org/v1.16/client-server-api/#post_matrixclientv1loginget_token), [MAS authorization flows](https://matrix-org.github.io/matrix-authentication-service/topics/authorization.html). The pinned Rust SDK 0.19.1 also exposes OAuth QR-login support; enabling a compatible desktop flow still needs application UI and interoperability tests.

@@ -141,6 +141,12 @@ async fn handle(
             active.selected = Some(room_id);
             history(active, events).await
         }
+        Command::Join(address) => {
+            if let Err(key) = join_room(active, &address, events).await {
+                emit(events, active.epoch, EventKind::JoinFailed(key)).await;
+            }
+            Ok(())
+        }
         Command::Refresh => {
             snapshot(active, events).await;
             Ok(())
@@ -183,6 +189,39 @@ async fn handle(
         emit(events, active.epoch, EventKind::Error(key)).await;
     }
     false
+}
+
+async fn join_room(
+    active: &mut Session,
+    address: &str,
+    events: &mpsc::Sender<Event>,
+) -> Result<(), &'static str> {
+    let address =
+        matrix_sdk::ruma::RoomOrAliasId::parse(address.trim()).map_err(|_| "join-invalid")?;
+    let room = active
+        .client
+        .join_room_by_id_or_alias(&address, &[])
+        .await
+        .map_err(|error| match error.client_api_error_kind() {
+            Some(matrix_sdk::ruma::api::error::ErrorKind::Forbidden) => "join-forbidden",
+            Some(matrix_sdk::ruma::api::error::ErrorKind::NotFound) => "join-not-found",
+            _ => "join-failed",
+        })?;
+    let id = room.room_id().to_string();
+    let name = room
+        .display_name()
+        .await
+        .map(|name| name.to_string())
+        .unwrap_or_else(|_| id.clone());
+    active.selected = Some(id.clone());
+    emit(
+        events,
+        active.epoch,
+        EventKind::Joined(RoomSummary { id, name }),
+    )
+    .await;
+    snapshot(active, events).await;
+    Ok(())
 }
 
 async fn logout(active: &mut Session, persistence: &Persistence) -> Result<(), &'static str> {

@@ -443,3 +443,94 @@ async fn revoked_token_stops_sync_and_can_be_signed_out_locally() {
     );
     assert!(!requests.iter().any(|r| r.url.path().ends_with("/logout")));
 }
+
+#[tokio::test]
+async fn joining_validates_retries_and_opens_the_resolved_room() {
+    let server = server().await;
+    Mock::given(method("GET"))
+        .and(path_regex(r"/_matrix/client/(v3|r0)/directory/room/.*"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"room_id":"!new:local", "servers":["local"]})),
+        )
+        .mount(&server)
+        .await;
+    let denied = Mock::given(method("POST"))
+        .and(path_regex(r"/_matrix/client/(v3|r0)/join/.*"))
+        .respond_with(
+            ResponseTemplate::new(403)
+                .set_body_json(json!({"errcode":"M_FORBIDDEN","error":"Private room"})),
+        )
+        .mount_as_scoped(&server)
+        .await;
+    let (sender, commands, events, mut receiver) = channels();
+    let worker = tokio::spawn(archaic_matrix::run(commands, events));
+    sender
+        .send(Command::Login {
+            epoch: 9,
+            server: server.uri(),
+            username: "alice".into(),
+            password: "test-password".into(),
+        })
+        .await
+        .unwrap();
+    next(&mut receiver, |event| matches!(event, EventKind::Rooms(_))).await;
+    sender
+        .send(Command::Join("not a Matrix room".into()))
+        .await
+        .unwrap();
+    next(&mut receiver, |event| {
+        matches!(event, EventKind::JoinFailed("join-invalid"))
+    })
+    .await;
+    assert!(
+        !server
+            .received_requests()
+            .await
+            .unwrap()
+            .iter()
+            .any(|request| request.url.path().contains("/join/"))
+    );
+    sender
+        .send(Command::Join("#new:local".into()))
+        .await
+        .unwrap();
+    next(&mut receiver, |event| {
+        matches!(event, EventKind::JoinFailed("join-forbidden"))
+    })
+    .await;
+    drop(denied);
+    Mock::given(method("POST"))
+        .and(path_regex(r"/_matrix/client/(v3|r0)/join/.*"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"room_id":"!new:local"})))
+        .mount(&server)
+        .await;
+    for address in ["  #new:local  ", "!new:local"] {
+        sender.send(Command::Join(address.into())).await.unwrap();
+        let joined = next(
+            &mut receiver,
+            |event| matches!(event, EventKind::Joined(room) if room.id == "!new:local"),
+        )
+        .await;
+        assert_eq!(joined.epoch, 9);
+        next(&mut receiver, |event| matches!(event, EventKind::Rooms(rooms) if rooms.iter().any(|room| room.id == "!new:local"))).await;
+        next(
+            &mut receiver,
+            |event| matches!(event, EventKind::History { room_id, .. } if room_id == "!new:local"),
+        )
+        .await;
+    }
+    let requests = server.received_requests().await.unwrap();
+    let joins: Vec<_> = requests
+        .iter()
+        .filter(|request| request.url.path().contains("/join/"))
+        .collect();
+    assert_eq!(joins.len(), 3);
+    assert!(
+        joins
+            .iter()
+            .all(|request| request.headers.get("authorization").unwrap()
+                == "Bearer test-access-token")
+    );
+    worker.abort();
+}

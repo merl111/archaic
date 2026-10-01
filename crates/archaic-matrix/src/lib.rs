@@ -26,6 +26,7 @@ pub enum Command {
     },
     Select(String),
     Refresh,
+    Join(String),
     Send {
         room_id: String,
         body: String,
@@ -63,6 +64,8 @@ pub enum EventKind {
     Sent {
         transaction: OwnedTransactionId,
     },
+    Joined(RoomSummary),
+    JoinFailed(&'static str),
     SignedOut,
     Status(&'static str),
     Error(&'static str),

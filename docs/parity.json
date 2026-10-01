@@ -859,15 +859,16 @@
       "feature": "DMs, group rooms and room directory",
       "phase": "P2",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "local SDK protocol and native UI checks; full acceptance pending",
+        "windows": "implemented through portable API; verification pending",
+        "macos": "implemented through portable API; verification pending"
       },
       "acceptance": "Create/find/join supported conversations and distinguish room membership states.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/room_settings",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_notes": "Room alias/ID joining with errors and retry; creation, directory, invites and DMs remain open."
     },
     {
       "id": "ARC-06-02",
@@ -1485,15 +1486,16 @@
       "feature": "Media/privacy/appearance preferences",
       "phase": "P3–P6",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "local SDK protocol and native UI checks; full acceptance pending",
+        "windows": "implemented through portable API; verification pending",
+        "macos": "implemented through portable API; verification pending"
       },
       "acceptance": "Map all reference settings to explicit support, alternatives or documented differences.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/user",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_notes": "Persistent live System/Light/Dark selector; broader media/privacy preferences remain open."
     },
     {
       "id": "ARC-10-07",

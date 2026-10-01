@@ -89,6 +89,7 @@ dependencies = [
  "archaic-i18n",
  "archaic-matrix",
  "cui",
+ "tempfile",
  "tokio",
 ]
 

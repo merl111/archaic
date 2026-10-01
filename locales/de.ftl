@@ -24,7 +24,7 @@ syncing = Wird synchronisiert…
 reconnecting = Verbindung unterbrochen. Erneuter Versuch…
 loading = Aktuelle Nachrichten werden geladen…
 empty-history = Keine Textnachrichten in den letzten 50 Ereignissen.
-no-rooms = Noch keine beigetretenen Räume. Beitritt und Einladungen folgen später.
+no-rooms = Noch keine Gespräche. Mit + einem Raum beitreten.
 recent-only = Letzte 50 Ereignisse · Vollständiger Verlauf folgt später
 unavailable-message = [Verschlüsselte oder nicht unterstützte Nachricht]
 login-failed = Anmeldung fehlgeschlagen. Bitte Server,
@@ -72,3 +72,23 @@ session-key-mismatch = Geräteschlüssel und gespeicherte Sitzung passen
     nicht zusammen. Bitte Profilsicherung wiederherstellen.
 session-expired = Sitzung widerrufen oder abgelaufen. Abmelden löscht die
     gespeicherte Anmeldung. Lokale Schlüssel bleiben erhalten.
+
+appearance = Darstellung
+theme-system = System
+theme-light = Hell
+theme-dark = Dunkel
+appearance-save-failed = Design geändert, konnte aber nicht gespeichert werden.
+join-room = Raum beitreten
+join-address = Raumalias oder ID
+join = Beitreten
+joining = Wird beigetreten…
+cancel = Abbrechen
+signed-in-as = Angemeldet als
+join-invalid = #raum:server oder !raum:server
+    eingeben.
+join-forbidden = Zugriff verweigert. Eventuell
+    ist eine Einladung erforderlich.
+join-not-found = Raum nicht gefunden.
+    Alias prüfen und erneut versuchen.
+join-failed = Beitritt fehlgeschlagen. Adresse
+    und Verbindung prüfen.
