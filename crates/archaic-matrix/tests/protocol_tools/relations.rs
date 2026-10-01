@@ -168,3 +168,74 @@ async fn details_show_only_public_receipts_anchored_on_selected_event() {
     drop(receiver);
     worker.await.unwrap();
 }
+
+#[tokio::test]
+async fn open_details_refresh_automatically_when_sync_adds_relations_and_thread_receipts() {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
+    use std::time::Duration;
+    let server = server().await;
+    let changed = Arc::new(AtomicBool::new(false));
+    let state = changed.clone();
+    let root = event(
+        "$original",
+        "m.room.message",
+        json!({"msgtype":"m.text","body":"Before"}),
+        10,
+    );
+    target(&server, root.clone()).await;
+    Mock::given(method("GET"))
+        .and(path_regex(".*/relations/.*original$"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"chunk":[]})))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET")).and(path_regex(".*/sync$")).respond_with(move|_:&wiremock::Request| {
+        let updated=state.load(Ordering::Acquire);
+        let events=if updated {vec![
+            event("$edit","m.room.message",json!({"msgtype":"m.text","body":"* After","m.relates_to":{"rel_type":"m.replace","event_id":"$original"},"m.new_content":{"msgtype":"m.text","body":"After"}}),20),
+            event("$thread","m.room.message",json!({"msgtype":"m.text","body":"Thread reply","m.relates_to":{"rel_type":"m.thread","event_id":"$original","is_falling_back":true,"m.in_reply_to":{"event_id":"$original"}}}),21)
+        ]}else{vec![root.clone()]};
+        let receipts=if updated {vec![json!({"type":"m.receipt","content":{"$original":{"m.read":{"@bob:local":{"ts":40,"thread_id":"$original"},"@carol:local":{"ts":41}}}}})]}else{vec![]};
+        ResponseTemplate::new(200).set_delay(Duration::from_millis(80)).set_body_json(json!({"next_batch":if updated{"changed"}else{"initial"},"rooms":{"join":{"!studio:local":{"state":{"events":[
+            {"type":"m.room.create","event_id":"$create","state_key":"","sender":"@alice:local","origin_server_ts":1,"content":{"creator":"@alice:local","room_version":"10"}},
+            {"type":"m.room.member","event_id":"$member","state_key":"@alice:local","sender":"@alice:local","origin_server_ts":2,"content":{"membership":"join"}}
+        ]},"timeline":{"events":events,"limited":false,"prev_batch":"history"},"ephemeral":{"events":receipts}}}},"device_one_time_keys_count":{"signed_curve25519":50}}))
+    }).with_priority(1).mount(&server).await;
+    let (sender, mut receiver, worker) = login(&server).await;
+    sender
+        .send(Command::Select("!studio:local".into()))
+        .await
+        .unwrap();
+    next(&mut receiver, |e| matches!(e, EventKind::History { .. })).await;
+    let initial = data(perform(&sender, &mut receiver, &details(false)).await);
+    assert_eq!(initial.message.body.as_deref(), Some("Before"));
+    changed.store(true, Ordering::Release);
+    let EventKind::LiveDetails { details, .. } = next(
+        &mut receiver,
+        |e| matches!(e,EventKind::LiveDetails{details,..} if details.thread.len()==1),
+    )
+    .await
+    .kind
+    else {
+        unreachable!()
+    };
+    assert_eq!(details.message.body.as_deref(), Some("After"));
+    assert_eq!(details.thread_read_by, vec!["@bob:local"]);
+    assert_eq!(details.read_by, vec!["@carol:local"]);
+    assert_eq!(
+        server
+            .received_requests()
+            .await
+            .unwrap()
+            .iter()
+            .filter(|r| r.url.path().contains("/relations/"))
+            .count(),
+        1,
+        "live update needs no relation refetch without a gap"
+    );
+    drop(sender);
+    drop(receiver);
+    worker.await.unwrap();
+}

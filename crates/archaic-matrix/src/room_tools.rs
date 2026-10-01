@@ -10,7 +10,7 @@ use matrix_sdk::{
 pub(crate) struct RoomTools {
     pub attachments: crate::attachments::Attachments,
     search: crate::search::Search,
-    details: crate::details::Details,
+    pub details: crate::details::Details,
 }
 impl RoomTools {
     pub async fn perform(
@@ -20,6 +20,7 @@ impl RoomTools {
     ) -> Result<ToolData, &'static str> {
         let room = joined(client, &request.room_id)?;
         match &request.action {
+            ToolAction::QueueUpload { .. } | ToolAction::Preview { .. } => Err("transfer-busy"),
             ToolAction::Upload { path } => {
                 self.attachments.upload(&room, request, path).await?;
                 Ok(ToolData::Uploaded)
@@ -28,23 +29,15 @@ impl RoomTools {
                 crate::attachments::download(&room, event_id, path).await?;
                 Ok(ToolData::Downloaded)
             }
-            ToolAction::MarkRead { event_id, private } => {
-                let id = EventId::parse(event_id).map_err(|_| "message-unavailable")?;
-                let event = crate::message_actions::target(&room, &id).await?;
-                if event.event_id() != id {
-                    return Err("message-unavailable");
-                }
-                room.send_single_receipt(
-                    if *private {
-                        ReceiptType::ReadPrivate
-                    } else {
-                        ReceiptType::Read
-                    },
-                    ReceiptThread::Unthreaded,
-                    id,
+            ToolAction::MarkRead { event_id, private }
+            | ToolAction::MarkThreadRead { event_id, private } => {
+                send_receipt(
+                    &room,
+                    event_id,
+                    *private,
+                    matches!(request.action, ToolAction::MarkThreadRead { .. }),
                 )
-                .await
-                .map_err(failure)?;
+                .await?;
                 Ok(ToolData::Read)
             }
             ToolAction::Search { query, mode, more } => self
@@ -66,4 +59,47 @@ pub(crate) fn joined(client: &Client, id: &str) -> Result<Room, &'static str> {
         .get_room(&id)
         .filter(|r| r.state() == RoomState::Joined)
         .ok_or("message-unavailable")
+}
+
+async fn send_receipt(
+    room: &Room,
+    event_id: &str,
+    private: bool,
+    threaded: bool,
+) -> Result<(), &'static str> {
+    let id = EventId::parse(event_id).map_err(|_| "message-unavailable")?;
+    let event = crate::message_actions::target(room, &id).await?;
+    if event.event_id() != id {
+        return Err("message-unavailable");
+    }
+    let thread = if threaded {
+        use matrix_sdk::ruma::events::{
+            AnySyncMessageLikeEvent, AnySyncTimelineEvent, SyncMessageLikeEvent,
+            room::message::Relation,
+        };
+        let root = match &event {
+            AnySyncTimelineEvent::MessageLike(AnySyncMessageLikeEvent::RoomMessage(
+                SyncMessageLikeEvent::Original(m),
+            )) => match &m.content.relates_to {
+                Some(Relation::Thread(t)) => t.event_id.clone(),
+                _ => id.clone(),
+            },
+            _ => return Err("message-unavailable"),
+        };
+        ReceiptThread::Thread(root)
+    } else {
+        ReceiptThread::Unthreaded
+    };
+    room.send_single_receipt(
+        if private {
+            ReceiptType::ReadPrivate
+        } else {
+            ReceiptType::Read
+        },
+        thread,
+        id,
+    )
+    .await
+    .map_err(failure)?;
+    Ok(())
 }

@@ -1,6 +1,6 @@
 # First implementation increment
 
-October 1, 2026. This is a partial implementation of the approved plan; no entire parity milestone is complete. The latest increment is documented in [Security and messaging](SECURITY-MESSAGING.md); earlier increment sections below are historical records.
+October 1, 2026. This is a partial implementation of the approved plan; no entire parity milestone is complete. Current workflows are documented in [Security and messaging](SECURITY-MESSAGING.md), [Room tools](ROOM-TOOLS.md), [Organization](ORGANIZATION.md) and [Desktop integration](DESKTOP.md). Earlier increment sections below are historical records.
 
 ## Implemented
 
@@ -15,16 +15,16 @@ October 1, 2026. This is a partial implementation of the approved plan; no entir
 
 ## Deliberate limits
 
-Normal startup restores a saved device and SDK stores. SDK refresh callbacks now persist rotated tokens. Classic browser SSO, native SAS verification, cross-signing bootstrap, recovery setup/unlock, encrypted key-file import/export and room backup-key retrieval are implemented. Real Synapse tests cover two devices, SAS/recovery and encrypted sends. Native Matrix OAuth/OIDC, same-device soft logout, complete interactive authentication and broader interoperability remain unfinished.
+Normal startup restores a saved device and SDK stores. SDK refresh callbacks now persist rotated tokens. Classic browser SSO, native SAS verification, cross-signing bootstrap, recovery setup/unlock, encrypted key-file import/export and room backup-key retrieval are implemented. Real Synapse tests cover two devices, SAS/recovery and encrypted sends. Delegated OAuth/PKCE with encrypted session restoration and same-device password soft logout now have protocol coverage. OAuth server compatibility, OAuth/SSO reauthorization, complete interactive authentication and broader interoperability remain unfinished.
 
-Ordinary text uses the persistent SDK send queue, with retry/cancel and restart tests. The timeline applies incremental sync events to native CUI table rows; context and newer pagination supplement backward paging. Threads can be replied to and inspected through loaded relation pages. Unread counts and typing are exposed, with optional private receipts while composing. Rich message rendering/editing, mention completion, all-action queue support, durable unsent drafts, unlimited scrollback, offline history and full thread UX remain open. See the current guide for exact limits.
+Ordinary text uses the persistent SDK send queue, with retry/cancel and restart tests. The timeline applies incremental sync events to native CUI table rows; context and newer pagination supplement backward paging. Threads can be replied to and inspected through loaded relation pages. Unread counts and typing are exposed, with optional private receipts while composing. Rich message rendering/editing, mention completion, rich thread UX, unlimited scrollback and a full offline history browser remain open. Native message actions/media use SDK queues; ordinary unsent drafts now have encrypted persistence. Attachment previews, streamed integrity-checked downloads, progress/cancellation, persistent encrypted search with filters, live details and thread receipts are implemented within the documented bounds. See the current guide for exact limits.
 
 English/German are the initial catalogs. Runtime language changes, OS locale detection, pluralized dynamic labels, translation workflow and RTL framework work remain open. CUI and app native Windows/macOS verification remain deferred as requested; no portability claim here substitutes for those runs.
 
-## Next implementation order
+## Remaining implementation order
 
-1. Complete session lifecycle acceptance: refresh-token rotation, same-device soft logout, recovery-aware local-data purge and real-server failure/crash testing. The initial vault/store/restore boundary is now implemented.
-2. Device verification and recovery UX, real-homeserver integration tests with multiple devices, reconnect/token-expiry/logout cases.
+1. Expand session lifecycle acceptance: OAuth/SSO soft logout, static OAuth registration, recovery-aware local-data purge and real-server failure/crash testing.
+2. Expand device verification/recovery UX and cross-client interoperability beyond the tested two-device Synapse flows.
 3. CUI dispatcher and disposable callback/subtree lifetime contracts; virtualized rich timeline and editable composer capabilities in CUI, with bindings and tests.
 4. Incremental SDK timeline models, forward/context pagination, media previews/streaming, room directory and spaces. Room tools now implement bounded complete relation pagination, attachment transfer, explicit receipts and room-scoped search. Basic invitation actions, bounded backward pagination and loaded-message reply/edit/delete/reaction actions are implemented.
 5. Continue the feature acceptance checks in the parity inventory. Calls, widgets, admin, notifications, accessibility and release packaging remain independent work packages.
@@ -182,3 +182,12 @@ See [Security and messaging workflows](SECURITY-MESSAGING.md) for instructions, 
 Linux validation includes 86 normal workspace tests (two opt-in tests excluded), the additional passing real-Synapse two-device security/encrypted-message test, and native Xvfb interaction/layout checks. The live-test helper pins its Synapse image, creates isolated accounts and removes its own container/volume. Tests never reuse Element credentials or the desktop credential vault. CUI remains pinned at `1224059d991f7fee4fb019aadef154d275e77c42`; Windows/macOS verification and the design overhaul remain deferred.
 
 Structural review extracted sync processing, security result handling, queue observation and forward-page handling. Some dispatcher/view/test size, callback-discovery and recent-churn findings remain; no clean ripwire structural gate is claimed.
+
+
+## Media, organization and desktop batch
+
+This batch adds the workflows in [Room tools](ROOM-TOOLS.md), [Organization](ORGANIZATION.md), [Desktop integration](DESKTOP.md), and the updated [authentication/draft/queue guide](SECURITY-MESSAGING.md). The pinned CUI library is unchanged. Existing unrelated design work is outside this implementation.
+
+Validation on Linux: 102 Rust unit/protocol tests, strict all-target Clippy and formatting; a separate real Synapse test passed two-device verification/recovery, encrypted queued messages and an encrypted attachment upload/download with exact-byte verification. The ordinary test run leaves the live-server and real-vault tests ignored unless explicitly invoked. Native Xvfb interaction exercised password login, room selection, search and organization shortcuts; a private D-Bus/Xvfb test verified tray registration, icon data, Show and orderly Quit. Standard-library packaging tests verified archive layouts/hashes/Matrix URL metadata and overwrite rejection for all three OS layouts, without executing foreign binaries.
+
+Structural review identified growing command/model dispatch functions and repeated guard/dispatch patterns. Sync indexing was separated and disk writes batched once per sync; receipt dispatch was separated from room-tool selection. Remaining explicit dispatch branches and the two distinct encrypted record writers are retained deliberately for this batch. The ripwire structural gate remains nonzero; a passing compiler/test suite is not a claim of zero structural debt. Rich UI/state decomposition, scalable indexing and broader platform acceptance remain follow-up work.

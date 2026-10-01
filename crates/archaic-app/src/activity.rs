@@ -26,6 +26,18 @@ impl Controller {
     }
 
     pub fn activity_tick(&self) -> Result<()> {
+        self.flush_drafts();
+        if self.desktop_ready() && !self.drafts_dirty() {
+            let pending = self.pending_profile.borrow_mut().take();
+            if let Some(name) = pending {
+                self.view.profile.set_text(&name)?;
+                self.switch_profile()?;
+            }
+            if self.startup_link.get() && self.model.borrow().phase == Phase::Connected {
+                self.startup_link.set(false);
+                self.open_matrix_link()?;
+            }
+        }
         if self.fixture {
             return Ok(());
         }
@@ -34,7 +46,7 @@ impl Controller {
             (
                 m.phase == Phase::Connected,
                 m.selected.clone(),
-                !m.security.show && !m.tools.show && !m.show_new,
+                !m.security.show && !m.organization.show && !m.tools.show && !m.show_new,
                 m.messages.last().map(|m| m.id.clone()),
             )
         };

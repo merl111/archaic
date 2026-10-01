@@ -21,11 +21,14 @@ impl TokenStore {
             metadata: Mutex::new(Some(record)),
             failed: AtomicBool::new(false),
         });
-        let save = store.clone();
-        let reload = store.clone();
+        let save = Arc::downgrade(&store);
+        let reload = Arc::downgrade(&store);
         client
             .set_session_callbacks(
                 Box::new(move |_| {
+                    let reload = reload
+                        .upgrade()
+                        .ok_or_else(|| std::io::Error::other("session closed"))?;
                     let guard = reload
                         .metadata
                         .lock()
@@ -44,6 +47,9 @@ impl TokenStore {
                     Ok(saved.session.tokens)
                 }),
                 Box::new(move |client| {
+                    let Some(save) = save.upgrade() else {
+                        return Ok(());
+                    };
                     save.save(&client)
                         .map_err(|s| std::io::Error::other(s).into())
                 }),
@@ -56,7 +62,7 @@ impl TokenStore {
         let Some(record) = guard.as_mut() else {
             return Ok(());
         };
-        let session = client.matrix_auth().session().ok_or("session-invalid")?;
+        let session = crate::oauth::session(client)?;
         if session.meta != record.session.meta {
             return Err("session-invalid");
         }
@@ -64,6 +70,28 @@ impl TokenStore {
         let result = self.profile.save(Some(record));
         self.failed.store(result.is_err(), Ordering::Release);
         result
+    }
+    pub fn replace_tokens(
+        &self,
+        renewed: matrix_sdk::authentication::matrix::MatrixSession,
+    ) -> Result<(), &'static str> {
+        let mut guard = self.metadata.lock().map_err(|_| "storage-failed")?;
+        let record = guard.as_mut().ok_or("session-invalid")?;
+        if record.session.meta != renewed.meta {
+            return Err("session-key-mismatch");
+        }
+        record.session = renewed;
+        self.profile.save(Some(record))?;
+        // Disable callbacks from the expired client before its tasks are dropped.
+        *guard = None;
+        Ok(())
+    }
+    pub fn local_storage(&self) -> Result<(Arc<Profile>, String), &'static str> {
+        let guard = self.metadata.lock().map_err(|_| "storage-failed")?;
+        Ok((
+            self.profile.clone(),
+            guard.as_ref().ok_or("session-invalid")?.store_id.clone(),
+        ))
     }
     pub fn failed(&self) -> bool {
         self.failed.load(Ordering::Acquire)

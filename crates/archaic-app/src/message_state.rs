@@ -119,7 +119,7 @@ impl Model {
         if draft.kind == ActionKind::Delete
             && let Some(request) = &draft.request
         {
-            return Some(Command::MessageAction(request.clone()));
+            return Some(Command::QueueMessageAction(request.clone()));
         }
         let target = self
             .selected_message()
@@ -153,7 +153,7 @@ impl Model {
             },
         };
         draft.request = Some(request.clone());
-        Some(Command::MessageAction(request))
+        Some(Command::QueueMessageAction(request))
     }
     pub fn message_result(&mut self, request: MessageRequest, result: Result<(), &'static str>) {
         let Some(draft) = &mut self.message_draft else {
@@ -201,7 +201,7 @@ mod tests {
         }
     }
     fn request(model: &mut Model) -> MessageRequest {
-        let Command::MessageAction(request) = model.message_command().unwrap() else {
+        let Command::QueueMessageAction(request) = model.message_command().unwrap() else {
             panic!("message action");
         };
         request

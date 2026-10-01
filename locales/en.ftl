@@ -156,7 +156,7 @@ message-delete-confirm = Delete your message? This cannot be undone.
 reaction-hint = Emoji or short text. Confirm toggles your matching reaction.
 message-edited = edited
 message-deleted = Message deleted
-message-action-done = Message action completed
+message-action-done = Message action queued
 message-action-failed = Could not complete the action. Your input is preserved; try again.
 message-unavailable = The message is no longer available for this action.
 message-forbidden = You do not have permission to change this message or reaction.
@@ -305,3 +305,89 @@ history-newer = Newer messages
 message-context = Show surrounding messages
 
 sso-unavailable = This homeserver does not advertise browser SSO. Use a supported sign-in method.
+
+oauth-login = Sign in with OAuth / OIDC
+oauth-unavailable = OAuth discovery or client registration failed. Your server may require an administrator-registered desktop client.
+oauth-callback-failed = The browser authorization could not be verified. Try signing in again.
+
+local-data-invalid = Encrypted local data could not be opened. It has not been overwritten.
+draft-save-failed = Could not save the draft. Keep this window open and retry.
+
+receipt-thread = Mark read inside this thread only
+
+reauthenticate = Resume this device
+reauth-failed = Reauthentication failed. Check your password and retry.
+reauth-unavailable = This session cannot be resumed with a password.
+
+search-indexed = Encrypted index (offline search)
+search-filter-hint = Indexed search: text from:@user:server has:file after:TIMESTAMP before:TIMESTAMP · More indexes older history
+
+transfer-busy = A transfer is already running.
+transfer-cancelled = Transfer cancelled. A completed server operation cannot be recalled.
+cancel-transfer = Cancel transfer
+preview-file = Preview image
+preview-ready = Image verified and decoded
+upload-queued = Attachment queued. Progress, retry and cancel are available in the outgoing queue.
+preview-invalid = Unsupported image or image dimensions exceed the safe preview limit.
+
+organization = Rooms & organization
+org-fields = Target: room/space ID. Value: query, setting, user or child ID. Extra: topic, power level or reason.
+org-target = Target room / space ID
+org-value = Value / user / search
+org-extra = Extra / power level / reason
+org-confirm = Apply this change to the named target
+org-run = Run selected action
+org-select = Use selected result
+org-confirm-required = Confirm the target and change before applying.
+organization-invalid = Invalid room administration input.
+organization-failed = Could not read room permissions or settings.
+org-directory = Browse public directory
+org-spaces = Joined spaces
+org-hierarchy = Browse space hierarchy
+org-inspect = Room settings & permissions
+org-members = Room members
+org-create-space = Create space
+org-name = Change room name
+org-topic = Change room topic
+org-join-rule = Join rule: invite / public / knock
+org-history = History: joined / invited / shared / world_readable
+org-guests = Guests: forbidden / can_join
+org-power = Set user power level
+org-invite = Invite user
+org-kick = Kick user
+org-ban = Ban user
+org-unban = Unban user
+org-favorite = Add to favorites
+org-unfavorite = Remove favorite
+org-block = Block user
+org-unblock = Unblock user
+org-blocked = Blocked users
+org-add-child = Add space child
+org-remove-child = Remove space child
+
+profile-name = Account profile name
+profile-switch = Switch account
+profile-invalid = Use 1–40 letters, numbers, underscores or hyphens for a profile name. Each profile has separate encrypted storage.
+
+matrix-link = Paste matrix: or matrix.to link
+open-link = Open Matrix link
+link-invalid = This is not a valid Matrix link.
+desktop-notifications = Desktop notifications (no message text)
+notification-activity = New activity in
+
+shortcut-rooms = Find a conversation
+shortcut-navigation = Navigate
+
+thread-read-by = Read in this thread by
+
+shutdown-failed = Could not confirm the final draft save.
+shutdown-timeout = Timed out waiting for the final draft save.
+search-truncated = Showing 1,000 matches; narrow your filters.
+
+desktop-show = Show Archaic
+desktop-quit = Quit Archaic
+desktop-no-unread = No unread activity
+desktop-unread = Unread activity
+desktop-tray-unavailable = The desktop status item is unavailable on this desktop.
+
+profile-saving = Saving drafts before switching accounts…

@@ -317,6 +317,85 @@ async fn real_device_verification_recovery_and_encrypted_key_export() {
             .flatten()
             .is_some_and(|c| c["body"] == "Encrypted queued response")
     }));
+    // Exercise the new durable media queue through actual encrypted media on Synapse.
+    let upload_path = dir.path().join("encrypted-attachment.txt");
+    std::fs::write(&upload_path, b"encrypted attachment bytes").unwrap();
+    let upload = archaic_matrix::ToolRequest {
+        room_id: room.id.clone(),
+        id: transaction_id(),
+        action: archaic_matrix::ToolAction::QueueUpload { path: upload_path },
+    };
+    sender
+        .send(Command::RoomTool(upload.clone()))
+        .await
+        .unwrap();
+    let uploaded = next(
+        &mut receiver,
+        |e| matches!(e,EventKind::RoomToolResult{request,..} if request.id==upload.id),
+    )
+    .await;
+    assert!(matches!(
+        uploaded,
+        EventKind::RoomToolResult {
+            result: Ok(archaic_matrix::ToolData::QueuedUpload),
+            ..
+        }
+    ));
+    let event_id = wait(|| async {
+        let page = peer_room
+            .messages(matrix_sdk::room::MessagesOptions::backward())
+            .await
+            .ok()?;
+        page.chunk.iter().find_map(|e| {
+            let content = e
+                .raw()
+                .get_field::<serde_json::Value>("content")
+                .ok()
+                .flatten()?;
+            if content["body"] != "encrypted-attachment.txt" {
+                return None;
+            }
+            assert!(
+                content.get("file").is_some(),
+                "media uses an encrypted file descriptor"
+            );
+            assert!(
+                content.get("url").is_none(),
+                "no plaintext media source in encrypted message"
+            );
+            e.raw().get_field::<String>("event_id").ok().flatten()
+        })
+    })
+    .await;
+    let saved_path = dir.path().join("decrypted-attachment.txt");
+    let download = archaic_matrix::ToolRequest {
+        room_id: room.id.clone(),
+        id: transaction_id(),
+        action: archaic_matrix::ToolAction::Download {
+            event_id,
+            path: saved_path.clone(),
+        },
+    };
+    sender
+        .send(Command::RoomTool(download.clone()))
+        .await
+        .unwrap();
+    let result = next(
+        &mut receiver,
+        |e| matches!(e,EventKind::RoomToolResult{request,..} if request.id==download.id),
+    )
+    .await;
+    assert!(matches!(
+        result,
+        EventKind::RoomToolResult {
+            result: Ok(archaic_matrix::ToolData::Downloaded),
+            ..
+        }
+    ));
+    assert_eq!(
+        std::fs::read(saved_path).unwrap(),
+        b"encrypted attachment bytes"
+    );
     action(&sender, &mut receiver, Action::RecoverRoom(room.id))
         .await
         .unwrap();

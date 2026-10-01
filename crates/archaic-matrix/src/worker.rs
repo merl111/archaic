@@ -7,7 +7,7 @@ use crate::{
 use matrix_sdk::ruma::{RoomId, events::room::message::RoomMessageEventContent};
 use tokio::sync::mpsc;
 
-async fn emit(events: &mpsc::Sender<Event>, epoch: u64, kind: EventKind) {
+pub(crate) async fn emit(events: &mpsc::Sender<Event>, epoch: u64, kind: EventKind) {
     let _ = events.send(Event { epoch, kind }).await;
 }
 
@@ -16,7 +16,14 @@ pub async fn run(commands: mpsc::Receiver<Command>, events: mpsc::Sender<Event>)
     run_inner(commands, events, Persistence::Temporary, false).await;
 }
 pub async fn run_persistent(commands: mpsc::Receiver<Command>, events: mpsc::Sender<Event>) {
-    run_inner(commands, events, Persistence::Unavailable, true).await;
+    run_persistent_named(commands, events, "default".into()).await;
+}
+pub async fn run_persistent_named(
+    commands: mpsc::Receiver<Command>,
+    events: mpsc::Sender<Event>,
+    name: String,
+) {
+    run_inner(commands, events, Persistence::Unavailable(name), true).await;
 }
 pub async fn run_with_profile(
     commands: mpsc::Receiver<Command>,
@@ -34,6 +41,12 @@ async fn announce(events: &mpsc::Sender<Event>, active: &Session) {
         .unwrap_or_default();
     emit(events, active.epoch, EventKind::Connected(user)).await;
     emit(events, active.epoch, EventKind::SessionSaved(active.saved)).await;
+    emit(
+        events,
+        active.epoch,
+        EventKind::Drafts(active.local.drafts.clone()),
+    )
+    .await;
 }
 
 async fn restore(
@@ -75,6 +88,27 @@ async fn run_inner(
             command = commands.recv() => {
                 let Some(command) = command else { break };
                 match command {
+                    Command::Barrier(reply) => { let _ = reply.send(()); },
+                    Command::Shutdown {epoch,drafts,result}=>{
+                        let saved=match &mut session {Some(active) if active.epoch==epoch=>active.local.save_drafts(drafts),_=>Ok(())};
+                        let _=result.send(saved);break;
+                    },
+                    Command::SwitchProfile { epoch, name } => {
+                        if let Err(key)=crate::storage::validate_profile_name(&name) {emit(&events,epoch,EventKind::RestoreBlocked(key)).await;continue;}
+                        if let Some(active)=&session {active.client.send_queue().set_enabled(false).await;}
+                        drop(session.take());
+                        persistence=Persistence::Unavailable(name);
+                        session=restore(epoch,&mut persistence,updates.clone(),&events).await;
+                    }
+                    Command::Reauthenticate { password } => {
+                        if let Some(active) = &session {
+                            let epoch = active.epoch;
+                            match crate::connection::reauthenticate(active, password).await {
+                                Ok(()) => { drop(session.take()); session = restore(epoch, &mut persistence, updates.clone(), &events).await; },
+                                Err(key) => emit(&events, epoch, EventKind::Error(key)).await,
+                            }
+                        }
+                    }
                     Command::Restore { epoch } if session.is_none() => {
                         session = restore(epoch, &mut persistence, updates.clone(), &events).await;
                     }
@@ -82,10 +116,19 @@ async fn run_inner(
                         persistence = Persistence::Temporary;
                         emit(&events, epoch, EventKind::SignedOut).await;
                     }
-                    Command::BrowserLogin{epoch,server} if session.is_none()=>{
+                    command @ (Command::BrowserLogin{..} | Command::OAuthLogin{..}) if session.is_none()=>{
+                        let oauth = matches!(command, Command::OAuthLogin{..});
+                        let (Command::BrowserLogin{epoch,server} | Command::OAuthLogin{epoch,server}) = command else { unreachable!() };
                         let result=tokio::select! {
-                            result=connection::browser_login(epoch,&server,&mut persistence,updates.clone(),events.clone())=>result,
-                            _=commands.recv()=>Err("sso-cancelled"),
+                            result=connection::browser_login(epoch,&server,&mut persistence,updates.clone(),events.clone(),oauth)=>result,
+                            command=commands.recv()=>{
+                                match command {
+                                    Some(Command::Shutdown{result,..}) => { let _=result.send(Ok(())); },
+                                    Some(Command::Barrier(reply)) => { let _=reply.send(()); },
+                                    _ => {}
+                                }
+                                Err("sso-cancelled")
+                            },
                             _=events.closed()=>break,
                         };
                         match result {Ok(connected)=>{announce(&events,&connected).await;session=Some(connected);},Err(key)=>emit(&events,epoch,EventKind::Error(key)).await}
@@ -119,10 +162,33 @@ async fn run_inner(
 async fn sync_update(active: &mut Session, update: SyncUpdate, events: &mpsc::Sender<Event>) {
     let epoch = active.epoch;
     match update {
-        SyncUpdate::Expired => {
+        SyncUpdate::Expired(soft) => {
+            active.soft_logout =
+                soft && active.saved && active.client.oauth().client_id().is_none();
             active.revoked = true;
             active.client.send_queue().set_enabled(false).await;
             emit(events, epoch, EventKind::Error("session-expired")).await;
+            if active.soft_logout {
+                emit(events, epoch, EventKind::ReauthenticationRequired).await;
+            }
+        }
+        SyncUpdate::Progress {
+            room_id,
+            id,
+            current,
+            total,
+        } => {
+            emit(
+                events,
+                epoch,
+                EventKind::TransferProgress {
+                    room_id,
+                    id,
+                    current,
+                    total,
+                },
+            )
+            .await
         }
         SyncUpdate::Outbox => outbox_snapshot(active, events).await,
         SyncUpdate::Retrying => {
@@ -150,30 +216,7 @@ async fn sync_ready(
     }
     emit(events, active.epoch, EventKind::Status("ready")).await;
     room_snapshot(active, events).await;
-    for (id, update) in &response.rooms.joined {
-        let own = active.client.user_id().map(|u| u.as_str());
-        let typing = update
-            .ephemeral
-            .iter()
-            .filter_map(|e| serde_json::from_str::<serde_json::Value>(e.json().get()).ok())
-            .find(|e| e["type"] == "m.typing")
-            .map(|e| typing_users(&e, own));
-        let unread = active
-            .client
-            .get_room(id)
-            .map(|r| r.unread_notification_counts().notification_count)
-            .unwrap_or_default();
-        emit(
-            events,
-            active.epoch,
-            EventKind::Activity {
-                room_id: id.to_string(),
-                unread,
-                typing,
-            },
-        )
-        .await;
-    }
+    crate::sync_activity::update(active, response, events).await;
     sync_history(active, response, events).await;
     if active.security.watching {
         emit(
@@ -184,19 +227,7 @@ async fn sync_ready(
         .await;
     }
 }
-fn typing_users(event: &serde_json::Value, own: Option<&str>) -> Vec<String> {
-    event["content"]["user_ids"]
-        .as_array()
-        .map(|users| {
-            users
-                .iter()
-                .filter_map(|v| v.as_str())
-                .filter(|u| Some(*u) != own)
-                .map(str::to_owned)
-                .collect()
-        })
-        .unwrap_or_default()
-}
+
 async fn sync_history(
     active: &mut Session,
     response: &matrix_sdk::sync::SyncResponse,
@@ -212,6 +243,31 @@ async fn sync_history(
     else {
         return;
     };
+    match active.tools.details.sync(&room, update).await {
+        Ok(Some(details)) => {
+            emit(
+                events,
+                active.epoch,
+                EventKind::LiveDetails {
+                    room_id: room_id.clone(),
+                    details: Box::new(details),
+                },
+            )
+            .await
+        }
+        Err(key) => {
+            emit(
+                events,
+                active.epoch,
+                EventKind::LiveDetailsFailed {
+                    room_id: room_id.clone(),
+                    key,
+                },
+            )
+            .await
+        }
+        Ok(None) => {}
+    }
     if let Some((messages, info)) = active.history.sync(&room, &update.timeline) {
         emit(
             events,
@@ -237,6 +293,42 @@ async fn handle(
         return false;
     }
     let result = match command {
+        Command::Organization { id, action } => {
+            let result = crate::organization::perform(&active.client, &action).await;
+            if result.is_ok()
+                && let crate::organization::Action::Ignore { user, enabled } = &action
+            {
+                if *enabled {
+                    active.blocked.insert(user.trim().to_owned());
+                } else {
+                    active.blocked.remove(user.trim());
+                }
+                emit(
+                    events,
+                    active.epoch,
+                    EventKind::Blocked(active.blocked.clone()),
+                )
+                .await;
+            }
+
+            emit(events, active.epoch, EventKind::Organization { id, result }).await;
+            room_snapshot(active, events).await;
+            Ok(())
+        }
+        Command::SaveDraft { room_id, body } => {
+            match active.local.save_draft(room_id.clone(), body.clone()) {
+                Ok(()) => {
+                    emit(
+                        events,
+                        active.epoch,
+                        EventKind::DraftSaved { room_id, body },
+                    )
+                    .await;
+                    Ok(())
+                }
+                Err(key) => Err(key),
+            }
+        }
         Command::Context { room_id, event_id } => {
             context(active, room_id, event_id, events).await;
             Ok(())
@@ -258,8 +350,13 @@ async fn handle(
             room_id,
             body,
             transaction,
-        } => match crate::outbox::enqueue(&active.client, &room_id, body).await {
+        } => match crate::outbox::enqueue(&active.client, &room_id, body.clone()).await {
             Ok(()) => {
+                if active.local.drafts.get(&room_id) == Some(&body)
+                    && let Err(key) = active.local.save_draft(room_id, String::new())
+                {
+                    emit(events, active.epoch, EventKind::Error(key)).await;
+                }
                 emit(events, active.epoch, EventKind::Queued { transaction }).await;
                 outbox_snapshot(active, events).await;
                 Ok(())
@@ -279,8 +376,18 @@ async fn handle(
             history(active, events).await;
             Ok(())
         }
+        Command::JoinVia {
+            address,
+            via,
+            event,
+        } => {
+            if let Err(key) = join_room(active, &address, &via, event, events).await {
+                emit(events, active.epoch, EventKind::JoinFailed(key)).await;
+            }
+            Ok(())
+        }
         Command::Join(address) => {
-            if let Err(key) = join_room(active, &address, events).await {
+            if let Err(key) = join_room(active, &address, &[], None, events).await {
                 emit(events, active.epoch, EventKind::JoinFailed(key)).await;
             }
             Ok(())
@@ -305,12 +412,33 @@ async fn handle(
             active.tools.attachments = Default::default();
             Ok(())
         }
-        Command::RoomTool(request) => {
-            room_tool(active, request, events).await;
+        Command::CancelTransfer { id } => {
+            active.transfers.cancel(&id, active.epoch, events).await;
             Ok(())
         }
-        Command::MessageAction(request) => {
-            message_action(active, request, events).await;
+        Command::RoomTool(request) => {
+            if matches!(
+                request.action,
+                crate::ToolAction::Download { .. }
+                    | crate::ToolAction::QueueUpload { .. }
+                    | crate::ToolAction::Preview { .. }
+            ) {
+                active
+                    .transfers
+                    .start(active.client.clone(), active.epoch, request, events.clone())
+                    .await;
+            } else {
+                room_tool(active, request, events).await;
+            }
+            Ok(())
+        }
+        command @ (Command::MessageAction(_) | Command::QueueMessageAction(_)) => {
+            let queued = matches!(command, Command::QueueMessageAction(_));
+            let (Command::MessageAction(request) | Command::QueueMessageAction(request)) = command
+            else {
+                unreachable!()
+            };
+            message_action(active, request, events, queued).await;
             Ok(())
         }
         Command::Refresh => {
@@ -353,6 +481,11 @@ async fn handle(
             Err(key) => Err(key),
         },
         Command::BrowserLogin { .. }
+        | Command::OAuthLogin { .. }
+        | Command::Barrier(_)
+        | Command::Shutdown { .. }
+        | Command::SwitchProfile { .. }
+        | Command::Reauthenticate { .. }
         | Command::CancelLogin
         | Command::Login { .. }
         | Command::Restore { .. }
@@ -436,7 +569,25 @@ async fn room_tool(
     request: crate::ToolRequest,
     events: &mpsc::Sender<Event>,
 ) {
-    let result = active.tools.perform(&active.client, &request).await;
+    let result = if let crate::ToolAction::Search {
+        query,
+        mode: crate::SearchMode::Indexed,
+        more,
+    } = &request.action
+    {
+        match crate::room_tools::joined(&active.client, &request.room_id) {
+            Ok(room) => {
+                let result = active.local.index.search(&room, query, *more).await;
+                match active.local.save_index() {
+                    Ok(()) => result.map(crate::ToolData::Search),
+                    Err(key) => Err(key),
+                }
+            }
+            Err(key) => Err(key),
+        }
+    } else {
+        active.tools.perform(&active.client, &request).await
+    };
     let expired = matches!(result, Err("session-expired"));
     let refresh = matches!(result, Ok(crate::ToolData::Uploaded));
     emit(
@@ -458,8 +609,13 @@ async fn message_action(
     active: &mut Session,
     request: crate::MessageRequest,
     events: &mpsc::Sender<Event>,
+    queued: bool,
 ) {
-    let result = crate::message_actions::perform(&active.client, &request).await;
+    let result = if queued {
+        crate::message_actions::enqueue(&active.client, &request).await
+    } else {
+        crate::message_actions::perform(&active.client, &request).await
+    };
     emit(
         events,
         active.epoch,
@@ -512,13 +668,26 @@ async fn room_action(
 async fn join_room(
     active: &mut Session,
     address: &str,
+    via: &[String],
+    event: Option<String>,
     events: &mpsc::Sender<Event>,
 ) -> Result<(), &'static str> {
+    if via.len() > 8 {
+        return Err("join-invalid");
+    }
+    let via = via
+        .iter()
+        .map(matrix_sdk::ruma::ServerName::parse)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| "join-invalid")?;
+    if let Some(id) = &event {
+        matrix_sdk::ruma::EventId::parse(id).map_err(|_| "link-invalid")?;
+    }
     let address =
         matrix_sdk::ruma::RoomOrAliasId::parse(address.trim()).map_err(|_| "join-invalid")?;
     let room = active
         .client
-        .join_room_by_id_or_alias(&address, &[])
+        .join_room_by_id_or_alias(&address, &via)
         .await
         .map_err(|error| match error.client_api_error_kind() {
             Some(matrix_sdk::ruma::api::error::ErrorKind::Forbidden) => "join-forbidden",
@@ -528,13 +697,17 @@ async fn join_room(
     let summary = membership::summary(&room).await;
     active.selected = Some(summary.id.clone());
     emit(events, active.epoch, EventKind::Joined(summary)).await;
-    snapshot(active, events).await;
+    if let Some(event) = event {
+        context(active, room.room_id().to_string(), event, events).await;
+    } else {
+        snapshot(active, events).await;
+    }
     Ok(())
 }
 
 async fn logout(active: &mut Session, persistence: &Persistence) -> Result<(), &'static str> {
     if !active.revoked {
-        match active.client.matrix_auth().logout().await {
+        match active.client.logout().await {
             Ok(_) => {}
             Err(error)
                 if matches!(
@@ -576,6 +749,15 @@ async fn room_snapshot(active: &mut Session, events: &mpsc::Sender<Event>) {
         }
     }
     rooms.sort_by(|a, b| {
+        let favorite = |id: &str| {
+            RoomId::parse(id)
+                .ok()
+                .and_then(|id| active.client.get_room(&id))
+                .is_some_and(|r| r.is_favourite())
+        };
+        if favorite(&a.id) != favorite(&b.id) {
+            return favorite(&b.id).cmp(&favorite(&a.id));
+        }
         (a.membership != crate::Membership::Invited)
             .cmp(&(b.membership != crate::Membership::Invited))
             .then(

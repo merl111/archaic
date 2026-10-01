@@ -157,7 +157,7 @@ message-delete-confirm = Eigene Nachricht löschen? Dies kann nicht rückgängig
 reaction-hint = Emoji oder kurzer Text. Bestätigen schaltet die eigene Reaktion um.
 message-edited = bearbeitet
 message-deleted = Nachricht gelöscht
-message-action-done = Nachrichtenaktion abgeschlossen
+message-action-done = Nachrichtenaktion eingereiht
 message-action-failed = Aktion fehlgeschlagen. Die Eingabe bleibt erhalten; bitte erneut versuchen.
 message-unavailable = Die Nachricht ist für diese Aktion nicht mehr verfügbar.
 message-forbidden = Keine Berechtigung zum Ändern dieser Nachricht oder Reaktion.
@@ -306,3 +306,89 @@ history-newer = Neuere Nachrichten
 message-context = Nachrichten im Kontext anzeigen
 
 sso-unavailable = Dieser Homeserver bietet keine Browser-SSO-Anmeldung an. Verwende eine unterstützte Anmeldemethode.
+
+oauth-login = Mit OAuth / OIDC anmelden
+oauth-unavailable = OAuth-Erkennung oder Client-Registrierung fehlgeschlagen. Der Server benötigt möglicherweise einen registrierten Desktop-Client.
+oauth-callback-failed = Die Browser-Autorisierung konnte nicht überprüft werden. Bitte erneut anmelden.
+
+local-data-invalid = Verschlüsselte lokale Daten konnten nicht geöffnet werden. Sie wurden nicht überschrieben.
+draft-save-failed = Der Entwurf konnte nicht gespeichert werden. Bitte das Fenster offen lassen und erneut versuchen.
+
+receipt-thread = Nur in diesem Thread als gelesen markieren
+
+reauthenticate = Dieses Gerät fortsetzen
+reauth-failed = Erneute Anmeldung fehlgeschlagen. Passwort überprüfen und erneut versuchen.
+reauth-unavailable = Diese Sitzung kann nicht mit einem Passwort fortgesetzt werden.
+
+search-indexed = Verschlüsselter Index (Offline-Suche)
+search-filter-hint = Indexsuche: Text from:@nutzer:server has:file after:ZEITSTEMPEL before:ZEITSTEMPEL · Mehr indexiert ältere Nachrichten
+
+transfer-busy = Eine Übertragung läuft bereits.
+transfer-cancelled = Übertragung abgebrochen. Abgeschlossene Serveraktionen können nicht zurückgerufen werden.
+cancel-transfer = Übertragung abbrechen
+preview-file = Bildvorschau
+preview-ready = Bild überprüft und dekodiert
+upload-queued = Anhang eingereiht. Fortschritt, Wiederholung und Abbruch sind im Postausgang verfügbar.
+preview-invalid = Nicht unterstütztes Bild oder zu große Bildabmessungen.
+
+organization = Räume & Organisation
+org-fields = Ziel: Raum-/Space-ID. Wert: Suche, Einstellung, Nutzer oder Unterraum. Zusatz: Thema, Berechtigung oder Grund.
+org-target = Zielraum / Space-ID
+org-value = Wert / Nutzer / Suche
+org-extra = Zusatz / Berechtigungsstufe / Grund
+org-confirm = Diese Änderung auf das angegebene Ziel anwenden
+org-run = Ausgewählte Aktion ausführen
+org-select = Ausgewähltes Ergebnis übernehmen
+org-confirm-required = Ziel und Änderung vor dem Anwenden bestätigen.
+organization-invalid = Ungültige Eingabe für die Raumverwaltung.
+organization-failed = Raumberechtigungen oder Einstellungen konnten nicht gelesen werden.
+org-directory = Öffentliches Raumverzeichnis
+org-spaces = Beigetretene Spaces
+org-hierarchy = Space-Hierarchie
+org-inspect = Raumeinstellungen & Berechtigungen
+org-members = Raummitglieder
+org-create-space = Space erstellen
+org-name = Raumname ändern
+org-topic = Raumthema ändern
+org-join-rule = Beitritt: invite / public / knock
+org-history = Verlauf: joined / invited / shared / world_readable
+org-guests = Gäste: forbidden / can_join
+org-power = Nutzerberechtigung ändern
+org-invite = Nutzer einladen
+org-kick = Nutzer entfernen
+org-ban = Nutzer sperren
+org-unban = Raumsperre aufheben
+org-favorite = Als Favorit markieren
+org-unfavorite = Favorit entfernen
+org-block = Nutzer blockieren
+org-unblock = Blockierung aufheben
+org-blocked = Blockierte Nutzer
+org-add-child = Unterraum hinzufügen
+org-remove-child = Unterraum entfernen
+
+profile-name = Kontoprofilname
+profile-switch = Konto wechseln
+profile-invalid = Für Profilnamen 1–40 Buchstaben, Zahlen, Unterstriche oder Bindestriche verwenden. Jedes Profil hat einen eigenen verschlüsselten Speicher.
+
+matrix-link = matrix:- oder matrix.to-Link einfügen
+open-link = Matrix-Link öffnen
+link-invalid = Dies ist kein gültiger Matrix-Link.
+desktop-notifications = Desktop-Benachrichtigungen (ohne Nachrichtentext)
+notification-activity = Neue Aktivität in
+
+shortcut-rooms = Unterhaltung suchen
+shortcut-navigation = Navigation
+
+thread-read-by = In diesem Thread gelesen von
+
+shutdown-failed = Das letzte Speichern der Entwürfe konnte nicht bestätigt werden.
+shutdown-timeout = Zeitüberschreitung beim letzten Speichern der Entwürfe.
+search-truncated = 1.000 Treffer angezeigt; bitte die Filter eingrenzen.
+
+desktop-show = Archaic anzeigen
+desktop-quit = Archaic beenden
+desktop-no-unread = Keine ungelesenen Aktivitäten
+desktop-unread = Ungelesene Aktivitäten
+desktop-tray-unavailable = Das Statussymbol ist auf diesem Desktop nicht verfügbar.
+
+profile-saving = Entwürfe werden vor dem Kontowechsel gespeichert…

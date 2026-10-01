@@ -2,7 +2,7 @@
 
 Baseline: [Element v1.12.30](https://github.com/element-hq/element-web/releases/tag/v1.12.30), commit `f19cfd9030429240a4209bf5175b372175cf0464`, researched October 1, 2026.
 
-94 feature families mapped. 35 families now have **partial** implementations; none has passed full parity acceptance. The first native client increment is described in [implementation status](IMPLEMENTATION.md). Windows/macOS verification remains deferred. This is an initial source-based inventory, not an exhaustive runtime audit. Phase P0 expands families into scenarios and reconciles the full settings/test index.
+94 feature families mapped. 52 families now have **partial** implementations; none has passed full parity acceptance. The first native client increment is described in [implementation status](IMPLEMENTATION.md). Windows/macOS verification remains deferred. This is an initial source-based inventory, not an exhaustive runtime audit. Phase P0 expands families into scenarios and reconciles the full settings/test index.
 
 The [machine-readable inventory](parity.json) contains acceptance criteria and platform status. The [upstream index](upstream-index.json) records 176 setting entries, 24 feature-marked entries, release configuration, 158 reference test files and hashes of 63 retrieved source files. Source/test presence identifies a feature surface, not whether a particular deployment enables it.
 
@@ -181,10 +181,12 @@ The reference release turns on both video-room flags in its release configs. Use
 - Arbitrary web widgets require a browser compatibility environment. External-browser fallback alone is not embedded-widget parity.
 - Native MatrixRTC calls require a media engine and interoperability work; SDK signaling methods do not provide finished calling.
 - SDK high-level sync needs MSC4186; older-server compatibility needs a separately tested path.
-- Encrypted local search is an experimental SDK feature and has distinct storage/privacy requirements.
+- The current encrypted event index scans cached events; scaling, index maintenance and full-history coverage require further work.
 - CUI has known gaps in rich/virtualized chat, worker dispatch, lifetime disposal and RTL/accessibility. See [CUI work packages](CUI-GAPS.md).
 - Enterprise or deployment-specific modules cannot be assumed to work as native features; keep their support decisions explicit.
 
 The room-tools increment adds partial attachment upload/save, authenticated encrypted media, explicit read receipts, server search and local decrypted-history scanning. Existing relation/reply/revision families gain separate pagination beyond the text timeline. See [workflows and limits](ROOM-TOOLS.md); no family has full parity acceptance.
 
 Priorities 1–3 now include partial security/recovery, browser SSO, durable text queue, typing/unread updates, incremental rows, threads and context navigation. See [current workflows and remaining gaps](SECURITY-MESSAGING.md). No full parity acceptance is claimed.
+
+The next batch adds encrypted drafts, OAuth/PKCE and password soft logout, queued message actions/media, bounded previews and streamed downloads, persistent filtered search, live details/thread receipts, room/space administration, blocking/favorites, account profiles and native desktop integration. [Organization](ORGANIZATION.md) and [Desktop integration](DESKTOP.md) document the additional workflows. Families remain partial wherever their complete acceptance scenarios are unmet. Native Windows/macOS verification remains deferred.

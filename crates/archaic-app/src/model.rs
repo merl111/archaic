@@ -21,9 +21,14 @@ pub struct Outgoing {
 
 #[derive(Default)]
 pub struct Model {
+    pub link_join: Option<(String, Vec<String>, Option<String>)>,
+    pub blocked: std::collections::HashSet<String>,
+    pub organization: crate::organization::State,
     pub activity: crate::activity::State,
     pub browser_login: bool,
+    pub reauthentication: bool,
     pub outbox: Vec<archaic_matrix::outbox::Item>,
+    pub transfer_progress: HashMap<String, (u64, u64)>,
     pub security: crate::security::State,
     pub tools: crate::tool_state::ToolState,
     pub epoch: u64,
@@ -41,6 +46,7 @@ pub struct Model {
     pub history_pending: Option<archaic_matrix::HistoryLoad>,
     pub history_error: Option<(archaic_matrix::HistoryLoad, &'static str)>,
     pub drafts: HashMap<String, String>,
+    pub saved_drafts: HashMap<String, String>,
     pub outgoing: HashMap<String, Outgoing>,
     pub sending: bool,
     pub show_new: bool,
@@ -62,6 +68,57 @@ impl Model {
             return;
         }
         match event.kind {
+            EventKind::LiveDetailsFailed { room_id, key } => {
+                if self.selected.as_ref() == Some(&room_id) {
+                    self.tools.error = Some(key);
+                }
+            }
+            EventKind::Blocked(users) => self.blocked = users,
+            EventKind::DraftSaved { room_id, body } => {
+                self.saved_drafts.insert(room_id, body);
+            }
+            EventKind::Notification { .. } => {}
+            EventKind::Organization { id, result } => {
+                if self.organization.pending.as_ref() == Some(&id) {
+                    self.organization.pending = None;
+                    match result {
+                        Ok(page) => self.organization.page = page,
+                        Err(e) => self.organization.error = Some(e),
+                    }
+                }
+            }
+            EventKind::TransferProgress {
+                room_id: _,
+                id,
+                current,
+                total,
+            } => {
+                if self.transfer_progress.len() >= 256
+                    && !self.transfer_progress.contains_key(id.as_str())
+                {
+                    self.transfer_progress.clear();
+                }
+                self.transfer_progress
+                    .insert(id.to_string(), (current, total));
+            }
+            EventKind::ReauthenticationRequired => self.reauthentication = true,
+            EventKind::LiveDetails { room_id, details } => {
+                if self.selected.as_ref() == Some(&room_id)
+                    && self
+                        .tools
+                        .details
+                        .as_ref()
+                        .is_some_and(|d| d.message.id == details.message.id)
+                {
+                    self.tools.details = Some(*details);
+                }
+            }
+            EventKind::Drafts(drafts) => {
+                for (room, body) in drafts {
+                    self.saved_drafts.insert(room.clone(), body.clone());
+                    self.drafts.entry(room).or_insert(body);
+                }
+            }
             EventKind::Activity {
                 room_id,
                 unread,
@@ -101,6 +158,7 @@ impl Model {
                 self.error = Some(key);
             }
             EventKind::Connected(user) => {
+                self.reauthentication = false;
                 self.user = user;
                 self.phase = Phase::Connected;
                 self.status = "syncing";
@@ -146,6 +204,51 @@ impl Model {
             }
             EventKind::Status(status) => self.status = status,
             EventKind::Error(key) => self.apply_error(key),
+        }
+        self.hide_blocked();
+    }
+
+    fn hide_blocked(&mut self) {
+        let blocked = &self.blocked;
+        let selected_blocked = self
+            .messages
+            .iter()
+            .any(|m| self.message_selected.as_ref() == Some(&m.id) && blocked.contains(&m.sender));
+        self.messages.retain(|m| !blocked.contains(&m.sender));
+        self.tools
+            .search
+            .messages
+            .retain(|m| !blocked.contains(&m.sender));
+        for m in self
+            .messages
+            .iter_mut()
+            .chain(self.tools.search.messages.iter_mut())
+        {
+            m.reactions.retain(|r| !blocked.contains(&r.sender));
+        }
+        if let Some(details) = &mut self.tools.details {
+            if blocked.contains(&details.message.sender) {
+                self.tools.details = None;
+                self.tools.preview = None;
+            } else {
+                details.thread.retain(|m| !blocked.contains(&m.sender));
+                details
+                    .message
+                    .reactions
+                    .retain(|r| !blocked.contains(&r.sender));
+                if details
+                    .reply
+                    .as_ref()
+                    .is_some_and(|m| blocked.contains(&m.sender))
+                {
+                    details.reply = None;
+                    details.reply_unavailable = true;
+                }
+            }
+        }
+        if selected_blocked {
+            self.message_selected = None;
+            self.tools.preview = None;
         }
     }
 
@@ -201,6 +304,9 @@ impl Model {
         if let Some(pending) = room.and_then(|room| self.outgoing.remove(&room)) {
             if self.drafts.get(&pending.room_id) == Some(&pending.body) {
                 self.drafts.remove(&pending.room_id);
+            }
+            if self.saved_drafts.get(&pending.room_id) == Some(&pending.body) {
+                self.saved_drafts.remove(&pending.room_id);
             }
             self.sending = false;
             self.error = None;
@@ -289,6 +395,25 @@ mod tests {
         }
     }
 
+    #[test]
+    fn queue_acknowledgement_clears_saved_draft_without_erasing_later_input() {
+        for later in [None, Some("new text")] {
+            let mut model = connected();
+            model.saved_drafts = model.drafts.clone();
+            let Command::Send { transaction, .. } = model.send_command().unwrap() else {
+                unreachable!()
+            };
+            if let Some(body) = later {
+                model.drafts.insert("!a:local".into(), body.into());
+            }
+            model.apply(Event {
+                epoch: 2,
+                kind: EventKind::Queued { transaction },
+            });
+            assert_eq!(model.drafts.get("!a:local").map(String::as_str), later);
+            assert!(!model.saved_drafts.contains_key("!a:local"));
+        }
+    }
     #[test]
     fn join_failure_preserves_conversation_and_success_selects_without_losing_drafts() {
         let mut model = connected();

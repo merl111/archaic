@@ -26,11 +26,17 @@ pub struct ToolControls {
     pub details: Widget,
     pub more_details: Widget,
     pub download: Widget,
+    pub preview: Widget,
+    preview_image: Widget,
+    preview_version: RefCell<Option<archaic_matrix::TransactionId>>,
+    pub cancel_transfer: Widget,
+    progress: Widget,
     pub original: Widget,
     detail_text: Widget,
     detail_status: Widget,
     receipt_group: Widget,
     pub receipt_mode: Widget,
+    pub receipt_thread: Widget,
     pub mark_read: Widget,
     target: Widget,
     status: Widget,
@@ -62,9 +68,17 @@ impl ToolControls {
         let discard = row.button(&tr.text("cancel"))?;
         let search_group = root.box_layout(sys::CUI_VERTICAL, 8)?;
         search_group.expand(true)?;
-        let search_mode =
-            search_group.select(&[&tr.text("search-local"), &tr.text("search-server")])?;
+        let search_mode = search_group.select(&[
+            &tr.text("search-local"),
+            &tr.text("search-server"),
+            &tr.text("search-indexed"),
+        ])?;
         search_mode.accessibility(&tr.text("search-scope"), "")?;
+        label(
+            &search_group,
+            &tr.text("search-filter-hint"),
+            sys::CUI_ROLE_CAPTION,
+        )?;
         let query = search_group.entry("")?;
         query.set_placeholder(&tr.text("search-query"))?;
         query.accessibility(&tr.text("search-query"), "")?;
@@ -83,6 +97,9 @@ impl ToolControls {
         let more_details = row.button(&tr.text("details-more"))?;
         let original = row.button(&tr.text("reply-original"))?;
         let download = row.button(&tr.text("download-file"))?;
+        let preview = row.button(&tr.text("preview-file"))?;
+        let preview_image = detail_group.image()?;
+        preview_image.set_min_size(200, 180)?;
         let detail_status = label(&detail_group, "", sys::CUI_ROLE_CAPTION)?;
         let detail_text = detail_group.textarea("")?;
         detail_text.set_read_only(true)?;
@@ -97,7 +114,10 @@ impl ToolControls {
             receipt_group.select(&[&tr.text("receipt-private"), &tr.text("receipt-public")])?;
         receipt_mode.set_selected(0)?;
         receipt_mode.accessibility(&tr.text("receipt-visibility"), "")?;
+        let receipt_thread = receipt_group.checkbox(&tr.text("receipt-thread"), false)?;
         let mark_read = receipt_group.button(&tr.text("mark-read"))?;
+        let cancel_transfer = root.button(&tr.text("cancel-transfer"))?;
+        let progress = label(&root, "", sys::CUI_ROLE_CAPTION)?;
         let status = label(&root, "", sys::CUI_ROLE_CAPTION)?;
         let error = label(&root, "", sys::CUI_ROLE_DANGER)?;
         Ok(Self {
@@ -120,11 +140,17 @@ impl ToolControls {
             details,
             more_details,
             download,
+            preview,
+            preview_image,
+            preview_version: Default::default(),
+            cancel_transfer,
+            progress,
             original,
             detail_text,
             detail_status,
             receipt_group,
             receipt_mode,
+            receipt_thread,
             mark_read,
             target,
             status,
@@ -138,6 +164,48 @@ impl ToolControls {
             return Ok(());
         }
         let enabled = model.can_tool() && !fixture;
+        self.cancel_transfer
+            .set_visible(model.tools.pending.as_ref().is_some_and(|r| {
+                matches!(
+                    r.action,
+                    archaic_matrix::ToolAction::QueueUpload { .. }
+                        | archaic_matrix::ToolAction::Download { .. }
+                        | archaic_matrix::ToolAction::Preview { .. }
+                )
+            }))?;
+        let progress = model
+            .tools
+            .pending
+            .as_ref()
+            .and_then(|r| model.transfer_progress.get(r.id.as_str()));
+        set_text(
+            &self.progress,
+            &progress
+                .map(|(c, t)| format!("{c} / {t}"))
+                .unwrap_or_default(),
+        )?;
+        self.progress.set_visible(progress.is_some())?;
+        self.preview.set_enabled(
+            enabled
+                && model
+                    .selected_message()
+                    .is_some_and(|m| m.attachment.as_ref().is_some_and(|a| a.kind == "m.image")),
+        )?;
+        let preview = model
+            .tools
+            .preview
+            .as_ref()
+            .filter(|p| model.message_selected.as_ref() == Some(&p.event));
+        self.preview_image.set_visible(preview.is_some())?;
+        if let Some(p) = preview {
+            if self.preview_version.borrow().as_ref() != Some(&p.id) {
+                self.preview_image
+                    .rgba(&p.pixels, p.width as i32, p.height as i32)?;
+                *self.preview_version.borrow_mut() = Some(p.id.clone());
+            }
+        } else {
+            *self.preview_version.borrow_mut() = None;
+        }
         if self.mode.get_selected()? != model.tools.mode {
             self.mode.set_selected(model.tools.mode)?;
         }
@@ -174,7 +242,8 @@ impl ToolControls {
             .upload
             .as_ref()
             .and_then(|r| match &r.action {
-                archaic_matrix::ToolAction::Upload { path } => {
+                archaic_matrix::ToolAction::Upload { path }
+                | archaic_matrix::ToolAction::QueueUpload { path } => {
                     path.file_name().map(|s| s.to_string_lossy().into_owned())
                 }
                 _ => None,
@@ -232,12 +301,20 @@ impl ToolControls {
                 format!(
                     "{} · {}",
                     m.sender,
-                    m.body
-                        .as_deref()
-                        .unwrap_or("")
-                        .chars()
-                        .take(70)
-                        .collect::<String>()
+                    crate::search_snippet::snippet(
+                        m.body.as_deref().unwrap_or(""),
+                        model
+                            .tools
+                            .search_key
+                            .as_ref()
+                            .map(|(q, _)| q.as_str())
+                            .unwrap_or(""),
+                        model
+                            .tools
+                            .search_key
+                            .as_ref()
+                            .is_some_and(|(_, m)| *m == archaic_matrix::SearchMode::Indexed)
+                    )
                 )
                 .replace(['\0', '\n', '\r'], " ")
             })
@@ -259,7 +336,9 @@ impl ToolControls {
                 model.tools.search.scanned,
                 tr.text("events-unavailable"),
                 model.tools.search.unavailable,
-                tr.text(if model.tools.search.more {
+                tr.text(if model.tools.search.truncated {
+                    "search-truncated"
+                } else if model.tools.search.more {
                     "page-more"
                 } else if model.tools.search_key.is_some() {
                     "page-complete"
@@ -306,6 +385,11 @@ impl ToolControls {
             "\n\n{}: {}",
             tr.text("read-by"),
             details.read_by.join(", ")
+        ));
+        text.push_str(&format!(
+            "\n{}: {}",
+            tr.text("thread-read-by"),
+            details.thread_read_by.join(", ")
         ));
         if !details.revisions.is_empty() {
             text.push_str(&format!(

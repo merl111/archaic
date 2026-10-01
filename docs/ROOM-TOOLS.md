@@ -1,46 +1,65 @@
 # Attachments, search, receipts and message relations
 
-Open a joined conversation and press **Room tools** in its header. The mode selector offers Attachments, Search messages, Message details and Read receipts. Press **Room tools** again to return to the timeline and its preserved composer draft. All controls and errors are available in English and German.
+Updated October 1, 2026. Open a joined conversation and choose **Room tools**. Modes cover attachments, search, message details and receipts. English and German catalogs cover the controls and errors. This guide describes implemented behavior and limits; it is not a declaration of Element parity.
 
 ## Attachments
 
-Choose **Attachments → Choose file…**. The native file chooser returns a path; nothing is sent until you press **Send attachment**. The selected basename is displayed. Cancel discards the selection and any retained upload bytes. Files must be regular files of at most **25 MiB**. PNG, JPEG and GIF signatures select the corresponding image message type; other files use a generic file message. No filename extension is trusted to determine executable behavior.
+Choose a file, then **Send attachment**. Files must be regular files of at most **25 MiB**. The worker reads a bounded byte snapshot away from the UI thread and inserts it into the SDK's durable attachment queue. Saved accounts retain queued uploads across restart. Temporary sessions do not. Encryption and message transactions belong to the Matrix SDK. Recognized image signatures determine image message types; other files are sent as files.
 
-The worker reads an immutable byte snapshot off the UI thread, then uses Matrix SDK attachment sending. For encrypted rooms the SDK encrypts the attachment and message; Archaic does not implement cryptography. An unchanged failed upload retry retains the bytes and message transaction ID, even if the local file has changed. A retry can upload the media again before retrying the same message transaction: orphaned server uploads are possible, but the message transaction remains stable. Retry state is session-local, not a durable outbox. Selecting a different file creates a new transaction when submitted.
+The outgoing row shows upload progress when the SDK reports it, paused sends, retry and cancel. Queue insertion is not delivery. Cancellation races completion: it cannot guarantee recalling an already delivered message or deleting an orphaned server upload. Upload input is buffered once, up to 25 MiB; it is not an unbounded file stream.
 
-To save a received attachment, select its message below the timeline, open **Room tools → Message details**, and press **Save attachment…**. Choose a new destination filename. Archaic fetches the original event's media through the SDK, including authenticated media and decryption where required, writes a temporary file alongside the destination, and atomically persists it **without overwriting an existing file**. An untrusted filename from a message is never used as a destination path. Downloads are never automatically opened or executed. Saving currently uses the original event's attachment, even if later replacements change its caption or media.
+Select an attachment message and open **Message details**:
 
-The application rejects advertised files above 25 MiB and checks the actual downloaded size before saving. The SDK buffers the response before the latter check: **25 MiB is not a strict download-memory or network-transfer ceiling**. There is no streaming transfer, progress percentage, in-flight cancellation, caption editor, thumbnail gallery, media playback or durable upload queue yet. The native dialog can be cancelled before submission; once submitted, the visible busy state lasts until the SDK returns.
+- **Preview image** downloads on demand, verifies encrypted media, then decodes PNG/JPEG/GIF/WebP into a native CUI image. Decoding is bounded to 8192 pixels per dimension and a 64 MiB decode budget; previews fit within 1024×768 without enlarging small images. GIF is a still preview. No external handler runs automatically.
+- **Save attachment…** uses a destination you choose. Downloads stream in bounded chunks through the authenticated Matrix media API. Both advertised size and bytes received are checked against 25 MiB. Encrypted attachments are decrypted into a private temporary file and their integrity is checked before publication. The destination must not already exist; saving never overwrites it.
+- **Cancel transfer** cancels the active preview/download or queue-submission task. Temporary download files are cleaned up. There is one active transfer task per account; queued SDK uploads have their own outgoing controls.
+
+Progress uses declared length when available; an unknown length cannot produce an accurate percentage. Authenticated media requires the v1 media endpoint, rejects redirects, and has a finite timeout. A token refresh is attempted once on authorization failure. Saving resolves the original attachment event. Caption editing, drag/drop/paste, a zoomable gallery, audio/video playback and forwarding media are not implemented.
 
 ## Search
 
-Search is scoped to the current room. Enter a query and press **Search messages** or Enter. Select a result and press **Open result** to inspect it, even if it is outside the 500-event timeline window. Results remain available when switching back from Message details.
+Search is scoped to the current room. Enter a query, press Enter or **Search messages**, select a result and choose **Open result**. Results can open events beyond the timeline's 500-event window. **Show surrounding messages** opens their context, with older/newer navigation.
 
-- **Local history scan** requests backward pages of 50 events through the SDK, searches readable message text case-insensitively, and sends no search query to the server. This includes encrypted messages for which this device has keys. **Continue search** scans the next older page. It can continue beyond the main timeline's 500-event window. It is an on-demand scan, not a persistent encrypted search index. Results may contain historical text when a replacement lies on another page; opening the result resolves its current relations. Events without readable content are counted explicitly, so exhausted pagination does not imply complete decryption.
-- **Server search** uses Matrix `/search`, filters to the current room and body field, and requests recent-first pages of 50 results. **Continue search** uses the returned search cursor. Servers may use their own tokenization and indexing rules. This mode is blocked for encrypted rooms before sending the query; choose Local history scan there. The homeserver must implement search and authorize access to the room.
+| Mode | Behavior |
+| --- | --- |
+| Local history scan | Requests 50-event backward pages and searches readable text without sending the query to the server. Continue scans another page. This session-local scan may encounter an edit on a different page. |
+| Server search | Calls Matrix `/search` for this room's body field, recent first, with server pagination. Disabled for encrypted rooms. Queries are disclosed to the homeserver. |
+| Persistent encrypted index | Searches locally retained, decrypted events; sync adds new events and relations. Continue explicitly backfills older 50-event pages. Cached results can be searched without another history request. |
 
-Changing the query or mode requires a new search. A failed continuation preserves its last successful results and cursor; retry continues from that same cursor. Overlapping results are deduplicated by event ID. Repeated/cyclic cursors, oversized pages, malformed events and responses from another room are rejected. The scan stops with a visible incomplete-limit error after 1,000 hits or 4,096 continuation cursors. Queries are trimmed and limited to 1,024 UTF-8 bytes. There are no sender/date filters, highlighting, global search, thread navigation or disk index yet.
+The persistent mode accepts case-insensitive text plus `from:@user:server`, `has:file`, `after:TIMESTAMP` and `before:TIMESTAMP`. Timestamps are Unix milliseconds; after is inclusive and before exclusive. Example:
 
-## Message details and complete relation pagination
+```text
+release from:@alice:example.org after:1759276800000 has:file
+```
 
-Select a message, choose **Message details**, and press **Load / refresh details**. Search's **Open result** does this automatically. Archaic fetches the original event and up to 100 related events. **More relations** follows the server cursor until every server-returned page has been fetched. This uses an independent cache, not the timeline's 500-event window. The UI reports loaded counts, unavailable content and whether more pages exist. “All server-returned relation pages loaded” means the cursor is exhausted; it does not establish that inaccessible or undecryptable events are available.
+A result snippet marks matching text with `⟦…⟧`, preserving Unicode boundaries. It is plain native text, not interpreted HTML. Filter-only queries are supported. Queries are limited to 1024 UTF-8 bytes. Changing a query or mode starts a new search. Failed pagination preserves the previous results and cursor; cyclic and malformed pages are rejected.
 
-Details show the current projected body, reactions, loaded non-redacted same-author edit history, known public read receipts, and the original replied-to message. The reply original is fetched even when absent from the loaded timeline; an unavailable reply is labeled. **Replied-to message** opens that original's own details and relation pages. The existing Reply/Edit/Delete/React controls also work on the message opened from search. This is targeted event inspection, not forward/backward context navigation around the event.
+The persistent event index is encrypted with the profile key and device-specific authenticated context in `search-index.enc`. It survives restart in saved accounts and stays memory-only in temporary accounts. Edits update projected results; redactions erase cached bodies and retain tombstones so older responses cannot resurrect them. Sync persistence is batched once per sync and failed writes are retried. It is an event cache searched by scanning, not an inverted full-text engine. It is bounded to 100,000 events per room and a 64 MiB encrypted file; results stop at 1000 with a visible truncation indication. The separate history scan bounds continuation cursors to 4096.
 
-Valid server-bundled replacement events are also consumed by the normal timeline. Projection enforces author identity, redaction and deterministic edit ordering. Explicit relation pages override duplicate bundled event IDs. Original redaction removes its body, reactions and attachment; redacted revisions are excluded. Reactions preserve event IDs for the existing own-reaction removal action. Relation snapshots are not continuously refreshed: use Load / refresh details to see subsequent edits, redactions and reactions.
+Unreadable events and coverage are reported. Exhausted pagination does not mean all encrypted content was decryptable. Indexing covers observed/backfilled history, not an automatic download of every room. Global search, dedicated index maintenance controls and a scalable full-text engine remain open.
 
-A failed page is atomic: it does not partially change the snapshot or advance its cursor. Relation loading allows at most 10,000 distinct related events and 4,096 cursors per inspection, then reports an incomplete-limit error. Server permissions, retention and missing encryption keys still constrain what is returned. Thread presentation, relation-aware incremental timeline updates and a full event-context navigator remain unfinished.
+## Live message details and relations
 
-## Read receipts
+Select a message and choose **Load / refresh details**. The worker fetches the original and up to 100 relation events, separately from the main timeline. **More relations** follows the relation cursor. Details show projected body, same-author edit history, reactions, thread replies, reply context, and known public receipts. An unavailable original is labeled; **Replied-to message** navigates to the original.
 
-Select a message, open **Read receipts**, choose **Private** (default) or **Public**, and press **Mark selected as read**. Private uses `m.read.private`; Public uses `m.read`. Both are explicitly unthreaded. Merely opening a room, search result or details sends no receipt. The SDK also clears the room's manual unread flag when sending a receipt. A homeserver may reject unsupported receipt types; errors remain visible.
+While details are open, sync applies relevant new edits, reactions, redactions, thread replies and receipt changes. A limited sync gap reloads the first relation page and exposes remaining pagination again; failure is visible rather than silently presenting the old snapshot as current. Live refresh does not fetch all historical pages on every sync.
 
-Message details lists public receipts known to the SDK sync store that are anchored exactly on the selected event. This is **not an exhaustive list of everyone who has read it**, and it does not disclose other users' private receipts. Load / refresh details to refresh that list. Automatic viewport-based receipts, thread-specific receipts, unread counts, fully-read markers and cross-client unread acceptance remain future work.
+Projection checks sender identity and event/room IDs, resolves edit order, excludes redacted edits, and removes redacted originals' bodies, attachments and reactions. A failed page does not partially replace the view or advance its cursor. Inspection is bounded to 10,000 relation events and 4096 cursors. “All server-returned relation pages loaded” only means that cursor is exhausted; permissions, retention and unavailable keys still limit coverage. A dedicated thread inbox and thread unread navigation remain open.
 
-## State, security and integration contract
+## Receipts
 
-`archaic-matrix::Command::RoomTool(ToolRequest)` carries the room, operation, transaction identity and arguments. `EventKind::RoomToolResult` echoes that request with `ToolData` or a localized error key. GUI state applies a response only for the current session epoch, room and exact pending request. `Command::DiscardUpload` releases the worker's retained upload snapshot. Room switches, membership loss and logout clear the tool state. Joined membership is rechecked in the worker; fetched event identity and room are validated before acting.
+Choose **Private** or **Public** and mark the selected message as read. The thread option uses the selected reply's actual thread root, or the selected root event itself. Unthreaded receipts remain available. The SDK can clear the room's manual unread flag when sending a receipt.
 
-All SDK work runs on the Matrix worker, file reading/saving uses blocking workers, and native CUI handles stay on the main thread. Conflicting room/message operations are disabled while a tool or file dialog is active; sign-out remains reachable. Channels remain bounded. Server token expiry revokes the active worker session and stops sync. No plaintext search index is written to disk.
+Details separate public unthreaded and thread receipts anchored exactly on the selected event. These are the receipts known to the SDK, not every person who has read the message; other users' private receipts are never exposed. Opening details does not itself send a receipt. The separately enabled private-while-composing behavior is described in [messaging](SECURITY-MESSAGING.md).
 
-This batch uses the existing public CUI Rust binding and native file dialogs; CUI and its revision pin do not change. Tests use the real SDK against disposable loopback mocks and native Linux controls under Xvfb. These checks do not qualify production E2EE, real-server interoperability or Windows/macOS behavior.
+## Agent implementation map and validation
+
+- `archaic-matrix/src/transfers.rs`: background tasks, progress, cancellation, streaming/decrypting media and bounded image decoding.
+- `attachments.rs`: shared media validation and compatibility direct-upload path.
+- `search_index.rs`, `local_data.rs`, `storage.rs`: index projection and encrypted persistence.
+- `details.rs`, `sync_activity.rs`, `worker.rs`: paginated/live relations, receipts and sync updates.
+- `archaic-app/src/tool_controller.rs`, `tool_controls.rs`, `tool_state.rs`, `search_snippet.rs`: native UI state and epoch/request validation.
+
+Commands/events are bounded and session-scoped. Native handles stay on the GUI thread. Stale room/request results are discarded; blocking filters apply to cached and arriving views. CUI remains a separate pinned dependency.
+
+Protocol checks cover pagination, malformed responses, encrypted integrity failures, cancellation, preview decoding, live relation updates and thread receipt payloads. The disposable Synapse test additionally queues an encrypted attachment, decrypts it on another device and verifies downloaded bytes. Windows/macOS native validation remains deferred.

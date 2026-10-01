@@ -5,10 +5,18 @@ use archaic_i18n::Translator;
 use cui::{Result, Widget, sys};
 
 pub struct View {
+    pub notifications: Widget,
+    pub deep_link: Widget,
+    pub open_link: Widget,
+    pub profile: Widget,
+    pub switch_profile: Widget,
+    pub organization: crate::organization::Controls,
+    pub organization_toggle: Widget,
     pub typing_opt: Widget,
     pub read_opt: Widget,
     pub typing_status: Widget,
     pub browser_login: Widget,
+    pub oauth_login: Widget,
     pub cancel_login: Widget,
     pub outbox: crate::outbox::Controls,
     pub security_toggle: Widget,
@@ -46,6 +54,9 @@ pub struct View {
     pub send: Widget,
     pub refresh: Widget,
     pub sign_out: Widget,
+    pub reauth_group: Widget,
+    pub reauth_password: Widget,
+    pub reauth: Widget,
     pub account: Widget,
     pub status: Widget,
     pub error: Widget,
@@ -60,6 +71,10 @@ impl View {
         label(&header, "Archaic", sys::CUI_ROLE_HEADING)?;
         let subtitle = label(&header, &tr.text("app-tagline"), sys::CUI_ROLE_CAPTION)?;
         subtitle.expand(true)?;
+        let profile = header.entry("default")?;
+        profile.set_min_size(90, 0)?;
+        profile.accessibility(&tr.text("profile-name"), "")?;
+        let switch_profile = header.button(&tr.text("profile-switch"))?;
         label(&header, &tr.text("appearance"), sys::CUI_ROLE_CAPTION)?;
         let appearance = header.select(&[
             &tr.text("theme-system"),
@@ -77,6 +92,7 @@ impl View {
         let login = Login::new(root, tr)?;
 
         let security = crate::security::Controls::new(root, tr)?;
+        let organization = crate::organization::Controls::new(root, tr)?;
         let new_conversation = crate::new_conversation::NewConversationForm::new(root, tr)?;
         let workspace = root.split(sys::CUI_HORIZONTAL, 0.26)?;
         workspace.expand(true)?;
@@ -94,6 +110,11 @@ impl View {
         join_toggle.set_tooltip(&tr.text("join-room"))?;
         join_toggle.accessibility(&tr.text("join-room"), "")?;
         let join = crate::join_form::JoinForm::new(&sidebar, tr)?;
+        let deep_link = sidebar.entry("")?;
+        deep_link.set_placeholder(&tr.text("matrix-link"))?;
+        deep_link.accessibility(&tr.text("matrix-link"), "")?;
+        let open_link = sidebar.button(&tr.text("open-link"))?;
+        let notifications = sidebar.checkbox(&tr.text("desktop-notifications"), false)?;
         let search = sidebar.search(&tr.text("room-search"))?;
         search.accessibility(&tr.text("room-search"), "")?;
         let rooms = sidebar.list(&[])?;
@@ -102,7 +123,12 @@ impl View {
         sidebar.separator()?;
         label(&sidebar, &tr.text("signed-in-as"), sys::CUI_ROLE_CAPTION)?;
         let account = label(&sidebar, "", sys::CUI_ROLE_CAPTION)?;
+        let organization_toggle = sidebar.button(&tr.text("organization"))?;
         let security_toggle = sidebar.button(&tr.text("security-title"))?;
+        let reauth_group = sidebar.box_layout(sys::CUI_VERTICAL, 6)?;
+        let reauth_password = reauth_group.password("")?;
+        reauth_password.accessibility(&tr.text("password"), "")?;
+        let reauth = reauth_group.button(&tr.text("reauthenticate"))?;
         let sign_out = sidebar.button(&tr.text("sign-out"))?;
         let conversation = workspace.split_pane(1)?;
         conversation.box_set_padding(20)?;
@@ -149,10 +175,18 @@ impl View {
         session_notice.expand(true)?;
         let status = label(&footer, "", sys::CUI_ROLE_CAPTION)?;
         Ok(Self {
+            notifications,
+            deep_link,
+            open_link,
+            profile,
+            switch_profile,
+            organization,
+            organization_toggle,
             typing_opt,
             read_opt,
             typing_status,
             browser_login: login.browser,
+            oauth_login: login.oauth,
             cancel_login: login.cancel,
             outbox,
             security_toggle,
@@ -190,6 +224,9 @@ impl View {
             send,
             refresh,
             sign_out,
+            reauth_group,
+            reauth_password,
+            reauth,
             account,
             status,
             error,
@@ -199,6 +236,8 @@ impl View {
     fn render_login(&self, model: &Model, tr: &Translator, connected: bool) -> Result<()> {
         self.footer.set_visible(connected)?;
         self.login.set_visible(!connected)?;
+        self.oauth_login
+            .set_visible(model.phase == Phase::SignedOut)?;
         self.browser_login
             .set_visible(model.phase == Phase::SignedOut)?;
         self.cancel_login
@@ -272,6 +311,8 @@ impl View {
     }
 
     pub fn render(&self, model: &Model, tr: &Translator, fixture: bool) -> Result<()> {
+        self.organization.render(model, tr)?;
+        self.reauth_group.set_visible(model.reauthentication)?;
         let connected = matches!(
             model.phase,
             Phase::Connected | Phase::SigningOut | Phase::LogoutCleanup
@@ -279,7 +320,8 @@ impl View {
         self.render_login(model, tr, connected)?;
         self.workspace.set_visible(
             connected
-                && !(model.security.show && model.phase == Phase::Connected)
+                && !((model.security.show || model.organization.show)
+                    && model.phase == Phase::Connected)
                 && !(model.show_new && model.phase == Phase::Connected),
         )?;
         self.security.render(model, tr, fixture)?;

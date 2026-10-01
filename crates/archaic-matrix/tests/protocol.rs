@@ -1,3 +1,4 @@
+#![recursion_limit = "256"]
 mod protocol_conversations;
 mod protocol_history;
 mod protocol_membership;

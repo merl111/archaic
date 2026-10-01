@@ -5,6 +5,7 @@ use cui::{Result, Widget, sys};
 
 pub struct Login {
     pub browser: Widget,
+    pub oauth: Widget,
     pub cancel: Widget,
     pub background: Widget,
     pub server: Widget,
@@ -55,6 +56,7 @@ impl Login {
         let submit = card.button(&tr.text("sign-in"))?;
         submit.set_role(sys::CUI_ROLE_PRIMARY)?;
         let browser = card.button(&tr.text("sso-login"))?;
+        let oauth = card.button(&tr.text("oauth-login"))?;
         let cancel = card.button(&tr.text("cancel"))?;
         let temporary = card.button(&tr.text("temporary-session"))?;
         let error = card.label("")?;
@@ -68,6 +70,7 @@ impl Login {
         background.box_layout(sys::CUI_VERTICAL, 0)?.expand(true)?;
         Ok(Self {
             browser,
+            oauth,
             cancel,
             background,
             server,

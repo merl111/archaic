@@ -3,6 +3,7 @@ use archaic_matrix::{Membership, MessageDetails, SearchPage, ToolAction, ToolDat
 #[derive(Default)]
 pub struct ToolState {
     pub show: bool,
+    pub preview: Option<Preview>,
     pub mode: i32,
     pub pending: Option<ToolRequest>,
     pub dialog: bool,
@@ -14,6 +15,13 @@ pub struct ToolState {
     pub search_mode: i32,
     pub search_key: Option<(String, archaic_matrix::SearchMode)>,
     pub details: Option<MessageDetails>,
+}
+pub struct Preview {
+    pub id: archaic_matrix::TransactionId,
+    pub event: String,
+    pub pixels: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
 }
 impl Model {
     pub fn tools_busy(&self) -> bool {
@@ -44,6 +52,26 @@ impl Model {
             Ok(data) => {
                 self.tools.error = None;
                 self.tools.status = Some(match data {
+                    ToolData::Preview {
+                        pixels,
+                        width,
+                        height,
+                    } => {
+                        if let ToolAction::Preview { event_id } = &request.action {
+                            self.tools.preview = Some(Preview {
+                                id: request.id.clone(),
+                                event: event_id.clone(),
+                                pixels,
+                                width,
+                                height,
+                            });
+                        }
+                        "preview-ready"
+                    }
+                    ToolData::QueuedUpload => {
+                        self.tools.upload = None;
+                        "upload-queued"
+                    }
                     ToolData::Uploaded => {
                         self.tools.upload = None;
                         "upload-done"

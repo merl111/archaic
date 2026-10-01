@@ -41,6 +41,8 @@ pub(crate) struct SavedSession {
     pub fingerprint: String,
     pub store_id: String,
     pub session: MatrixSession,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub oauth_client_id: Option<String>,
 }
 
 /// Owns the exclusive profile lock and a zeroizing copy of the vault key.
@@ -52,8 +54,21 @@ pub struct Profile {
 }
 impl Profile {
     pub fn system() -> Result<Self> {
-        let root = profile_directory()?;
-        let entry = keyring::Entry::new("org.archaic.desktop", "default-profile-v1")
+        Self::system_named("default")
+    }
+    pub fn system_named(name: &str) -> Result<Self> {
+        validate_profile_name(name)?;
+        let root = if name == "default" {
+            profile_directory()?
+        } else {
+            profile_directory()?.join("profiles").join(name)
+        };
+        let account = if name == "default" {
+            "default-profile-v1".to_owned()
+        } else {
+            format!("profile-v1:{name}")
+        };
+        let entry = keyring::Entry::new("org.archaic.desktop", &account)
             .map_err(|_| "vault-unavailable")?;
         Self::open(root, &SystemVault(entry))
     }
@@ -92,6 +107,85 @@ impl Profile {
             key,
             _lock: lock,
         })
+    }
+
+    pub(crate) fn read_data<T: serde::de::DeserializeOwned + Default>(
+        &self,
+        store: &str,
+        name: &str,
+    ) -> Result<T> {
+        let (path, aad) = self.data_location(store, name)?;
+        let file = match File::open(path) {
+            Ok(f) => f,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(T::default()),
+            Err(_) => return Err("storage-failed"),
+        };
+        let mut bytes = Vec::new();
+        file.take(64 * 1024 * 1024 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| "storage-failed")?;
+        if bytes.len() < 40 || bytes.len() > 64 * 1024 * 1024 {
+            return Err("local-data-invalid");
+        }
+        let (nonce, ciphertext) = bytes.split_at(24);
+        let nonce: &[u8; 24] = nonce.try_into().map_err(|_| "local-data-invalid")?;
+        let cipher =
+            XChaCha20Poly1305::new_from_slice(&self.key).map_err(|_| "local-data-invalid")?;
+        let plain = Zeroizing::new(
+            cipher
+                .decrypt(
+                    nonce.into(),
+                    Payload {
+                        msg: ciphertext,
+                        aad: aad.as_bytes(),
+                    },
+                )
+                .map_err(|_| "local-data-invalid")?,
+        );
+        serde_json::from_slice(&plain).map_err(|_| "local-data-invalid")
+    }
+    pub(crate) fn write_data<T: Serialize>(&self, store: &str, name: &str, data: &T) -> Result<()> {
+        let (path, aad) = self.data_location(store, name)?;
+        let plain = Zeroizing::new(serde_json::to_vec(data).map_err(|_| "storage-failed")?);
+        if plain.len() > 64 * 1024 * 1024 - 40 {
+            return Err("tool-limit");
+        }
+        let mut nonce = [0; 24];
+        getrandom::fill(&mut nonce).map_err(|_| "storage-failed")?;
+        let cipher = XChaCha20Poly1305::new_from_slice(&self.key).map_err(|_| "storage-failed")?;
+        let bytes = cipher
+            .encrypt(
+                (&nonce).into(),
+                Payload {
+                    msg: &plain,
+                    aad: aad.as_bytes(),
+                },
+            )
+            .map_err(|_| "storage-failed")?;
+        let parent = path.parent().ok_or("storage-failed")?;
+        let mut file = tempfile::NamedTempFile::new_in(parent).map_err(|_| "storage-failed")?;
+        file.write_all(&nonce)
+            .and_then(|_| file.write_all(&bytes))
+            .and_then(|_| file.as_file().sync_all())
+            .map_err(|_| "storage-failed")?;
+        file.persist(&path).map_err(|_| "storage-failed")?;
+        #[cfg(unix)]
+        File::open(parent)
+            .and_then(|f| f.sync_all())
+            .map_err(|_| "storage-failed")?;
+        Ok(())
+    }
+    fn data_location(&self, store: &str, name: &str) -> Result<(PathBuf, String)> {
+        if name.is_empty()
+            || name.len() > 64
+            || !name.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-')
+        {
+            return Err("storage-failed");
+        }
+        Ok((
+            self.store_path(store)?.join(format!("{name}.enc")),
+            format!("archaic-data-v1:{store}:{name}"),
+        ))
     }
 
     pub(crate) fn passphrase(&self) -> Zeroizing<String> {
@@ -193,6 +287,18 @@ impl Profile {
     }
 }
 
+pub fn validate_profile_name(name: &str) -> Result<()> {
+    if name.is_empty()
+        || name.len() > 40
+        || !name
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+    {
+        return Err("profile-invalid");
+    }
+    Ok(())
+}
+
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
@@ -244,10 +350,58 @@ mod tests {
             server: "https://example.org".into(),
             store_id,
             fingerprint: "fingerprint".into(),
+            oauth_client_id: None,
             session: serde_json::from_value(serde_json::json!({
                 "user_id":"@alice:example.org", "device_id":"DEVICE", "access_token":"private-token"
             }))
             .unwrap(),
+        }
+    }
+    #[test]
+    fn encrypted_application_data_is_bound_to_store_and_kind() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = MemoryVault::default();
+        let profile = Profile::open(dir.path().into(), &vault).unwrap();
+        let first = record(&profile);
+        let second = record(&profile);
+        let data = vec!["private draft".to_owned()];
+        profile
+            .write_data(&first.store_id, "drafts", &data)
+            .unwrap();
+        assert_eq!(
+            profile
+                .read_data::<Vec<String>>(&first.store_id, "drafts")
+                .unwrap(),
+            data
+        );
+        let source = dir
+            .path()
+            .join("stores")
+            .join(&first.store_id)
+            .join("drafts.enc");
+        let encrypted = fs::read(&source).unwrap();
+        assert!(!encrypted.windows(13).any(|w| w == b"private draft"));
+        let other = dir
+            .path()
+            .join("stores")
+            .join(&second.store_id)
+            .join("drafts.enc");
+        fs::write(&other, &encrypted).unwrap();
+        assert!(
+            profile
+                .read_data::<Vec<String>>(&second.store_id, "drafts")
+                .is_err()
+        );
+        let mut damaged = encrypted;
+        *damaged.last_mut().unwrap() ^= 1;
+        fs::write(&source, damaged).unwrap();
+        assert!(
+            profile
+                .read_data::<Vec<String>>(&first.store_id, "drafts")
+                .is_err()
+        );
+        for name in ["", "../escape", "a/b", "name with spaces"] {
+            assert!(validate_profile_name(name).is_err());
         }
     }
     #[test]

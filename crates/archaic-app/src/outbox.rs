@@ -39,12 +39,18 @@ impl Controls {
             .iter()
             .map(|i| {
                 format!(
-                    "{} · {}",
+                    "{}{} · {}",
                     tr.text(if i.failed {
                         "outbox-paused"
                     } else {
                         "outbox-queued"
                     }),
+                    model
+                        .transfer_progress
+                        .get(&i.id)
+                        .filter(|(_, t)| *t > 0)
+                        .map(|(c, t)| format!(" · {}%", c.saturating_mul(100) / t))
+                        .unwrap_or_default(),
                     i.body
                         .chars()
                         .take(100)

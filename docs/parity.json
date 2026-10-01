@@ -52,15 +52,15 @@
       "reference_availability": "Server-dependent",
       "status": "partial",
       "platform_verification": {
-        "linux": "partial: SDK protocol tests; native controls; isolated Synapse security/encryption scenarios where applicable",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Use a system browser with validated return flow; handle cancellation, registration and expired tokens.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/structures/auth",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_note": "Classic browser SSO with capability checks, SDK loopback callback, cancellation, timeout and encrypted persistence. Native OAuth/OIDC remains planned.",
-      "implementation_evidence": "docs/SECURITY-MESSAGING.md"
+      "implementation_note": "Classic SSO plus delegated OAuth discovery, dynamic registration, PKCE/state validation, bounded loopback callback and encrypted OAuth restoration. Servers requiring client_uri/static registration and real authentication-service interoperability remain pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-01-04",
@@ -86,16 +86,15 @@
       "reference_availability": "Reference",
       "status": "partial",
       "platform_verification": {
-        "linux": "partial: SDK protocol tests; native controls; isolated Synapse security/encryption scenarios where applicable",
-        "windows": "implemented adapter; runtime verification deferred",
-        "macos": "implemented adapter; runtime verification deferred"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Restart without a fresh device; refresh safely; reauthenticate without losing recoverable data.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/structures/auth",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation": "OS-vault key, encrypted session record and SDK SQLite stores; same-device restoration, explicit temporary mode and revoked-token handling. Refresh rotation and soft-logout reauthentication remain unfinished.",
-      "implementation_note": "Same-device encrypted restoration and refresh-token rotation/restoration tested. Same-device soft logout remains pending.",
-      "implementation_evidence": "docs/SECURITY-MESSAGING.md"
+      "implementation_note": "Encrypted same-device restore, token rotation and same-device password soft logout have protocol coverage; OAuth/SSO reauthorization remains pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-01-06",
@@ -153,15 +152,17 @@
       "feature": "Independent profiles and account switching",
       "phase": "P4",
       "reference_availability": "Reference + enhancement",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Match independent desktop profiles and add in-app switching with separate stores/crypto state.",
       "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/desktop/README.md",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Named, isolated profiles and account switching pause the old queue, wait for draft saves and restore existing devices. Manual profile names; picker and cross-platform acceptance pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-02-01",
@@ -416,15 +417,15 @@
       "reference_availability": "Reference",
       "status": "partial",
       "platform_verification": {
-        "linux": "partial: SDK protocol tests; native controls; isolated Synapse security/encryption scenarios where applicable",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Reconcile transaction IDs, retries and server echoes across restart without duplicate sends.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/timeline",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_note": "SDK-persisted ordinary-text queue with local pending rows, retry/cancel and restart transaction-identity tests. Other actions/uploads are not yet queued.",
-      "implementation_evidence": "docs/SECURITY-MESSAGING.md"
+      "implementation_note": "Native text, reply/thread/edit/reaction/forward/redaction/media paths use SDK queues. Retry/cancel and text restart identity tested; target fetches still constrain offline action creation.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-03-06",
@@ -434,15 +435,15 @@
       "reference_availability": "Reference",
       "status": "partial",
       "platform_verification": {
-        "linux": "partial: SDK protocol tests; native controls; isolated Synapse security/encryption scenarios where applicable",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Read cached history, preserve drafts and unsent state; handle rate limits and partial connectivity.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/timeline",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_note": "Pending text survives saved-session restart; recoverable queue resumes after sync reconnect. Offline history and durable unqueued drafts remain pending.",
-      "implementation_evidence": "docs/SECURITY-MESSAGING.md"
+      "implementation_note": "Persistent queues, encrypted room drafts and local cached search survive saved-session restart. Full offline conversation browsing remains pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-03-07",
@@ -452,15 +453,15 @@
       "reference_availability": "Reference",
       "status": "partial",
       "platform_verification": {
-        "linux": "partial: SDK protocol tests; native controls; isolated Synapse security/encryption scenarios where applicable",
-        "windows": "implemented; verification deferred",
-        "macos": "implemented; verification deferred"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Respect receipt/privacy settings and thread-aware unread behavior across clients.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/timeline",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_note": "Server unread counts, explicit public/private receipts and opt-in private receipts while composing. Full viewport and thread-aware tracking remain pending.",
-      "implementation_evidence": "docs/SECURITY-MESSAGING.md"
+      "implementation_note": "Server unread counts, opt-in private receipts while composing, explicit private/public thread and unthreaded receipts, and live public receipt details. Viewport tracking/thread unread UX pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-03-08",
@@ -572,15 +573,15 @@
       "reference_availability": "Reference",
       "status": "partial",
       "platform_verification": {
-        "linux": "partial: SDK protocol tests; native controls; isolated Synapse security/encryption scenarios where applicable",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Read/send threaded replies, navigate context and show appropriate unread state.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/composer",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_note": "SDK thread replies and paginated loaded thread relations in Message details. Dedicated live threads and thread unread UX remain pending.",
-      "implementation_evidence": "docs/SECURITY-MESSAGING.md"
+      "implementation_note": "Thread sending and paginated relation replies, automatic open-details sync refresh and thread receipts. Dedicated thread inbox and unread navigation pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-04-05",
@@ -658,15 +659,15 @@
       "reference_availability": "Reference",
       "status": "partial",
       "platform_verification": {
-        "linux": "partial: unit/protocol tests and native Xvfb interaction check",
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
         "windows": "unverified",
         "macos": "unverified"
       },
       "acceptance": "Restore drafts per account/room/thread; support multiline and configurable Enter behavior.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/composer",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_note": "In-memory per-room drafts and transaction-preserving retries. Persistence and configurable send preferences remain unfinished.",
-      "implementation_evidence": "docs/IMPLEMENTATION.md"
+      "implementation_note": "Encrypted per-room ordinary drafts, periodic save/retry, orderly shutdown and switch guards. Reply/edit-form drafts and send preferences remain pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-04-10",
@@ -758,14 +759,15 @@
       "reference_availability": "Reference",
       "status": "partial",
       "platform_verification": {
-        "linux": "local SDK protocol and native Xvfb checks; full acceptance pending",
-        "windows": "implemented; verification deferred",
-        "macos": "implemented; verification deferred"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Choose/drop/paste files, preview and cancel; report size limits/progress/retry accurately.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/messages",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_note": "Native choose/send file UI with 25 MiB regular-file limit, PNG/JPEG/GIF signature detection and SDK media/encryption support. Retry preserves bytes and message transaction. Captions, upload progress/cancellation, durable outbox and media previews remain unfinished."
+      "implementation_note": "SDK durable attachment queue with progress/retry/cancel and bounded 25 MiB input buffering. Real encrypted media round trip tested. Captions/drop/paste pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-05-02",
@@ -775,14 +777,15 @@
       "reference_availability": "Reference",
       "status": "partial",
       "platform_verification": {
-        "linux": "local SDK protocol and native Xvfb checks; full acceptance pending",
-        "windows": "implemented; verification deferred",
-        "macos": "implemented; verification deferred"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Sanitize filenames and require intended user actions before opening external handlers.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/messages",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_note": "Native save dialog and SDK authenticated/decrypted original-media download with integrity checks and atomic no-overwrite saves. Download size is checked after SDK buffering; streaming bounds, external open, previews and platform acceptance remain unfinished."
+      "implementation_note": "Authenticated streaming downloads, size limits, encrypted integrity check before atomic no-overwrite publication, progress/cancellation. External opening and platform acceptance pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-05-03",
@@ -790,15 +793,17 @@
       "feature": "Image/sticker gallery and animated media",
       "phase": "P3",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Zoom/navigate supported media with bounded decoding and correct orientation/scale.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/messages",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "On-demand bounded PNG/JPEG/GIF/WebP still previews through native CUI images. Gallery navigation, animation and full media UX pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-05-04",
@@ -904,15 +909,16 @@
       "reference_availability": "Reference",
       "status": "partial",
       "platform_verification": {
-        "linux": "partial: real-SDK local protocol tests and native Xvfb join/create/retry/reuse checks",
-        "windows": "implemented through portable API; verification pending",
-        "macos": "implemented through portable API; verification pending"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Create/find/join supported conversations and distinguish room membership states.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/room_settings",
       "evidence_kind": "source surface / test directory; scenario verification pending",
       "implementation_notes": "Join by room ID/alias; create private groups with optional topic/invitees and encryption requested in initial state; open/create DMs with existing joined-DM reuse and same-session duplicate avoidance after DM-label failure. Localized validation, explicit retry and native controls. Public-room creation, directory browsing, explicit via routing, Matrix links and restricted/knock flows remain unfinished.",
-      "implementation_evidence": "docs/IMPLEMENTATION.md"
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md",
+      "implementation_note": "Encrypted private group/DM creation and existing-DM reuse; paginated room directory and explicit join. Broader room-discovery acceptance pending."
     },
     {
       "id": "ARC-06-02",
@@ -920,15 +926,17 @@
       "feature": "Public/private/restricted/knock join rules",
       "phase": "P4",
       "reference_availability": "Server-dependent",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Render room access requirements and complete invite/knock/accept/reject flows.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/room_settings",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Public/invite/knock setting controls with permissions; restricted join-rule configuration and full knock lifecycle pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-06-03",
@@ -954,15 +962,17 @@
       "feature": "Spaces, hierarchy and room discovery",
       "phase": "P4",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Create/manage nested spaces, browse children and obey restricted membership rules.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/room_settings",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Create private spaces, list joined spaces, paginated hierarchy, add/remove children with permission checks. Reciprocal parents, complex cycles and restricted membership UX pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-06-05",
@@ -970,15 +980,17 @@
       "feature": "Favorites, low priority, unread filters and ordering",
       "phase": "P3",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Sync applicable tags/account data and preserve sensible local sorting/navigation.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/room_settings",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Matrix favorite tags and favorite-first room sorting. Low priority, advanced filters/order preferences pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-06-06",
@@ -986,15 +998,17 @@
       "feature": "Room name/topic/avatar/aliases and publishing",
       "phase": "P4",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Edit metadata/aliases and directory visibility with explicit permission errors.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/room_settings",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Permission-aware room name/topic edits and information view. Avatars, aliases and publishing pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-06-07",
@@ -1002,15 +1016,17 @@
       "feature": "Member profiles, search and invitations",
       "phase": "P4",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Search/paginate large member lists and open contextual actions without loading every avatar.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/room_settings",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "SDK member listing and user selection for invitation/moderation. Large-room pagination, profile/avatar UI and member search pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-06-08",
@@ -1018,15 +1034,17 @@
       "feature": "Power levels and room permissions",
       "phase": "P4",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Inspect/edit permissions and reflect remote changes immediately.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/room_settings",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Inspect power-level state and edit per-user levels with permission and own-level guards. General event-permission editing and full acceptance pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-06-09",
@@ -1034,15 +1052,17 @@
       "feature": "Kick, ban, unban, redact and report",
       "phase": "P4",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Perform supported moderation operations, confirm scope and handle partial failures.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/room_settings",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Confirmed invite/kick/ban/unban with permission checks and errors. Full moderator redaction/report workflows pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-06-10",
@@ -1050,15 +1070,17 @@
       "feature": "Ignore/block and invitation rules",
       "phase": "P4",
       "reference_availability": "Reference/server-dependent",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Apply supported account ignore/invite policies and explain their effect.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/room_settings",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Matrix ignored-user list with block/unblock, immediate and synced filtering of cached/arriving views and notifications. Invitation policies pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-06-11",
@@ -1066,15 +1088,17 @@
       "feature": "Room versions/upgrades, history visibility and retention",
       "phase": "P4",
       "reference_availability": "Reference/server-dependent",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Handle upgrades/tombstones, security/history settings and supported server retention.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/room_settings",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "History visibility and guest-access controls. Upgrade/retention and full predecessor UX pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-06-12",
@@ -1133,14 +1157,15 @@
       "reference_availability": "Desktop reference",
       "status": "partial",
       "platform_verification": {
-        "linux": "local SDK protocol and native Xvfb checks; full acceptance pending",
-        "windows": "implemented; verification deferred",
-        "macos": "implemented; verification deferred"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Index decrypted content locally with defined at-rest protection, incremental updates and coverage reporting.",
       "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/desktop/src/seshat.ts",
       "evidence_kind": "source surface / test directory; scenario verification pending",
-      "implementation_note": "On-demand backward SDK-decrypted history scan, independent of the timeline window, with case-insensitive matching, unavailable-event counts, result navigation and bounded continuation. No persistent encrypted index, automatic key-recovery reindex, cross-page replacement matching or complete encrypted acceptance yet."
+      "implementation_note": "Device-scoped encrypted persistent event index with sync updates, explicit backfill, edits/redaction tombstones and coverage/limit reporting. Scan-based; scalable full-text engine and index maintenance pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-07-04",
@@ -1148,15 +1173,17 @@
       "feature": "Search filters, thread context and highlighting",
       "phase": "P3",
       "reference_availability": "Reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Filter scope/sender/time where supported and navigate results without losing search state.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/structures",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Persistent search supports sender/time/file filters, Unicode-safe match snippets and result/context navigation. Global search and full thread context UX pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-07-05",
@@ -1196,15 +1223,17 @@
       "feature": "Native desktop notifications and activation",
       "phase": "P3",
       "reference_availability": "Desktop reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Respect preview privacy and open correct account/room/event on activation.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/desktop/src",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Opt-in native notifications with generic text/room name, initial-sync/own/blocked/focused suppression and bounded worker. Activation and persisted preferences pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-08-03",
@@ -1228,15 +1257,17 @@
       "feature": "Tray/status item, dock badges and close behavior",
       "phase": "P6",
       "reference_availability": "Desktop reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Follow each OS convention; closing/hiding/quitting is explicit and does not lose sends.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/desktop/src",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Native tray/status item with Show/Quit and unread indicator; macOS dock badge source. Linux D-Bus protocol test passed. Windows taskbar badge and close-to-tray preferences pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-08-05",
@@ -1244,15 +1275,17 @@
       "feature": "Deep links, matrix.to and single-instance routing",
       "phase": "P4",
       "reference_availability": "Desktop reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Validate incoming links, select an account and navigate only after needed authentication.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/desktop/src",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Typed Matrix/matrix.to links, context or confirmed join with via hints; authenticated running-instance forwarding; macOS Apple-event handler source. Windows handler installation and macOS runtime acceptance pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-08-06",
@@ -1260,15 +1293,17 @@
       "feature": "Autostart, menus, shortcuts and spellcheck",
       "phase": "P6",
       "reference_availability": "Desktop reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Honor user preferences and keyboard layout; use optional OS language services with clear availability.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/desktop/src",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Native navigation menu and eight Ctrl/Cmd shortcuts with state guards. Autostart/spellcheck pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-08-07",
@@ -1276,15 +1311,17 @@
       "feature": "Independent profile data and storage controls",
       "phase": "P4",
       "reference_availability": "Desktop reference",
-      "status": "planned",
+      "status": "partial",
       "platform_verification": {
-        "linux": "not implemented",
-        "windows": "not implemented",
-        "macos": "not implemented"
+        "linux": "partial: unit/protocol tests, targeted Xvfb/DBus checks; see workflow guides",
+        "windows": "unverified",
+        "macos": "unverified"
       },
       "acceptance": "Separate profiles, expose cache/index controls and migrate safely.",
       "source": "https://github.com/element-hq/element-web/tree/f19cfd9030429240a4209bf5175b372175cf0464/apps/desktop/src",
-      "evidence_kind": "source surface / test directory; scenario verification pending"
+      "evidence_kind": "source surface / test directory; scenario verification pending",
+      "implementation_note": "Named per-account vault/session/store isolation and switch workflow; encrypted draft/index storage. Cache/purge controls pending.",
+      "implementation_evidence": "docs/SECURITY-MESSAGING.md; docs/ROOM-TOOLS.md; docs/ORGANIZATION.md; docs/DESKTOP.md"
     },
     {
       "id": "ARC-08-08",

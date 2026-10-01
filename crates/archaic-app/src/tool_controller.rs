@@ -29,7 +29,7 @@ impl Controller {
         let mut model = self.model.borrow_mut();
         if !model.tools_busy() {
             model.tools.query = self.view.tools.query.text()?;
-            model.tools.search_mode = self.view.tools.search_mode.get_selected()?.clamp(0, 1);
+            model.tools.search_mode = self.view.tools.search_mode.get_selected()?.clamp(0, 2);
         }
         drop(model);
         self.render()
@@ -72,7 +72,9 @@ impl Controller {
             let m = self.model.borrow();
             (
                 m.tools.query.trim().to_owned(),
-                if m.tools.search_mode == 1 {
+                if m.tools.search_mode == 2 {
+                    SearchMode::Indexed
+                } else if m.tools.search_mode == 1 {
                     SearchMode::Server
                 } else {
                     SearchMode::Local
@@ -138,9 +140,11 @@ impl Controller {
     pub fn mark_read(&self) -> Result<()> {
         let id = self.model.borrow().message_selected.clone();
         if let Some(event_id) = id {
-            self.send_tool(ToolAction::MarkRead {
-                event_id,
-                private: self.view.tools.receipt_mode.get_selected()? != 1,
+            let private = self.view.tools.receipt_mode.get_selected()? != 1;
+            self.send_tool(if self.view.tools.receipt_thread.get_checked()? {
+                ToolAction::MarkThreadRead { event_id, private }
+            } else {
+                ToolAction::MarkRead { event_id, private }
             })?;
         }
         Ok(())
@@ -163,6 +167,26 @@ impl Controller {
     }
     pub fn choose_file(&self) -> Result<()> {
         self.file_dialog(false)
+    }
+    pub fn preview_file(&self) -> Result<()> {
+        let id = self.model.borrow().message_selected.clone();
+        if let Some(event_id) = id {
+            self.send_tool(ToolAction::Preview { event_id })?;
+        }
+        Ok(())
+    }
+    pub fn cancel_transfer(&self) -> Result<()> {
+        let id = self
+            .model
+            .borrow()
+            .tools
+            .pending
+            .as_ref()
+            .map(|r| r.id.clone());
+        if let Some(id) = id {
+            self.enqueue(Command::CancelTransfer { id });
+        }
+        Ok(())
     }
     pub fn download_file(&self) -> Result<()> {
         self.file_dialog(true)
@@ -236,7 +260,7 @@ impl Controller {
                 event_id: id.clone(),
                 path: path.into(),
             },
-            None => ToolAction::Upload { path: path.into() },
+            None => ToolAction::QueueUpload { path: path.into() },
         };
         let request = ToolRequest {
             room_id: target.room_id.clone(),

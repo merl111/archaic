@@ -39,6 +39,7 @@ impl Search {
             return Ok(staged.page.clone());
         }
         let (values, next, scanned) = match mode {
+            SearchMode::Indexed => return Err("search-invalid"),
             SearchMode::Server => server_page(room, query, &staged.cursor).await?,
             SearchMode::Local => local_page(room, &staged.cursor).await?,
         };

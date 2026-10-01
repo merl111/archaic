@@ -1,7 +1,12 @@
+#![recursion_limit = "256"]
 mod activity;
 mod appearance;
+#[cfg(target_os = "macos")]
+mod apple_links;
+mod desktop;
 mod history_controls;
 mod history_state;
+mod instance;
 mod join_form;
 mod login;
 mod message_controls;
@@ -9,10 +14,13 @@ mod message_state;
 mod model;
 mod new_conversation;
 mod options;
+mod organization;
 mod outbox;
 mod room_controls;
 mod room_state;
+mod search_snippet;
 mod security;
+mod status_item;
 mod timeline_view;
 mod tool_controller;
 mod tool_controls;
@@ -37,6 +45,13 @@ struct Controller {
     tr: Translator,
     sender: Sender,
     rendering: Cell<bool>,
+    active_profile: RefCell<String>,
+    startup_link: Cell<bool>,
+    status_item: RefCell<Option<status_item::StatusItem>>,
+    status_item_attempted: Cell<bool>,
+    desktop_commands: RefCell<Vec<cui::Command>>,
+    notification_sender: desktop::Notifications,
+    pending_profile: RefCell<Option<String>>,
     room_labels: RefCell<Vec<String>>,
     fixture: bool,
     app: std::rc::Weak<App>,
@@ -52,6 +67,9 @@ impl Controller {
     }
     fn render_inner(&self) -> Result<()> {
         let model = self.model.borrow();
+        for command in self.desktop_commands.borrow().iter() {
+            command.set_enabled(model.phase == Phase::Connected)?;
+        }
         let visible = model.visible_rooms();
         let labels = visible
             .iter()
@@ -111,18 +129,68 @@ impl Controller {
         }
         self.render()
     }
+    fn switch_profile(&self) -> Result<()> {
+        self.remember_draft()?;
+        let name = self.view.profile.text()?;
+        if self.fixture {
+            return Ok(());
+        }
+        if archaic_matrix::storage::validate_profile_name(&name).is_err() {
+            self.model.borrow_mut().error = Some("profile-invalid");
+            return self.render();
+        }
+        if !self.desktop_ready() {
+            return Ok(());
+        }
+        self.flush_drafts();
+        if self.drafts_dirty() {
+            *self.pending_profile.borrow_mut() = Some(name);
+            self.model.borrow_mut().status = "profile-saving";
+            return self.render();
+        }
+        self.pending_profile.borrow_mut().take();
+        let epoch = self.model.borrow().epoch + 1;
+        if self.enqueue(Command::SwitchProfile {
+            epoch,
+            name: name.clone(),
+        }) {
+            self.notification_sender.invalidate();
+            *self.active_profile.borrow_mut() = name;
+            self.view.notifications.set_checked(false)?;
+            self.view.typing_opt.set_checked(false)?;
+            self.view.read_opt.set_checked(false)?;
+            *self.model.borrow_mut() = Model {
+                epoch,
+                phase: Phase::Restoring,
+                status: "restoring-session",
+                ..Default::default()
+            };
+            self.view.composer.set_text("")?;
+            self.view.password.set_text("")?;
+        }
+        self.render()
+    }
     fn temporary(&self) -> Result<()> {
         self.session_action(true)
     }
+    fn oauth_login(&self) -> Result<()> {
+        self.start_browser_login(true)
+    }
     fn browser_login(&self) -> Result<()> {
+        self.start_browser_login(false)
+    }
+    fn start_browser_login(&self, oauth: bool) -> Result<()> {
         if self.model.borrow().phase != Phase::SignedOut {
             return Ok(());
         }
         let epoch = self.model.borrow().epoch + 1;
-        if self.enqueue(Command::BrowserLogin {
-            epoch,
-            server: self.view.server.text()?,
-        }) {
+        let server = self.view.server.text()?;
+        let command = if oauth {
+            Command::OAuthLogin { epoch, server }
+        } else {
+            Command::BrowserLogin { epoch, server }
+        };
+        if self.enqueue(command) {
             let mut m = self.model.borrow_mut();
             m.epoch = epoch;
             m.phase = Phase::Connecting;
@@ -171,10 +239,37 @@ impl Controller {
         {
             draft.body = action_body;
         }
-        if let Some(id) = model.selected.clone() {
-            model.drafts.insert(id, text);
+        let changed = model
+            .selected
+            .clone()
+            .filter(|id| model.drafts.get(id) != Some(&text));
+        if let Some(id) = changed {
+            model.drafts.insert(id.clone(), text.clone());
         }
         Ok(())
+    }
+    fn flush_drafts(&self) {
+        if self.fixture {
+            return;
+        }
+        let changes = {
+            let m = self.model.borrow();
+            if m.phase != Phase::Connected || m.sending {
+                return;
+            }
+            m.drafts
+                .iter()
+                .filter(|(id, body)| {
+                    m.saved_drafts.get(*id).map(String::as_str).unwrap_or("") != body.as_str()
+                })
+                .map(|(id, body)| (id.clone(), body.clone()))
+                .collect::<Vec<_>>()
+        };
+        for (room_id, body) in changes {
+            if !self.enqueue(Command::SaveDraft { room_id, body }) {
+                break;
+            }
+        }
     }
     fn select(&self) -> Result<()> {
         if self.model.borrow().message_draft.is_some() || self.model.borrow().tools_busy() {
@@ -241,6 +336,19 @@ impl Controller {
             model.error = None;
         }
         self.render()
+    }
+    fn reauthenticate(&self) -> Result<()> {
+        if self.model.borrow().reauthentication {
+            let password = self.view.reauth_password.text()?;
+            if !password.is_empty()
+                && self.enqueue(Command::Reauthenticate {
+                    password: archaic_matrix::security::Secret::new(password),
+                })
+            {
+                self.view.reauth_password.set_text("")?;
+            }
+        }
+        Ok(())
     }
     fn logout(&self) -> Result<()> {
         if self.enqueue(Command::Logout) {
@@ -372,7 +480,15 @@ impl Controller {
         }
         self.remember_draft()?;
         let address = self.view.join.join_address.text()?;
-        if self.enqueue(Command::Join(address)) {
+        let command = match self.model.borrow().link_join.as_ref() {
+            Some((original, via, event)) if original == address.trim() => Command::JoinVia {
+                address,
+                via: via.clone(),
+                event: event.clone(),
+            },
+            _ => Command::Join(address),
+        };
+        if self.enqueue(command) {
             let mut model = self.model.borrow_mut();
             model.joining = true;
             model.join_error = None;
@@ -433,6 +549,9 @@ impl Controller {
         self.render()
     }
     fn event(&self, event: Event) -> Result<()> {
+        if let archaic_matrix::EventKind::Notification { room_id, name } = &event.kind {
+            self.desktop_notification(event.epoch, room_id, name)?;
+        }
         if event.epoch == self.model.borrow().epoch
             && self.model.borrow().browser_login
             && self.model.borrow().phase == Phase::Connecting
@@ -467,8 +586,12 @@ impl Controller {
         }
         let signed_out = event.epoch == self.model.borrow().epoch
             && matches!(event.kind, archaic_matrix::EventKind::SignedOut);
+        let rooms_ready = event.epoch == self.model.borrow().epoch
+            && matches!(event.kind, archaic_matrix::EventKind::Rooms(_));
         self.model.borrow_mut().apply(event);
         if signed_out {
+            self.notification_sender.invalidate();
+            self.view.notifications.set_checked(false)?;
             self.view.typing_opt.set_checked(false)?;
             self.view.read_opt.set_checked(false)?;
         }
@@ -491,6 +614,10 @@ impl Controller {
                 .and_then(|_| self.view.join.join_address.set_text(""));
             self.rendering.set(false);
             cleared?;
+        }
+        if rooms_ready && self.startup_link.get() && self.desktop_ready() {
+            self.startup_link.set(false);
+            self.open_matrix_link()?;
         }
         self.render()
     }
@@ -517,6 +644,7 @@ impl Controller {
         for (widget, action) in [
             (&self.view.sign_in, Self::login as fn(&Self) -> Result<()>),
             (&self.view.browser_login, Self::browser_login),
+            (&self.view.oauth_login, Self::oauth_login),
             (&self.view.cancel_login, Self::cancel_login),
             (&self.view.temporary, Self::temporary),
             (&self.view.rooms, Self::select),
@@ -558,6 +686,8 @@ impl Controller {
             (&self.view.tools.more_details, Self::more_details),
             (&self.view.tools.original, Self::open_original),
             (&self.view.tools.download, Self::download_file),
+            (&self.view.tools.preview, Self::preview_file),
+            (&self.view.tools.cancel_transfer, Self::cancel_transfer),
             (&self.view.tools.mark_read, Self::mark_read),
             (&self.view.message_controls.select, Self::choose_message),
             (&self.view.message_controls.reply, Self::reply_message),
@@ -569,6 +699,15 @@ impl Controller {
             (&self.view.message_controls.cancel, Self::cancel_message),
             (&self.view.message_controls.submit, Self::submit_message),
             (&self.view.sign_out, Self::logout),
+            (&self.view.open_link, Self::open_matrix_link),
+            (&self.view.switch_profile, Self::switch_profile),
+            (&self.view.organization_toggle, Self::toggle_organization),
+            (&self.view.organization.close, Self::toggle_organization),
+            (&self.view.organization.apply, Self::organization_run),
+            (&self.view.organization.more, Self::organization_more),
+            (&self.view.organization.select, Self::organization_select),
+            (&self.view.organization.join, Self::organization_join),
+            (&self.view.reauth, Self::reauthenticate),
             (&self.view.refresh, Self::refresh),
             (&self.view.history_controls.older, Self::older_history),
             (&self.view.history_controls.newer, Self::newer_history),
@@ -620,6 +759,22 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     };
     let temporary = options.temporary || options.fixture_mode || options.smoke;
+    let instance = if temporary {
+        None
+    } else if let Some(path) = appearance::preference_path() {
+        match instance::launch(
+            &path.with_file_name("desktop"),
+            instance::Open {
+                link: options.link.clone(),
+                profile: options.explicit_profile.then(|| options.profile.clone()),
+            },
+        )? {
+            instance::Launch::Forwarded => return Ok(()),
+            instance::Launch::Owner(owner) => Some(owner),
+        }
+    } else {
+        None
+    };
     let preference_path = if temporary {
         None
     } else {
@@ -640,12 +795,14 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         .worker_threads(2)
         .enable_all()
         .build()?;
-    let (sender, commands, events, mut receiver) = archaic_matrix::channels();
+    let (sender, commands, events, receiver) = archaic_matrix::channels();
+    let receiver = Rc::new(RefCell::new(Some(receiver)));
+    let profile_name = options.profile.clone();
     let worker = runtime.spawn(async move {
         if temporary {
             archaic_matrix::run(commands, events).await;
         } else {
-            archaic_matrix::run_persistent(commands, events).await;
+            archaic_matrix::run_persistent_named(commands, events, profile_name).await;
         }
     });
     let tr = Translator::new(&options.locale);
@@ -669,23 +826,60 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         tr,
         sender,
         rendering: Cell::new(false),
+        active_profile: RefCell::new(options.profile.clone()),
+        startup_link: Cell::new(options.link.is_some()),
+        status_item: Default::default(),
+        status_item_attempted: Cell::new(false),
+        desktop_commands: Default::default(),
+        notification_sender: desktop::Notifications::new(),
+        pending_profile: Default::default(),
         room_labels: RefCell::new(Vec::new()),
         fixture: options.fixture_mode,
         app: Rc::downgrade(&app),
         preference_path,
     });
+    controller.view.profile.set_text(&options.profile)?;
+    if let Some(link) = &options.link {
+        controller.view.deep_link.set_text(link)?;
+    }
     *controller.self_weak.borrow_mut() = Rc::downgrade(&controller);
     controller
         .view
         .appearance
         .set_selected(appearance.index())?;
     controller.bind()?;
+    controller.install_shortcuts(&app)?;
     controller.render()?;
+    let instance = Rc::new(RefCell::new(instance));
+    let activation = instance.clone();
+    #[cfg(target_os = "macos")]
+    let (native_link_sender, native_links) = std::sync::mpsc::sync_channel(8);
+    #[cfg(target_os = "macos")]
+    let _apple_links = apple_links::AppleLinks::new(native_link_sender);
     let updates = controller.clone();
+    let event_receiver = receiver.clone();
     // Bounded main-thread polling until CUI exposes a worker-safe dispatcher.
     let _pump = app.every(50, move || {
+        updates.status_item_tick().expect("live desktop controls");
+        if let Some(instance) = &*activation.borrow() {
+            let ready = updates.desktop_ready();
+            if ready && let Ok(open) = instance.incoming.try_recv() {
+                updates.desktop_open(open).expect("live desktop controls");
+            }
+        }
+        #[cfg(target_os = "macos")]
+        if updates.desktop_ready()
+            && let Ok(open) = native_links.try_recv()
+        {
+            updates.desktop_open(open).expect("live desktop controls");
+        }
         for _ in 0..8 {
-            let Ok(event) = receiver.try_recv() else {
+            let Ok(event) = event_receiver
+                .borrow_mut()
+                .as_mut()
+                .expect("running receiver")
+                .try_recv()
+            else {
                 break;
             };
             updates.event(event).expect("live CUI controls");
@@ -704,7 +898,61 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     };
     window.show()?;
     let result = app.run();
+    instance.borrow_mut().take();
+    controller.status_item.borrow_mut().take();
+    controller.notification_sender.invalidate();
+    controller.remember_draft()?;
+    let shutdown = runtime.block_on(async {
+        let mut events = receiver.borrow_mut().take().expect("running receiver");
+        tokio::time::timeout(std::time::Duration::from_secs(15), async {
+            // Drain acknowledgements for all earlier commands before taking the final draft snapshot.
+            // In particular a successful queue insertion must not reappear as a composer draft.
+            let (reply, mut barrier) = tokio::sync::oneshot::channel();
+            let request = controller.sender.send(Command::Barrier(reply));
+            tokio::pin!(request);
+            loop {
+                tokio::select! {
+                    result = &mut request => { result.map_err(|_| "shutdown-failed")?; break; },
+                    Some(event) = events.recv() => controller.model.borrow_mut().apply(event),
+                }
+            }
+            loop {
+                tokio::select! {
+                    result = &mut barrier => { result.map_err(|_| "shutdown-failed")?; break; },
+                    Some(event) = events.recv() => controller.model.borrow_mut().apply(event),
+                }
+            }
+            while let Ok(event) = events.try_recv() {
+                controller.model.borrow_mut().apply(event);
+            }
+            let (reply, mut saved) = tokio::sync::oneshot::channel();
+            let command = {
+                let m = controller.model.borrow();
+                Command::Shutdown {
+                    epoch: m.epoch,
+                    drafts: m.drafts.clone(),
+                    result: reply,
+                }
+            };
+            controller
+                .sender
+                .send(command)
+                .await
+                .map_err(|_| "shutdown-failed")?;
+            loop {
+                tokio::select! {
+                    result = &mut saved => return result.map_err(|_| "shutdown-failed")?,
+                    _ = events.recv() => {},
+                }
+            }
+        })
+        .await
+        .map_err(|_| "shutdown-timeout")?
+    });
     worker.abort();
+    if let Err(key) = shutdown {
+        eprintln!("{}", controller.tr.text(key));
+    }
     runtime.shutdown_timeout(std::time::Duration::from_secs(1));
     result?;
     Ok(())

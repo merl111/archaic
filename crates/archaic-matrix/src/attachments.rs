@@ -10,10 +10,9 @@ use matrix_sdk::{
         events::{AnySyncMessageLikeEvent, AnySyncTimelineEvent, SyncMessageLikeEvent},
     },
 };
-use std::{
-    io::{Read, Write},
-    path::{Path, PathBuf},
-};
+use std::{io::Read, path::Path};
+#[cfg(test)]
+use std::{io::Write, path::PathBuf};
 const MAX_FILE: u64 = 25 * 1024 * 1024;
 #[derive(Default)]
 pub(crate) struct Attachments {
@@ -58,7 +57,7 @@ impl Attachments {
         Ok(())
     }
 }
-fn read_file(path: &Path) -> Result<(String, Vec<u8>), &'static str> {
+pub(crate) fn read_file(path: &Path) -> Result<(String, Vec<u8>), &'static str> {
     let name = path
         .file_name()
         .and_then(|s| s.to_str())
@@ -85,7 +84,7 @@ fn read_file(path: &Path) -> Result<(String, Vec<u8>), &'static str> {
     }
     Ok((name, bytes))
 }
-fn detect_mime(bytes: &[u8]) -> mime::Mime {
+pub(crate) fn detect_mime(bytes: &[u8]) -> mime::Mime {
     if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
         mime::IMAGE_PNG
     } else if bytes.starts_with(b"\xff\xd8\xff") {
@@ -97,6 +96,14 @@ fn detect_mime(bytes: &[u8]) -> mime::Mime {
     }
 }
 pub(crate) async fn download(room: &Room, event_id: &str, path: &Path) -> Result<(), &'static str> {
+    download_progress(room, event_id, path, None).await
+}
+pub(crate) async fn download_progress(
+    room: &Room,
+    event_id: &str,
+    path: &Path,
+    progress: Option<crate::transfers::Progress>,
+) -> Result<(), &'static str> {
     if path.exists() {
         return Err("file-exists");
     }
@@ -121,10 +128,7 @@ pub(crate) async fn download(room: &Room, event_id: &str, path: &Path) -> Result
     ) {
         return Err("attachment-unavailable");
     }
-    use matrix_sdk::{
-        media::{MediaEventContent, MediaFormat, MediaRequestParameters},
-        ruma::events::room::message::MessageType,
-    };
+    use matrix_sdk::{media::MediaEventContent, ruma::events::room::message::MessageType};
     let source = match &event.content.msgtype {
         MessageType::File(c) => c.source(),
         MessageType::Image(c) => c.source(),
@@ -133,26 +137,9 @@ pub(crate) async fn download(room: &Room, event_id: &str, path: &Path) -> Result
         _ => None,
     }
     .ok_or("attachment-unavailable")?;
-    let bytes = room
-        .client()
-        .media()
-        .get_media_content(
-            &MediaRequestParameters {
-                source,
-                format: MediaFormat::File,
-            },
-            false,
-        )
-        .await
-        .map_err(failure)?;
-    if bytes.len() as u64 > MAX_FILE {
-        return Err("file-size-limit");
-    }
-    let path = path.to_owned();
-    tokio::task::spawn_blocking(move || save_file(path, &bytes))
-        .await
-        .map_err(|_| "file-save-failed")?
+    crate::transfers::download_source(&room.client(), source, path, progress).await
 }
+#[cfg(test)]
 fn save_file(path: PathBuf, bytes: &[u8]) -> Result<(), &'static str> {
     let parent = path
         .parent()

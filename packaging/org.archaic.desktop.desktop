@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Archaic
+Comment=Native Matrix desktop client
+Exec=archaic %u
+TryExec=archaic
+Terminal=false
+Categories=Network;InstantMessaging;
+MimeType=x-scheme-handler/matrix;
+StartupNotify=true

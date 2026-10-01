@@ -1,4 +1,5 @@
 use super::*;
+use std::time::Duration;
 #[tokio::test]
 async fn attachment_retry_keeps_bytes_name_and_message_transaction_and_discard_releases_snapshot() {
     let server = server().await;
@@ -292,6 +293,146 @@ async fn encrypted_attachment_download_verifies_hash_before_saving_plaintext() {
             "Bearer test-access-token"
         );
     }
+    drop(sender);
+    drop(receiver);
+    worker.await.unwrap();
+}
+
+#[tokio::test]
+async fn preview_decodes_verified_image_and_cancel_does_not_publish_download() {
+    let server = server().await;
+    target(
+        &server,
+        event(
+            "$image",
+            "m.room.message",
+            json!({"msgtype":"m.image","body":"pixel.png","url":"mxc://local/pixel"}),
+            10,
+        ),
+    )
+    .await;
+    let mut png = std::io::Cursor::new(Vec::new());
+    image::RgbaImage::from_pixel(2, 3, image::Rgba([1, 2, 3, 255]))
+        .write_to(&mut png, image::ImageFormat::Png)
+        .unwrap();
+    Mock::given(method("GET"))
+        .and(path_regex(".*/download/local/pixel$"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(png.into_inner()))
+        .mount(&server)
+        .await;
+    let (sender, mut receiver, worker) = login(&server).await;
+    let preview = request(ToolAction::Preview {
+        event_id: "$image".into(),
+    });
+    let Ok(ToolData::Preview {
+        pixels,
+        width,
+        height,
+    }) = perform(&sender, &mut receiver, &preview).await
+    else {
+        panic!("decoded image expected")
+    };
+    assert_eq!((width, height), (2, 3));
+    assert_eq!(&pixels[..4], &[1, 2, 3, 255]);
+    target(
+        &server,
+        event(
+            "$slow",
+            "m.room.message",
+            json!({"msgtype":"m.file","body":"slow.bin","url":"mxc://local/slow"}),
+            11,
+        ),
+    )
+    .await;
+    Mock::given(method("GET"))
+        .and(path_regex(".*/download/local/slow$"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_delay(Duration::from_secs(30))
+                .set_body_bytes(b"late content"),
+        )
+        .mount(&server)
+        .await;
+    let dir = tempfile::tempdir().unwrap();
+    let destination = dir.path().join("download");
+    let download = request(ToolAction::Download {
+        event_id: "$slow".into(),
+        path: destination.clone(),
+    });
+    sender
+        .send(Command::RoomTool(download.clone()))
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if server
+                .received_requests()
+                .await
+                .unwrap()
+                .iter()
+                .any(|r| r.url.path().ends_with("/download/local/slow"))
+            {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .unwrap();
+    sender
+        .send(Command::CancelTransfer {
+            id: download.id.clone(),
+        })
+        .await
+        .unwrap();
+    let result = next(
+        &mut receiver,
+        |e| matches!(e,EventKind::RoomToolResult{request,..} if request.id==download.id),
+    )
+    .await;
+    assert!(matches!(
+        result.kind,
+        EventKind::RoomToolResult {
+            result: Err("transfer-cancelled"),
+            ..
+        }
+    ));
+    assert!(!destination.exists());
+    assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
+    drop(sender);
+    drop(receiver);
+    worker.await.unwrap();
+}
+
+#[tokio::test]
+async fn thread_receipt_uses_the_actual_root_and_preserves_privacy() {
+    let server = server().await;
+    target(&server,event("$reply","m.room.message",json!({"msgtype":"m.text","body":"reply","m.relates_to":{"rel_type":"m.thread","event_id":"$root","is_falling_back":true,"m.in_reply_to":{"event_id":"$root"}}}),10)).await;
+    Mock::given(method("POST"))
+        .and(path_regex(".*/receipt/.*"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+        .mount(&server)
+        .await;
+    let (sender, mut receiver, worker) = login(&server).await;
+    assert!(matches!(
+        perform(
+            &sender,
+            &mut receiver,
+            &request(ToolAction::MarkThreadRead {
+                event_id: "$reply".into(),
+                private: true
+            })
+        )
+        .await,
+        Ok(ToolData::Read)
+    ));
+    let requests = server.received_requests().await.unwrap();
+    let receipt = requests
+        .iter()
+        .find(|r| r.url.path().contains("/receipt/"))
+        .unwrap();
+    assert!(receipt.url.path().contains("/m.read.private/"));
+    assert_eq!(receipt.body_json::<Value>().unwrap()["thread_id"], "$root");
     drop(sender);
     drop(receiver);
     worker.await.unwrap();

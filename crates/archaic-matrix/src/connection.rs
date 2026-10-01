@@ -13,20 +13,27 @@ use tokio::{sync::mpsc, task::JoinHandle};
 pub(crate) enum SyncUpdate {
     Ready(Box<matrix_sdk::sync::SyncResponse>),
     Outbox,
+    Progress {
+        room_id: String,
+        id: crate::TransactionId,
+        current: u64,
+        total: u64,
+    },
     Retrying,
-    Expired,
+    Expired(bool),
 }
 
 pub(crate) enum Persistence {
     Temporary,
-    Unavailable,
+    Unavailable(String),
     Ready(Arc<Profile>),
 }
 impl Persistence {
     pub async fn profile(&mut self) -> Result<Option<&Arc<Profile>>, &'static str> {
-        if matches!(self, Self::Unavailable) {
+        if let Self::Unavailable(name) = self {
+            let name = name.clone();
             *self = Self::Ready(
-                tokio::task::spawn_blocking(Profile::system)
+                tokio::task::spawn_blocking(move || Profile::system_named(&name))
                     .await
                     .map_err(|_| "vault-unavailable")??
                     .into(),
@@ -45,11 +52,17 @@ pub(crate) struct Session {
     pub selected: Option<String>,
     pub saved: bool,
     pub token_store: Option<Arc<crate::token_store::TokenStore>>,
+    pub transfers: crate::transfers::Transfers,
+    pub local: crate::local_data::LocalData,
     pub history: crate::history::History,
     pub tools: crate::room_tools::RoomTools,
     pub security: crate::security::Security,
     pub conversations: crate::conversations::Conversations,
     pub revoked: bool,
+    pub soft_logout: bool,
+    pub blocked: std::collections::HashSet<String>,
+    pub notified: std::collections::HashSet<String>,
+    pub initial_sync_done: bool,
     pub reconnecting: bool,
     sync: JoinHandle<()>,
     queue_updates: JoinHandle<()>,
@@ -100,16 +113,33 @@ pub(crate) async fn restore(
         .build()
         .await
         .map_err(|_| "session-invalid")?;
-    client
-        .matrix_auth()
-        .restore_session(saved.session.clone(), RoomLoadSettings::default())
-        .await
-        .map_err(|_| "session-invalid")?;
+    if let Some(id) = &saved.oauth_client_id {
+        client
+            .oauth()
+            .restore_session(
+                matrix_sdk::authentication::oauth::OAuthSession {
+                    client_id: matrix_sdk::authentication::oauth::ClientId::new(id.clone()),
+                    user: matrix_sdk::authentication::oauth::UserSession {
+                        meta: saved.session.meta.clone(),
+                        tokens: saved.session.tokens.clone(),
+                    },
+                },
+                RoomLoadSettings::default(),
+            )
+            .await
+            .map_err(|_| "session-invalid")?;
+    } else {
+        client
+            .matrix_auth()
+            .restore_session(saved.session.clone(), RoomLoadSettings::default())
+            .await
+            .map_err(|_| "session-invalid")?;
+    }
     if client.encryption().ed25519_key().await.as_deref() != Some(saved.fingerprint.as_str()) {
         return Err("session-key-mismatch");
     }
     let token_store = crate::token_store::TokenStore::attach(&client, profile.clone(), saved)?;
-    Ok(Some(start(epoch, client, updates, true, Some(token_store))))
+    start(epoch, client, updates, true, Some(token_store)).map(Some)
 }
 
 pub(crate) async fn connect(
@@ -127,6 +157,7 @@ pub(crate) async fn connect(
         persistence,
         updates,
         None,
+        false,
     )
     .await
 }
@@ -136,10 +167,19 @@ pub(crate) async fn browser_login(
     persistence: &mut Persistence,
     updates: mpsc::Sender<(u64, SyncUpdate)>,
     events: mpsc::Sender<crate::Event>,
+    oauth: bool,
 ) -> Result<Session, &'static str> {
     tokio::time::timeout(
         Duration::from_secs(300),
-        connect_with(epoch, server, None, persistence, updates, Some(events)),
+        connect_with(
+            epoch,
+            server,
+            None,
+            persistence,
+            updates,
+            Some(events),
+            oauth,
+        ),
     )
     .await
     .map_err(|_| "sso-timeout")?
@@ -151,6 +191,7 @@ async fn connect_with(
     persistence: &mut Persistence,
     updates: mpsc::Sender<(u64, SyncUpdate)>,
     events: Option<mpsc::Sender<crate::Event>>,
+    oauth: bool,
 ) -> Result<Session, &'static str> {
     if credentials
         .is_some_and(|(username, password)| username.trim().is_empty() || password.is_empty())
@@ -178,6 +219,8 @@ async fn connect_with(
             .request_refresh_token()
             .await
             .map_err(|_| "login-failed")?;
+    } else if oauth {
+        crate::oauth::login(&client, epoch, events.ok_or("login-failed")?).await?;
     } else {
         let flows = client
             .matrix_auth()
@@ -220,7 +263,8 @@ async fn connect_with(
                 .await
                 .ok_or("session-invalid")?,
             store_id,
-            session: client.matrix_auth().session().ok_or("login-failed")?,
+            session: crate::oauth::session(&client)?,
+            oauth_client_id: client.oauth().client_id().map(|id| id.as_str().to_owned()),
         };
         let saved = profile.save(Some(&record)).is_ok();
         token_store = Some(crate::token_store::TokenStore::attach(
@@ -232,7 +276,7 @@ async fn connect_with(
     } else {
         false
     };
-    Ok(start(epoch, client, updates, saved, token_store))
+    start(epoch, client, updates, saved, token_store)
 }
 
 fn start(
@@ -241,7 +285,8 @@ fn start(
     updates: mpsc::Sender<(u64, SyncUpdate)>,
     saved: bool,
     token_store: Option<Arc<crate::token_store::TokenStore>>,
-) -> Session {
+) -> Result<Session, &'static str> {
+    let local = crate::local_data::LocalData::open(token_store.as_deref())?;
     let security = crate::security::Security::new(&client);
     let queue_updates = watch_outbox(&client, epoch, updates.clone());
     let syncing = client.clone();
@@ -258,11 +303,13 @@ fn start(
                         Some(matrix_sdk::ruma::api::error::ErrorKind::UnknownToken { .. })
                     ) =>
                 {
-                    SyncUpdate::Expired
+                    SyncUpdate::Expired(
+                        matches!(error.client_api_error_kind(), Some(matrix_sdk::ruma::api::error::ErrorKind::UnknownToken(data)) if data.soft_logout),
+                    )
                 }
                 Err(_) => SyncUpdate::Retrying,
             };
-            let expired = matches!(update, SyncUpdate::Expired);
+            let expired = matches!(update, SyncUpdate::Expired(_));
             let ready = matches!(update, SyncUpdate::Ready(_));
             if updates.send((epoch, update)).await.is_err() || expired {
                 break;
@@ -270,7 +317,9 @@ fn start(
             tokio::time::sleep(Duration::from_millis(if ready { 250 } else { 3000 })).await;
         }
     });
-    Session {
+    Ok(Session {
+        local,
+        transfers: Default::default(),
         epoch,
         client,
         security,
@@ -281,10 +330,14 @@ fn start(
         saved,
         token_store,
         revoked: false,
+        soft_logout: false,
+        blocked: Default::default(),
+        notified: Default::default(),
+        initial_sync_done: false,
         reconnecting: false,
         queue_updates,
         sync,
-    }
+    })
 }
 
 fn watch_outbox(
@@ -306,6 +359,25 @@ fn watch_outbox(
         loop {
             match queue_rx.recv().await {
                 Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                Ok(matrix_sdk::send_queue::SendQueueUpdate {
+                    room_id,
+                    update:
+                        matrix_sdk::send_queue::RoomSendQueueUpdate::MediaUpload {
+                            related_to,
+                            progress,
+                            ..
+                        },
+                }) => {
+                    let _ = queue_tx.try_send((
+                        epoch,
+                        SyncUpdate::Progress {
+                            room_id: room_id.to_string(),
+                            id: related_to,
+                            current: progress.current as u64,
+                            total: progress.total as u64,
+                        },
+                    ));
+                }
                 _ => {
                     if queue_tx.send((epoch, SyncUpdate::Outbox)).await.is_err() {
                         break;
@@ -314,4 +386,37 @@ fn watch_outbox(
             }
         }
     })
+}
+
+/// Login without activating a second SDK device; validate identity before replacing saved tokens.
+pub(crate) async fn reauthenticate(
+    active: &Session,
+    password: crate::security::Secret,
+) -> Result<(), &'static str> {
+    use matrix_sdk::ruma::api::client::session::login::v3::{LoginInfo, Password, Request};
+    if !active.soft_logout || !active.revoked {
+        return Err("reauth-unavailable");
+    }
+    let current = crate::oauth::session(&active.client)?;
+    let mut request = Request::new(LoginInfo::Password(Password::new(
+        matrix_sdk::ruma::api::client::uiaa::UserIdentifier::from(current.meta.user_id.clone()),
+        password.expose().to_owned(),
+    )));
+    request.device_id = Some(current.meta.device_id.clone());
+    request.refresh_token = true;
+    let response = active
+        .client
+        .send(request)
+        .await
+        .map_err(|_| "reauth-failed")?;
+    let renewed: matrix_sdk::authentication::matrix::MatrixSession = (&response).into();
+    if renewed.meta != current.meta {
+        return Err("session-key-mismatch");
+    }
+    active
+        .token_store
+        .as_ref()
+        .ok_or("reauth-unavailable")?
+        .replace_tokens(renewed)?;
+    Ok(())
 }

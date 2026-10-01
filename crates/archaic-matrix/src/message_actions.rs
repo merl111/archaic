@@ -46,6 +46,16 @@ pub(crate) async fn target(
     Ok(event)
 }
 pub(crate) async fn perform(client: &Client, request: &MessageRequest) -> Result<(), &'static str> {
+    perform_inner(client, request, false).await
+}
+pub(crate) async fn enqueue(client: &Client, request: &MessageRequest) -> Result<(), &'static str> {
+    perform_inner(client, request, true).await
+}
+async fn perform_inner(
+    client: &Client,
+    request: &MessageRequest,
+    queued: bool,
+) -> Result<(), &'static str> {
     let room_id = RoomId::parse(&request.room_id).map_err(|_| "message-unavailable")?;
     let room = client
         .get_room(&room_id)
@@ -61,9 +71,7 @@ pub(crate) async fn perform(client: &Client, request: &MessageRequest) -> Result
         && Some(message.sender.as_ref()) == client.user_id()
     {
         // A timeout can hide a successful redaction. Reuse the transaction for its acknowledgement.
-        room.redact(&id, None, Some(request.transaction.clone()))
-            .await
-            .map_err(|e| failure(e.into()))?;
+        redact(&room, id, request.transaction.clone(), queued).await?;
         return Ok(());
     }
     let AnySyncTimelineEvent::MessageLike(AnySyncMessageLikeEvent::RoomMessage(
@@ -96,11 +104,7 @@ pub(crate) async fn perform(client: &Client, request: &MessageRequest) -> Result
                 matrix_sdk::ruma::events::room::message::RoomMessageEventContent::text_plain(
                     format!("{}:\n{}", original.sender, original.content.body()),
                 );
-            target
-                .send(content)
-                .with_transaction_id(request.transaction.clone())
-                .await
-                .map_err(failure)?;
+            send(&target, content.into(), request, queued).await?;
         }
         MessageAction::Reply(body) | MessageAction::Thread(body) => {
             validate_body(body)?;
@@ -124,10 +128,7 @@ pub(crate) async fn perform(client: &Client, request: &MessageRequest) -> Result
                     ReplyError::Fetch(e) => failure(*e),
                     _ => "message-unavailable",
                 })?;
-            room.send(content)
-                .with_transaction_id(request.transaction.clone())
-                .await
-                .map_err(failure)?;
+            send(&room, content.into(), request, queued).await?;
         }
         MessageAction::Edit(body) => {
             if !own_text {
@@ -146,28 +147,26 @@ pub(crate) async fn perform(client: &Client, request: &MessageRequest) -> Result
                     EditError::Fetch(e) => failure(*e),
                     _ => "message-unavailable",
                 })?;
-            room.send(content)
-                .with_transaction_id(request.transaction.clone())
-                .await
-                .map_err(failure)?;
+            send(&room, content, request, queued).await?;
         }
         MessageAction::Delete => {
             if !own_text {
                 return Err("message-forbidden");
             }
-            room.redact(&id, None, Some(request.transaction.clone()))
-                .await
-                .map_err(|e| failure(e.into()))?;
+            redact(&room, id, request.transaction.clone(), queued).await?;
         }
         MessageAction::React(key) => {
             validate_key(key)?;
-            room.send(ReactionEventContent::new(Annotation::new(id, key.clone())))
-                .with_transaction_id(request.transaction.clone())
-                .await
-                .map_err(failure)?;
+            send(
+                &room,
+                ReactionEventContent::new(Annotation::new(id, key.clone())).into(),
+                request,
+                queued,
+            )
+            .await?;
         }
         MessageAction::RemoveReactions { key, ids } => {
-            remove_reactions(&room, request, key, ids).await?;
+            remove_reactions(&room, request, key, ids, queued).await?;
         }
     }
     Ok(())
@@ -191,6 +190,7 @@ async fn remove_reactions(
     request: &MessageRequest,
     key: &str,
     ids: &[String],
+    queued: bool,
 ) -> Result<(), &'static str> {
     validate_key(key)?;
     if ids.is_empty() || ids.len() > 500 {
@@ -221,6 +221,42 @@ async fn remove_reactions(
     for (index, value) in ids.iter().enumerate() {
         let id = EventId::parse(value).map_err(|_| "reaction-invalid")?;
         let transaction = format!("{}-{index}", request.transaction).into();
+        redact(room, id, transaction, queued).await?;
+    }
+    Ok(())
+}
+
+async fn send(
+    room: &Room,
+    content: matrix_sdk::ruma::events::AnyMessageLikeEventContent,
+    request: &MessageRequest,
+    queued: bool,
+) -> Result<(), &'static str> {
+    if queued {
+        room.send_queue()
+            .send(content)
+            .await
+            .map_err(|_| "outbox-failed")?;
+    } else {
+        room.send(content)
+            .with_transaction_id(request.transaction.clone())
+            .await
+            .map_err(failure)?;
+    }
+    Ok(())
+}
+async fn redact(
+    room: &Room,
+    id: matrix_sdk::ruma::OwnedEventId,
+    transaction: crate::TransactionId,
+    queued: bool,
+) -> Result<(), &'static str> {
+    if queued {
+        room.send_queue()
+            .redact(id, None)
+            .await
+            .map_err(|_| "outbox-failed")?;
+    } else {
         room.redact(&id, None, Some(transaction))
             .await
             .map_err(|e| failure(e.into()))?;

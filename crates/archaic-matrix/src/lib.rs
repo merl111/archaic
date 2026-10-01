@@ -1,22 +1,30 @@
+#![recursion_limit = "256"]
 //! Matrix-only application service. No GUI handles or callbacks cross this boundary.
 mod attachments;
 mod connection;
 mod conversations;
 mod details;
 mod history;
+pub mod links;
+mod local_data;
 mod membership;
 mod message_actions;
+mod oauth;
+pub mod organization;
 pub mod outbox;
 mod paging;
 mod room_tools;
 mod search;
+mod search_index;
 pub mod security;
 pub mod storage;
+mod sync_activity;
 mod timeline;
 mod token_store;
+mod transfers;
 mod worker;
 use matrix_sdk::ruma::OwnedTransactionId;
-pub use worker::{run, run_persistent, run_with_profile};
+pub use worker::{run, run_persistent, run_persistent_named, run_with_profile};
 pub type TransactionId = OwnedTransactionId;
 use tokio::sync::mpsc;
 use url::Url;
@@ -25,6 +33,24 @@ pub const CHANNEL_CAPACITY: usize = 32;
 
 // Deliberately not Debug: login commands contain a password.
 pub enum Command {
+    Barrier(tokio::sync::oneshot::Sender<()>),
+    Shutdown {
+        epoch: u64,
+        drafts: std::collections::HashMap<String, String>,
+        result: tokio::sync::oneshot::Sender<Result<(), &'static str>>,
+    },
+    SwitchProfile {
+        epoch: u64,
+        name: String,
+    },
+    Organization {
+        id: TransactionId,
+        action: organization::Action,
+    },
+    SaveDraft {
+        room_id: String,
+        body: String,
+    },
     Context {
         room_id: String,
         event_id: String,
@@ -36,6 +62,13 @@ pub enum Command {
     BrowserLogin {
         epoch: u64,
         server: String,
+    },
+    OAuthLogin {
+        epoch: u64,
+        server: String,
+    },
+    Reauthenticate {
+        password: security::Secret,
     },
     CancelLogin,
     Enqueue {
@@ -53,6 +86,9 @@ pub enum Command {
         action: security::Action,
     },
     DiscardUpload,
+    CancelTransfer {
+        id: TransactionId,
+    },
     Restore {
         epoch: u64,
     },
@@ -72,6 +108,11 @@ pub enum Command {
         kind: HistoryLoad,
     },
     Join(String),
+    JoinVia {
+        address: String,
+        via: Vec<String>,
+        event: Option<String>,
+    },
     NewConversation(NewConversation),
     RoomAction {
         room_id: String,
@@ -83,6 +124,7 @@ pub enum Command {
         transaction: OwnedTransactionId,
     },
     MessageAction(MessageRequest),
+    QueueMessageAction(MessageRequest),
     RoomTool(ToolRequest),
     Logout,
 }
@@ -139,17 +181,28 @@ pub struct Attachment {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SearchMode {
+    Indexed,
     Server,
     Local,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ToolAction {
+    QueueUpload {
+        path: std::path::PathBuf,
+    },
+    Preview {
+        event_id: String,
+    },
     Upload {
         path: std::path::PathBuf,
     },
     Download {
         event_id: String,
         path: std::path::PathBuf,
+    },
+    MarkThreadRead {
+        event_id: String,
+        private: bool,
     },
     MarkRead {
         event_id: String,
@@ -173,6 +226,7 @@ pub struct ToolRequest {
 }
 #[derive(Clone, Debug, Default)]
 pub struct SearchPage {
+    pub truncated: bool,
     pub unavailable: usize,
     pub messages: Vec<Message>,
     pub more: bool,
@@ -187,11 +241,18 @@ pub struct MessageDetails {
     pub reply_unavailable: bool,
     pub revisions: Vec<String>,
     pub read_by: Vec<String>,
+    pub thread_read_by: Vec<String>,
     pub more: bool,
     pub loaded: usize,
 }
 #[derive(Clone, Debug)]
 pub enum ToolData {
+    QueuedUpload,
+    Preview {
+        pixels: Vec<u8>,
+        width: u32,
+        height: u32,
+    },
     Uploaded,
     Downloaded,
     Read,
@@ -244,6 +305,35 @@ pub struct HistoryInfo {
 
 #[derive(Debug)]
 pub enum EventKind {
+    LiveDetailsFailed {
+        room_id: String,
+        key: &'static str,
+    },
+    Blocked(std::collections::HashSet<String>),
+    DraftSaved {
+        room_id: String,
+        body: String,
+    },
+    Notification {
+        room_id: String,
+        name: String,
+    },
+    Organization {
+        id: TransactionId,
+        result: Result<organization::Page, &'static str>,
+    },
+    TransferProgress {
+        room_id: String,
+        id: TransactionId,
+        current: u64,
+        total: u64,
+    },
+    LiveDetails {
+        room_id: String,
+        details: Box<MessageDetails>,
+    },
+    Drafts(std::collections::HashMap<String, String>),
+    ReauthenticationRequired,
     Activity {
         room_id: String,
         unread: u64,
