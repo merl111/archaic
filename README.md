@@ -1,7 +1,5 @@
 # Archaic
 
-<img src="assets/branding/archaic-mascot.png" alt="Archaic mascot: a prehistoric CRT computer with a friendly cyan screen and dinosaur tail" width="192">
-
 Archaic foundations, modern conversations. The name is a nod to building a modern desktop app on a C GUI library.
 
 A native Matrix desktop client built with Rust and CUI, targeting Linux, Windows and macOS.

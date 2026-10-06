@@ -1,9 +1,0 @@
-# Archaic mascot
-
-A playful prehistoric CRT computer creature: a warm stone-colored shell, cyan screen, little feet and a dinosaur tail. The C badge refers to the C GUI library beneath Archaic.
-
-`archaic-mascot.png` is the transparent PNG master generated with the built-in image-generation tool. This is a pixel-art-style raster illustration, not a hand-authored pixel grid. Platform-specific icon exports are not included.
-
-## Generation prompt
-
-Use case: logo-brand. Create one playful pixel-art mascot logo for Archaic, a native chat app named because it is archaically built on a C GUI library. The user specifically wants a playful pixel-art mascot with retro-computing character. Character: a small squat prehistoric CRT computer creature, with a warm stone/beige chunky monitor shell, a bright cyan/turquoise screen with a charming simple face made of a few dark pixels, tiny sturdy feet and a short stepped dinosaur tail. A lovable little ancient terminal brought to life. Build a distinctive, compact, immediately recognisable silhouette, with a strong consistent pixel grid like expertly hand-drawn 32-bit-era game sprites, approximately 64x64 native pixels scaled up crisply with nearest-neighbor appearance. Three-quarter view, standing confidently, cheeky friendly expression. Carefully limited palette, dark navy pixel outlines, warm sandy shell, turquoise display, only 2 or 3 hard-edged tones per material. A tiny C-shaped pixel badge on the shell subtly references C; no words or wordmark. True transparent alpha background. Center one mascot with plenty of breathing room; suitable for app branding and readable as a small icon. No scene, no props around it, no checkerboard rendered into background, no gradients, no antialiasing, no photorealism, no soft shadow, no watermark, no multiple concepts.
