@@ -57,6 +57,17 @@ impl Translator {
 mod tests {
     use super::*;
     #[test]
+    fn chat_templates_preserve_literal_placeholders() {
+        for locale in ["en", "de"] {
+            let tr = Translator::new(locale);
+            assert!(tr.text("chat-thread-one").contains("{count}"));
+            assert!(tr.text("chat-thread-many").contains("{count}"));
+            let reply = tr.text("chat-replying");
+            assert!(reply.contains("{author}") && reply.contains("{preview}"));
+            assert!(!tr.text("chat-composer-help").is_empty());
+        }
+    }
+    #[test]
     fn catalogs_match_and_every_message_formats() {
         let keys = |source: &str| {
             source

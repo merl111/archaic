@@ -60,3 +60,9 @@ python3 tools/test_installer.py
 ```
 
 Tests use synthetic payloads: archive contents/hashes/no-overwrite, Debian control/data/ownership/mode, signing order, failed notarization rejection and Windows per-user registration. They do not execute foreign binaries, install packages, access certificates or certify a production release. Automatic updates, release hosting, application icon assets, signing credentials, distribution licensing and platform acceptance remain release work. Windows/macOS runtime verification is deferred as requested.
+
+Windows archives require `cui.dll` and `Microsoft.WindowsAppRuntime.Bootstrap.dll`
+beside the supplied executable. `tools/dev.py` stages these from CUI's WinUI
+build; packaging fails if either is missing and hashes both in `build.json`.
+The installer includes and removes both files. The Windows App SDK 1.8 runtime
+and Microsoft VC++ runtime are prerequisites, not bundled installers.

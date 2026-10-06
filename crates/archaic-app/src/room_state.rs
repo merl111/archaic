@@ -26,6 +26,11 @@ impl Model {
     pub fn update_rooms(&mut self, rooms: Vec<RoomSummary>) {
         let previous = self.selected_room().map(|room| room.membership);
         self.rooms = rooms;
+        self.history_cache.retain(|h| {
+            self.rooms
+                .iter()
+                .any(|r| r.id == h.room && r.membership == Membership::Joined)
+        });
         if self
             .active_space
             .as_ref()
@@ -51,6 +56,11 @@ impl Model {
             self.rooms
                 .iter()
                 .any(|room| &room.id == id && room.membership == Membership::Joined)
+        });
+        self.thread_sends.retain(|_, pending| {
+            self.rooms
+                .iter()
+                .any(|r| r.id == pending.room && r.membership == Membership::Joined)
         });
         if self.outgoing.is_empty() {
             self.sending = false;
@@ -82,6 +92,7 @@ impl Model {
             }
             RoomAction::Decline | RoomAction::Leave => {
                 self.rooms.retain(|room| room.id != room_id);
+                self.history_cache.retain(|h| h.room != room_id);
                 self.drafts.remove(&room_id);
                 self.outgoing.remove(&room_id);
                 if self.selected.as_ref() == Some(&room_id) {

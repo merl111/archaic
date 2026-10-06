@@ -188,6 +188,24 @@ impl Profile {
         ))
     }
 
+    pub(crate) fn archive_cipher(
+        &self,
+        store: &str,
+    ) -> Result<matrix_sdk_store_encryption::StoreCipher> {
+        use matrix_sdk_store_encryption::StoreCipher;
+        let exported: Vec<u8> = self.read_data(store, "archive-key")?;
+        if !exported.is_empty() {
+            return StoreCipher::import_with_key(&self.key, &exported)
+                .map_err(|_| "storage-failed");
+        }
+        let cipher = StoreCipher::new().map_err(|_| "storage-failed")?;
+        let exported = cipher
+            .export_with_key(&self.key)
+            .map_err(|_| "storage-failed")?;
+        self.write_data(store, "archive-key", &exported)?;
+        Ok(cipher)
+    }
+
     pub(crate) fn passphrase(&self) -> Zeroizing<String> {
         Zeroizing::new(hex(&self.key))
     }

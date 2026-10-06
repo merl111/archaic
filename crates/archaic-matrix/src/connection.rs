@@ -13,6 +13,14 @@ use tokio::{sync::mpsc, task::JoinHandle};
 pub(crate) enum SyncUpdate {
     Ready(Box<matrix_sdk::sync::SyncResponse>),
     Outbox,
+    LocalEcho(Box<crate::outbox::Item>),
+    Delivery {
+        room_id: String,
+        transaction: String,
+        event_id: Option<String>,
+    },
+    Archived(String),
+    HistorySync(crate::HistorySyncStatus),
     RoomKeys(Option<std::collections::HashSet<String>>),
     Progress {
         room_id: String,
@@ -57,6 +65,7 @@ pub(crate) struct Session {
     pub transfers: crate::transfers::Transfers,
     pub local: crate::local_data::LocalData,
     pub history: crate::history::History,
+    pub history_cache: std::collections::VecDeque<crate::history::History>,
     pub tools: crate::room_tools::RoomTools,
     pub security: crate::security::Security,
     pub conversations: crate::conversations::Conversations,
@@ -66,12 +75,16 @@ pub(crate) struct Session {
     pub notified: std::collections::HashSet<String>,
     pub initial_sync_done: bool,
     pub reconnecting: bool,
+    archive_sync: Option<JoinHandle<()>>,
     sync: JoinHandle<()>,
     queue_updates: JoinHandle<()>,
     room_keys: JoinHandle<()>,
 }
 impl Drop for Session {
     fn drop(&mut self) {
+        if let Some(job) = &self.archive_sync {
+            job.abort();
+        }
         self.sync.abort();
         self.room_keys.abort();
         self.queue_updates.abort();
@@ -82,6 +95,9 @@ impl Drop for Session {
 }
 impl Session {
     pub fn stop_sync(&self) {
+        if let Some(job) = &self.archive_sync {
+            job.abort();
+        }
         self.sync.abort();
         self.room_keys.abort();
     }
@@ -297,11 +313,22 @@ fn start(
     token_store: Option<Arc<crate::token_store::TokenStore>>,
 ) -> Result<Session, &'static str> {
     let local = crate::local_data::LocalData::open(token_store.as_deref())?;
+    let (history_ready, initial_sync) = tokio::sync::oneshot::channel();
+    let archive_sync = token_store.as_ref().map(|_| {
+        crate::archive_sync::start(
+            client.clone(),
+            local.index.clone(),
+            epoch,
+            updates.clone(),
+            initial_sync,
+        )
+    });
     let security = crate::security::Security::new(&client);
     let room_keys = watch_room_keys(client.clone(), epoch, updates.clone());
     let queue_updates = watch_outbox(&client, epoch, updates.clone());
     let syncing = client.clone();
     let sync = tokio::spawn(async move {
+        let mut history_ready = Some(history_ready);
         loop {
             let update = match syncing
                 .sync_once(SyncSettings::default().timeout(Duration::from_secs(15)))
@@ -325,10 +352,14 @@ fn start(
             if updates.send((epoch, update)).await.is_err() || expired {
                 break;
             }
+            if ready && let Some(start) = history_ready.take() {
+                let _ = start.send(());
+            }
             tokio::time::sleep(Duration::from_millis(if ready { 250 } else { 3000 })).await;
         }
     });
     Ok(Session {
+        archive_sync,
         local,
         transfers: Default::default(),
         avatars: Default::default(),
@@ -337,6 +368,7 @@ fn start(
         security,
         selected: None,
         history: crate::history::History::default(),
+        history_cache: Default::default(),
         tools: crate::room_tools::RoomTools::default(),
         conversations: crate::conversations::Conversations::default(),
         saved,
@@ -372,6 +404,65 @@ fn watch_outbox(
         loop {
             match queue_rx.recv().await {
                 Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                Ok(matrix_sdk::send_queue::SendQueueUpdate {
+                    room_id,
+                    update: matrix_sdk::send_queue::RoomSendQueueUpdate::NewLocalEvent(echo),
+                }) => {
+                    if let Some(item) =
+                        crate::outbox::local_echo(&queue_client, room_id.as_str(), &echo)
+                        && queue_tx
+                            .send((epoch, SyncUpdate::LocalEcho(Box::new(item))))
+                            .await
+                            .is_err()
+                    {
+                        break;
+                    }
+                }
+                Ok(matrix_sdk::send_queue::SendQueueUpdate {
+                    room_id,
+                    update:
+                        matrix_sdk::send_queue::RoomSendQueueUpdate::SentEvent {
+                            transaction_id,
+                            event_id,
+                        },
+                }) => {
+                    if queue_tx
+                        .send((
+                            epoch,
+                            SyncUpdate::Delivery {
+                                room_id: room_id.to_string(),
+                                transaction: transaction_id.to_string(),
+                                event_id: Some(event_id.to_string()),
+                            },
+                        ))
+                        .await
+                        .is_err()
+                    {
+                        break;
+                    }
+                }
+                Ok(matrix_sdk::send_queue::SendQueueUpdate {
+                    room_id,
+                    update:
+                        matrix_sdk::send_queue::RoomSendQueueUpdate::CancelledLocalEvent {
+                            transaction_id,
+                        },
+                }) => {
+                    if queue_tx
+                        .send((
+                            epoch,
+                            SyncUpdate::Delivery {
+                                room_id: room_id.to_string(),
+                                transaction: transaction_id.to_string(),
+                                event_id: None,
+                            },
+                        ))
+                        .await
+                        .is_err()
+                    {
+                        break;
+                    }
+                }
                 Ok(matrix_sdk::send_queue::SendQueueUpdate {
                     room_id,
                     update:

@@ -57,6 +57,14 @@ async fn queued_message_survives_restart_and_retries_with_same_sdk_transaction()
     };
     let id = items[0].id.clone();
     assert_eq!(items[0].body, "durable draft");
+    assert_eq!(
+        items[0].message.as_ref().unwrap().body.as_deref(),
+        Some("durable draft")
+    );
+    assert_eq!(
+        items[0].message.as_ref().unwrap().transaction_id.as_deref(),
+        Some(id.as_str())
+    );
     drop(sender);
     drop(receiver);
     worker.await.unwrap();
@@ -84,7 +92,7 @@ async fn queued_message_survives_restart_and_retries_with_same_sdk_transaction()
         .unwrap();
     next(
         &mut receiver,
-        |e| matches!(e,EventKind::Outbox(v) if v.is_empty()),
+        |e| matches!(e,EventKind::Delivery { transaction, event_id:Some(event), .. } if transaction == &id && event == "$delivered"),
     )
     .await;
     let requests = server.received_requests().await.unwrap();
@@ -159,6 +167,8 @@ async fn refreshed_tokens_are_encrypted_and_restored_without_new_login() {
         |e| matches!(e,EventKind::Rooms(r) if !r.is_empty()),
     )
     .await;
+    // Restored Rooms now precede the network; wait for a successful sync explicitly.
+    next(&mut receiver, |e| matches!(e, EventKind::Status("ready"))).await;
     let requests = server.received_requests().await.unwrap();
     assert!(requests[before..].iter().any(|r| {
         r.url.path().ends_with("/sync")

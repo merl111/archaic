@@ -16,11 +16,22 @@ spec.loader.exec_module(packaging)
 
 
 class Packages(unittest.TestCase):
+    def test_windows_rejects_an_archive_without_runtime_libraries(self):
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            binary = root / "archaic.exe"
+            binary.write_bytes(b"test")
+            with self.assertRaisesRegex(ValueError, "missing Windows runtime"):
+                packaging.package(binary, root / "dist", "Windows", "x64", "0.1.0", "test")
+            self.assertFalse((root / "dist").exists())
+
     def test_layout_hashes_url_metadata_and_no_overwrite(self):
         with tempfile.TemporaryDirectory() as root:
             root = Path(root)
             binary = root / "fixture-binary"
             binary.write_bytes(b"test archive payload, not an executable")
+            runtimes = {name: name.encode() for name in ("cui.dll", "Microsoft.WindowsAppRuntime.Bootstrap.dll")}
+            for name, data in runtimes.items(): (root / name).write_bytes(data)
             for system in ["Linux", "Darwin", "Windows"]:
                 with self.subTest(system=system):
                     archive = packaging.package(binary, root / "dist", system, "test-arch", "0.1.0", "test-revision")
@@ -40,6 +51,11 @@ class Packages(unittest.TestCase):
                     self.assertEqual(meta["binary_sha256"], hashlib.sha256(binary.read_bytes()).hexdigest())
                     executable = {"Linux": "bin/archaic", "Darwin": "Archaic.app/Contents/MacOS/archaic", "Windows": "archaic.exe"}[system]
                     self.assertEqual(files[prefix + executable], binary.read_bytes())
+                    if system == "Windows":
+                        for name, data in runtimes.items():
+                            self.assertEqual(files[prefix + name], data)
+                            self.assertEqual(meta["runtime_sha256"][name], hashlib.sha256(data).hexdigest())
+                        self.assertEqual(meta["windows_app_runtime"], "1.8")
                     if system == "Darwin":
                         info = plistlib.loads(files[prefix + "Archaic.app/Contents/Info.plist"])
                         self.assertEqual(info["CFBundleURLTypes"][0]["CFBundleURLSchemes"], ["matrix"])

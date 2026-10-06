@@ -30,6 +30,12 @@ async fn index_history(
 ) {
     for (id, update) in &response.rooms.joined {
         if let Some(room) = active.client.get_room(id) {
+            if update.timeline.limited
+                && let Some(cursor) = &update.timeline.prev_batch
+                && let Err(key) = active.local.index.gap(id.as_str(), cursor)
+            {
+                emit(events, active.epoch, EventKind::Error(key)).await;
+            }
             let values = update
                 .timeline
                 .events
@@ -44,17 +50,13 @@ async fn index_history(
                     .redaction
                     .keep_room_redaction_redacts,
             ) {
-                Ok(changed) => active.local.index_dirty |= changed,
+                Ok(_) => {}
                 Err(key) => emit(events, active.epoch, EventKind::Error(key)).await,
             }
         }
     }
-    if active.local.index_dirty
-        && let Err(key) = active.local.save_index()
-    {
-        emit(events, active.epoch, EventKind::Error(key)).await;
-    }
 }
+
 async fn activity(active: &mut Session, response: &SyncResponse, events: &mpsc::Sender<Event>) {
     for (id, update) in &response.rooms.joined {
         let own = active.client.user_id().map(|u| u.as_str());
@@ -75,6 +77,12 @@ async fn activity(active: &mut Session, response: &SyncResponse, events: &mpsc::
             EventKind::Activity {
                 room_id: id.to_string(),
                 unread,
+                latest: update
+                    .timeline
+                    .events
+                    .iter()
+                    .rev()
+                    .find_map(|e| e.raw().get_field::<String>("event_id").ok().flatten()),
                 typing,
             },
         )

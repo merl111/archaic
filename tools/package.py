@@ -22,6 +22,13 @@ def package(binary, destination, system, machine, version, revision):
         raise ValueError("unsupported operating system")
     if not binary.is_file():
         raise ValueError(f"missing binary: {binary}")
+    runtimes = []
+    if system == "Windows":
+        for name in ("cui.dll", "Microsoft.WindowsAppRuntime.Bootstrap.dll"):
+            dll = binary.parent / name
+            if not dll.is_file():
+                raise ValueError(f"missing Windows runtime beside binary: {dll}")
+            runtimes.append(dll)
     destination.mkdir(parents=True, exist_ok=True)
     name = f"archaic-{version}-{system.lower()}-{machine}"
     archive = destination / (name + (".tar.gz" if system == "Linux" else ".zip"))
@@ -39,6 +46,7 @@ def package(binary, destination, system, machine, version, revision):
                               "CFBundleName": "Archaic", "CFBundleDisplayName": "Archaic",
                               "CFBundlePackageType": "APPL", "CFBundleShortVersionString": version,
                               "CFBundleVersion": version, "NSHighResolutionCapable": True,
+                              "NSMicrophoneUsageDescription": "Record voice messages when you press Record.",
                               "CFBundleURLTypes": [{"CFBundleURLName": "Matrix", "CFBundleURLSchemes": ["matrix"]}]}, handle)
         elif system == "Windows":
             executable = stage / "archaic.exe"
@@ -50,12 +58,16 @@ def package(binary, destination, system, machine, version, revision):
         executable.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(binary, executable)
         executable.chmod(0o755)
+        for dll in runtimes:
+            shutil.copy2(dll, executable.parent / dll.name)
         shutil.copyfile(ROOT / "docs" / "DESKTOP.md", stage / "README.txt")
         metadata = {"version": version, "source_revision": revision,
                     "cui_revision": (ROOT / "cui-revision").read_text().strip(),
                     "build_os": platform.platform(), "target_os": system, "architecture": machine,
                     "signed": False, "binary_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
-                    "gtk_bundled": False}
+                    "gtk_bundled": False,
+                    "runtime_sha256": {dll.name: hashlib.sha256(dll.read_bytes()).hexdigest() for dll in runtimes},
+                    "windows_app_runtime": "1.8" if system == "Windows" else None}
         (stage / "build.json").write_text(json.dumps(metadata, indent=2) + "\n")
         if system == "Linux":
             with tarfile.open(archive, "w:gz") as handle:

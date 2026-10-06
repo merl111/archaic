@@ -1,10 +1,7 @@
 //! The SDK owns persistence, transaction IDs and retry ordering.
 use matrix_sdk::{
     Client,
-    ruma::{
-        RoomId,
-        events::{AnyMessageLikeEventContent, room::message::RoomMessageEventContent},
-    },
+    ruma::{RoomId, events::AnyMessageLikeEventContent},
     send_queue::LocalEchoContent,
 };
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -13,59 +10,124 @@ pub struct Item {
     pub id: String,
     pub body: String,
     pub failed: bool,
+    pub message: Option<crate::Message>,
+    pub target: Option<String>,
+    pub reaction: Option<String>,
+    pub event_id: Option<String>,
 }
+
+pub(crate) fn local_echo(
+    client: &Client,
+    room: &str,
+    event: &matrix_sdk::send_queue::LocalEcho,
+) -> Option<Item> {
+    let mut item = Item {
+        room_id: room.into(),
+        id: event.transaction_id.to_string(),
+        body: String::new(),
+        failed: false,
+        message: None,
+        target: None,
+        reaction: None,
+        event_id: None,
+    };
+    match &event.content {
+        LocalEchoContent::Event {
+            serialized_event,
+            send_error,
+            ..
+        } => {
+            let (raw, kind) = serialized_event.raw();
+            let content: serde_json::Value = serde_json::from_str(raw.json().get()).ok()?;
+            item.failed = send_error.is_some();
+            item.body = content["body"].as_str().unwrap_or("Event").to_owned();
+            if kind == "m.reaction" || content["m.relates_to"]["rel_type"] == "m.replace" {
+                item.target = content["m.relates_to"]["event_id"]
+                    .as_str()
+                    .map(str::to_owned);
+                item.reaction = content["m.relates_to"]["key"].as_str().map(str::to_owned);
+            } else {
+                let timestamp = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as u64;
+                let entry = crate::timeline::decode(
+                    serde_json::json!({
+                        "event_id": format!("~{}", item.id), "sender":client.user_id(),
+                        "origin_server_ts":timestamp, "type":kind, "content":content,
+                        "unsigned":{"transaction_id":item.id}
+                    }),
+                    true,
+                );
+                item.message = crate::timeline::aggregate(&[entry]).into_iter().next();
+            }
+        }
+        LocalEchoContent::Redaction {
+            redacts,
+            send_error,
+            ..
+        } => {
+            item.target = Some(redacts.to_string());
+            item.failed = send_error.is_some();
+        }
+        LocalEchoContent::React {
+            key, applies_to, ..
+        } => {
+            item.target = Some(format!("~{applies_to}"));
+            item.reaction = Some(key.clone());
+        }
+    }
+    item.failed |= client
+        .get_room(&matrix_sdk::ruma::RoomId::parse(room).ok()?)
+        .is_some_and(|r| !r.send_queue().is_enabled());
+    Some(item)
+}
+
 pub(crate) async fn snapshot(client: &Client) -> Result<Vec<Item>, &'static str> {
     let echoes = client
         .send_queue()
         .local_echoes()
         .await
         .map_err(|_| "outbox-failed")?;
-    let mut items = Vec::new();
-    for (room, events) in echoes {
-        for event in events {
-            if let LocalEchoContent::Redaction {
-                redacts,
-                send_error,
-                ..
-            } = &event.content
-            {
-                items.push(Item {
-                    room_id: room.to_string(),
-                    id: event.transaction_id.to_string(),
-                    body: format!("Redact {redacts}"),
-                    failed: send_error.is_some()
-                        || client
-                            .get_room(&room)
-                            .is_some_and(|r| !r.send_queue().is_enabled()),
-                });
-            }
-            if let LocalEchoContent::Event {
-                serialized_event,
-                send_error,
-                ..
-            } = event.content
-            {
-                let body = match serialized_event.deserialize() {
-                    Ok(AnyMessageLikeEventContent::RoomMessage(content)) => {
-                        content.body().to_owned()
-                    }
-                    Ok(AnyMessageLikeEventContent::Reaction(c)) => c.relates_to.key,
-                    _ => "Event".into(),
-                };
-                let paused = client
-                    .get_room(&room)
-                    .is_some_and(|r| !r.send_queue().is_enabled());
-                items.push(Item {
-                    room_id: room.to_string(),
-                    id: event.transaction_id.to_string(),
-                    body,
-                    failed: send_error.is_some() || paused,
-                });
-            }
-        }
-    }
-    Ok(items)
+    Ok(echoes
+        .into_iter()
+        .flat_map(|(room, events)| {
+            events
+                .into_iter()
+                .filter_map(move |event| local_echo(client, room.as_str(), &event))
+        })
+        .collect())
 }
+/// Queue a reply to a known thread without refetching its root or history.
+pub(crate) async fn enqueue_thread(
+    client: &Client,
+    room: &str,
+    root: &str,
+    latest: &str,
+    body: String,
+) -> Result<(), &'static str> {
+    use matrix_sdk::ruma::{
+        EventId,
+        events::{relation::Thread, room::message::Relation},
+    };
+    if body.trim().is_empty() || body.len() > 32_000 {
+        return Err("message-body-invalid");
+    }
+    let root = EventId::parse(root).map_err(|_| "message-unavailable")?;
+    let latest = EventId::parse(latest).map_err(|_| "message-unavailable")?;
+    let room = client
+        .get_room(&RoomId::parse(room).map_err(|_| "room-unavailable")?)
+        .filter(|r| r.state() == matrix_sdk::RoomState::Joined)
+        .ok_or("room-unavailable")?;
+    let mut content = crate::mentions::content(body);
+    content.relates_to = Some(Relation::Thread(Thread::plain(root, latest)));
+    room.send_queue()
+        .send(content.into())
+        .await
+        .map_err(|_| "outbox-failed")?;
+    Ok(())
+}
+
 pub(crate) async fn enqueue(
     client: &Client,
     room_id: &str,
@@ -80,7 +142,7 @@ pub(crate) async fn enqueue(
     }
     room.send_queue()
         .send(AnyMessageLikeEventContent::RoomMessage(
-            RoomMessageEventContent::text_plain(body),
+            crate::mentions::content(body),
         ))
         .await
         .map_err(|_| "send-failed")?;

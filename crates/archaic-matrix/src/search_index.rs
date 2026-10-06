@@ -1,23 +1,23 @@
 //! Encrypted persistent event index. Relations are retained so edits/redactions change hits.
 use crate::{SearchPage, timeline};
-use matrix_sdk::{Room, room::MessagesOptions, ruma::uint};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, HashSet};
 #[derive(Default, Serialize, Deserialize)]
 pub(crate) struct Index {
-    rooms: BTreeMap<String, IndexedRoom>,
+    pub(crate) rooms: BTreeMap<String, IndexedRoom>,
 }
 #[derive(Default, Serialize, Deserialize)]
-struct IndexedRoom {
-    events: BTreeMap<String, Value>,
+pub(crate) struct IndexedRoom {
+    pub(crate) events: BTreeMap<String, Value>,
     #[serde(default)]
-    redacted: HashSet<String>,
+    pub(crate) redacted: HashSet<String>,
     next: Option<String>,
     started: bool,
     seen: HashSet<String>,
 }
 impl Index {
+    #[cfg(test)]
     pub fn merge(
         &mut self,
         room: &str,
@@ -73,62 +73,9 @@ impl Index {
         }
         Ok(changed)
     }
-    pub async fn search(
-        &mut self,
-        room: &Room,
-        query: &str,
-        more: bool,
-    ) -> Result<SearchPage, &'static str> {
-        let filter = Filter::parse(query)?;
-        let id = room.room_id().as_str();
-        // Existing indexed content is available without a request. More explicitly backfills.
-        let needs_page = self
-            .rooms
-            .get(id)
-            .is_none_or(|r| r.events.is_empty() && !r.started)
-            || more;
-        if needs_page {
-            let cached = self.rooms.entry(id.to_owned()).or_default();
-            if !cached.started || cached.next.is_some() {
-                let mut options = MessagesOptions::backward();
-                options.limit = uint!(50);
-                options.from = cached.next.clone();
-                let page = room
-                    .messages(options)
-                    .await
-                    .map_err(crate::message_actions::failure)?;
-                if page.chunk.len() > 50 {
-                    return Err("history-invalid-page");
-                }
-                if page.end.as_ref().is_some_and(|n| cached.seen.contains(n)) {
-                    return Err("history-invalid-page");
-                }
-                let values = page
-                    .chunk
-                    .iter()
-                    .map(|e| crate::details::value(room, e))
-                    .collect::<Result<Vec<_>, _>>()?;
-                self.merge(
-                    id,
-                    values,
-                    room.clone_info()
-                        .room_version_rules_or_default()
-                        .redaction
-                        .keep_room_redaction_redacts,
-                )?;
-                let cached = self.rooms.get_mut(id).unwrap();
-                if let Some(next) = &page.end {
-                    cached.seen.insert(next.clone());
-                }
-                cached.next = page.end;
-                cached.started = true;
-            }
-        }
-        let cached = self.rooms.get(id).ok_or("search-failed")?;
-        let rules = room.clone_info().room_version_rules_or_default().redaction;
-        Ok(project(cached, &filter, rules.keep_room_redaction_redacts))
-    }
 }
+
+#[cfg(test)]
 fn erase_redacted(value: &mut Value, redacted: &HashSet<String>) -> bool {
     let tombstone = value["event_id"]
         .as_str()
@@ -147,15 +94,15 @@ fn erase_redacted(value: &mut Value, redacted: &HashSet<String>) -> bool {
     !already
 }
 #[derive(Default)]
-struct Filter {
-    text: String,
+pub(crate) struct Filter {
+    pub(crate) text: String,
     sender: Option<String>,
     files: bool,
     after: Option<u64>,
     before: Option<u64>,
 }
 impl Filter {
-    fn parse(query: &str) -> Result<Self, &'static str> {
+    pub(crate) fn parse(query: &str) -> Result<Self, &'static str> {
         if query.trim().is_empty() || query.len() > 1024 {
             return Err("search-invalid");
         }
@@ -182,7 +129,7 @@ impl Filter {
         Ok(f)
     }
 }
-fn project(room: &IndexedRoom, filter: &Filter, redacts_in_content: bool) -> SearchPage {
+pub(crate) fn project(room: &IndexedRoom, filter: &Filter, redacts_in_content: bool) -> SearchPage {
     let entries = room
         .events
         .values()

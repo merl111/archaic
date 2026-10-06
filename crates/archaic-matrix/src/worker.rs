@@ -4,7 +4,7 @@ use crate::{
     connection::{self, Persistence, Session, SyncUpdate},
     storage::Profile,
 };
-use matrix_sdk::ruma::{RoomId, events::room::message::RoomMessageEventContent};
+use matrix_sdk::ruma::RoomId;
 use tokio::sync::mpsc;
 
 pub(crate) async fn emit(events: &mpsc::Sender<Event>, epoch: u64, kind: EventKind) {
@@ -56,8 +56,9 @@ async fn restore(
     events: &mpsc::Sender<Event>,
 ) -> Option<Session> {
     match connection::restore(epoch, persistence, updates).await {
-        Ok(Some(active)) => {
+        Ok(Some(mut active)) => {
             announce(events, &active).await;
+            room_snapshot(&mut active, events).await;
             Some(active)
         }
         Ok(None) => {
@@ -232,6 +233,34 @@ async fn sync_update(active: &mut Session, update: SyncUpdate, events: &mpsc::Se
                 retry_room_keys(active, events).await;
             }
         }
+        SyncUpdate::HistorySync(status) => {
+            emit(events, active.epoch, EventKind::HistorySync(status)).await
+        }
+        SyncUpdate::Archived(room_id) => {
+            if active.selected.as_ref() == Some(&room_id) && active.history.is_cached() {
+                load_history(active, events, room_id, HistoryLoad::Recent).await;
+            }
+        }
+        SyncUpdate::LocalEcho(item) => {
+            emit(events, active.epoch, EventKind::Outbox(vec![*item])).await
+        }
+        SyncUpdate::Delivery {
+            room_id,
+            transaction,
+            event_id,
+        } => {
+            emit(
+                events,
+                active.epoch,
+                EventKind::Delivery {
+                    room_id,
+                    transaction,
+                    event_id,
+                },
+            )
+            .await;
+            outbox_snapshot(active, events).await;
+        }
         SyncUpdate::Outbox => outbox_snapshot(active, events).await,
         SyncUpdate::Retrying => {
             active.reconnecting = true;
@@ -262,6 +291,9 @@ async fn sync_ready(
     emit(events, active.epoch, EventKind::Status("ready")).await;
     room_snapshot(active, events).await;
     crate::sync_activity::update(active, response, events).await;
+    if active.history.is_cached() {
+        history(active, events).await;
+    }
     sync_history(active, response, events).await;
     if active.security.watching {
         emit(
@@ -290,6 +322,15 @@ async fn sync_history(
     };
     match active.tools.details.sync(&room, update).await {
         Ok(Some(details)) => {
+            active
+                .avatars
+                .users(&room, &details.thread, events, active.epoch);
+            active.avatars.users(
+                &room,
+                std::slice::from_ref(&details.message),
+                events,
+                active.epoch,
+            );
             emit(
                 events,
                 active.epoch,
@@ -313,7 +354,14 @@ async fn sync_history(
         }
         Ok(None) => {}
     }
-    if let Some((messages, info)) = active.history.sync(&room, &update.timeline) {
+    let changed = active.history.sync(&room, &update.timeline);
+    let receipts_changed = update
+        .ephemeral
+        .iter()
+        .any(|e| e.get_field::<String>("type").ok().flatten().as_deref() == Some("m.receipt"));
+    let snapshot = changed.or_else(|| receipts_changed.then(|| active.history.snapshot()));
+    if let Some((mut messages, info)) = snapshot {
+        crate::receipts::populate(&room, &mut messages).await;
         active.avatars.users(&room, &messages, events, active.epoch);
         emit(
             events,
@@ -409,10 +457,39 @@ async fn handle(
             }
             Err(key) => Err(key),
         },
+        Command::EnqueueThread {
+            room_id,
+            root,
+            latest,
+            body,
+            transaction,
+        } => {
+            let result =
+                crate::outbox::enqueue_thread(&active.client, &room_id, &root, &latest, body).await;
+            emit(
+                events,
+                active.epoch,
+                EventKind::ThreadQueued {
+                    transaction,
+                    result,
+                },
+            )
+            .await;
+            Ok(())
+        }
         Command::OutboxAction { room_id, id, retry } => {
             let result = crate::outbox::action(&active.client, &room_id, &id, retry).await;
             outbox_snapshot(active, events).await;
             result
+        }
+        Command::MemberProfile { room, user } => {
+            match crate::member_profile::load(&active.client, room, user).await {
+                Ok(profile) => {
+                    emit(events, active.epoch, EventKind::MemberProfile(profile)).await;
+                    Ok(())
+                }
+                Err(key) => Err(key),
+            }
         }
         Command::Select(room_id) => {
             if active.selected.as_ref() != Some(&room_id) {
@@ -504,7 +581,7 @@ async fn handle(
                     if room.state() == matrix_sdk::RoomState::Joined && !body.trim().is_empty() =>
                 {
                     match room
-                        .send(RoomMessageEventContent::text_plain(body))
+                        .send(crate::mentions::content(body))
                         .with_transaction_id(transaction.clone())
                         .await
                     {
@@ -592,18 +669,25 @@ async fn context(
             .and_then(|id| active.client.get_room(&id))
             .filter(|r| r.state() == matrix_sdk::RoomState::Joined)
     {
+        active
+            .history
+            .activate(&mut active.history_cache, room.room_id().as_str());
         let result = active.history.context(&room, &event_id).await;
         let kind = HistoryLoad::Latest;
         emit(
             events,
             active.epoch,
             match result {
-                Ok((messages, info)) => EventKind::History {
-                    room_id,
-                    messages,
-                    info,
-                    kind,
-                },
+                Ok((mut messages, info)) => {
+                    crate::receipts::populate(&room, &mut messages).await;
+                    active.avatars.users(&room, &messages, events, active.epoch);
+                    EventKind::History {
+                        room_id,
+                        messages,
+                        info,
+                        kind,
+                    }
+                }
                 Err(key) => EventKind::HistoryFailed { room_id, kind, key },
             },
         )
@@ -623,18 +707,30 @@ async fn room_tool(
     } = &request.action
     {
         match crate::room_tools::joined(&active.client, &request.room_id) {
-            Ok(room) => {
-                let result = active.local.index.search(&room, query, *more).await;
-                match active.local.save_index() {
-                    Ok(()) => result.map(crate::ToolData::Search),
-                    Err(key) => Err(key),
-                }
-            }
+            Ok(room) => active
+                .local
+                .index
+                .search(&room, query, *more)
+                .await
+                .map(crate::ToolData::Search),
             Err(key) => Err(key),
         }
     } else {
         active.tools.perform(&active.client, &request).await
     };
+    if let Ok(crate::ToolData::Details(details)) = &result
+        && let Ok(room) = crate::room_tools::joined(&active.client, &request.room_id)
+    {
+        active
+            .avatars
+            .users(&room, &details.thread, events, active.epoch);
+        active.avatars.users(
+            &room,
+            std::slice::from_ref(&details.message),
+            events,
+            active.epoch,
+        );
+    }
     let expired = matches!(result, Err("session-expired"));
     let refresh = matches!(result, Ok(crate::ToolData::Uploaded));
     emit(
@@ -793,6 +889,7 @@ async fn room_snapshot(active: &mut Session, events: &mpsc::Sender<Event>) {
             matrix_sdk::RoomState::Joined | matrix_sdk::RoomState::Invited
         ) {
             let mut summary = membership::summary(&room).await;
+            summary.info.preview = active.local.previews.get(&summary.id).cloned();
             summary.info.recent = summary
                 .info
                 .recent
@@ -819,6 +916,12 @@ async fn room_snapshot(active: &mut Session, events: &mpsc::Sender<Event>) {
                     .then(a.id.cmp(&b.id)),
             )
     });
+    let joined: std::collections::HashSet<_> = rooms
+        .iter()
+        .filter(|r| r.membership == crate::Membership::Joined)
+        .map(|r| r.id.as_str())
+        .collect();
+    active.history_cache.retain(|h| h.belongs_to(&joined));
     if !rooms.iter().any(|room| {
         active.selected.as_ref() == Some(&room.id) && room.membership == crate::Membership::Joined
     }) {
@@ -860,13 +963,17 @@ async fn load_history(
         active.tools = Default::default();
         return;
     }
-    let event = match active.history.load(&room, kind).await {
-        Ok((messages, info)) => EventKind::History {
-            room_id,
-            messages,
-            info,
-            kind,
-        },
+    active.history.activate(&mut active.history_cache, &room_id);
+    let event = match active.history.load(&room, kind, &active.local.index).await {
+        Ok((mut messages, info)) => {
+            crate::receipts::populate(&room, &mut messages).await;
+            EventKind::History {
+                room_id,
+                messages,
+                info,
+                kind,
+            }
+        }
         Err(key) => EventKind::HistoryFailed { room_id, kind, key },
     };
     if let EventKind::History { messages, .. } = &event {
@@ -915,7 +1022,8 @@ async fn retry_room_keys(active: &mut Session, events: &mpsc::Sender<Event>) {
     else {
         return;
     };
-    if let Some((messages, info)) = active.history.retry_decryption(&room).await {
+    if let Some((mut messages, info)) = active.history.retry_decryption(&room).await {
+        crate::receipts::populate(&room, &mut messages).await;
         emit(
             events,
             active.epoch,

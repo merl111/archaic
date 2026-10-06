@@ -23,3 +23,9 @@ cui = { path = "../cui/bindings/rust" }
 lto = "thin"
 codegen-units = 1
 strip = "debuginfo"
+
+# Keep local builds small: full Matrix SDK debug info and incremental copies
+# otherwise accumulate tens of GiB across UI/test rebuilds.
+[profile.dev]
+debug = 1
+incremental = false

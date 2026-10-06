@@ -39,6 +39,7 @@ pub struct Controls {
     pub mismatch: Widget,
     pub cancel: Widget,
     recovery: Widget,
+    backup_status: Widget,
     pub password: Widget,
     pub recovery_key: Widget,
     pub bootstrap: Widget,
@@ -60,11 +61,11 @@ impl Controls {
         root.box_set_padding(0)?;
         root.expand(true)?;
         let header = root.box_layout(sys::CUI_HORIZONTAL, 12)?;
-        header.box_layout(sys::CUI_HORIZONTAL, 0)?.expand(true)?;
+        let summary = label(&header, "", sys::CUI_ROLE_CAPTION)?;
+        summary.expand(true)?;
         let refresh = header.button(&tr.text("refresh"))?;
         let close = header.button(&tr.text("security-close"))?;
         close.set_visible(false)?;
-        let summary = label(&root, "", sys::CUI_ROLE_CAPTION)?;
         let mode = root.select(&[
             &tr.text("security-devices"),
             &tr.text("security-recovery"),
@@ -85,6 +86,7 @@ impl Controls {
         let mismatch = actions.button(&tr.text("security-mismatch"))?;
         let cancel = actions.button(&tr.text("cancel"))?;
         let recovery = root.box_layout(sys::CUI_VERTICAL, 10)?;
+        let backup_status = label(&recovery, "", sys::CUI_ROLE_BODY)?;
         label(
             &recovery,
             &tr.text("security-recovery-hint"),
@@ -111,12 +113,17 @@ impl Controls {
             &tr.text("security-keyfile-hint"),
             sys::CUI_ROLE_CAPTION,
         )?;
+        label(
+            &keys,
+            &tr.text("security-keyfile-password"),
+            sys::CUI_ROLE_CAPTION,
+        )?;
         let passphrase = keys.password("")?;
         passphrase.accessibility(&tr.text("security-keyfile-password"), "")?;
         let row = keys.box_layout(sys::CUI_HORIZONTAL, 8)?;
         let export = row.button(&tr.text("security-export"))?;
         let import = row.button(&tr.text("security-import"))?;
-        let room_keys = keys.button(&tr.text("security-room-keys"))?;
+        let room_keys = recovery.button(&tr.text("security-room-keys"))?;
         let error = label(&root, "", sys::CUI_ROLE_DANGER)?;
         Ok(Self {
             root,
@@ -135,6 +142,7 @@ impl Controls {
             mismatch,
             cancel,
             recovery,
+            backup_status,
             password,
             recovery_key,
             bootstrap,
@@ -174,13 +182,25 @@ impl Controls {
         self.mode.set_enabled(enabled && s.key.is_none())?;
         self.verification.set_visible(s.mode == 0)?;
         self.recovery.set_visible(s.mode == 1)?;
+        set_text(
+            &self.backup_status,
+            &tr.text(if s.snapshot.backup {
+                "security-backup-active"
+            } else {
+                match s.snapshot.backup_exists {
+                    Some(true) => "security-backup-locked",
+                    Some(false) => "security-backup-none",
+                    None => "security-backup-unknown",
+                }
+            }),
+        )?;
         self.keys.set_visible(s.mode == 2)?;
         self.close.set_enabled(enabled && s.key.is_none())?;
         self.refresh.set_enabled(enabled)?;
         set_text(
             &self.summary,
             &format!(
-                "{} · {}: {} · {}: {}",
+                "{}\n{}: {} · {}: {}",
                 tr.text(if s.snapshot.recovery.is_empty() {
                     "security-recovery-unknown"
                 } else {
@@ -346,6 +366,8 @@ impl Controller {
             return Ok(());
         }
         drop(m);
+        self.view.settings.select(3)?;
+        self.view.ui.panel.set(crate::daylight::Panel::Account);
         self.model.borrow_mut().security.show = true;
         self.security_send(Action::Refresh)
     }
@@ -358,6 +380,7 @@ impl Controller {
         }
         self.view.security.clear()?;
         self.model.borrow_mut().security.show = false;
+        self.view.ui.panel.set(crate::daylight::Panel::None);
         self.security_send(Action::Watch(false))
     }
     pub fn refresh_security(&self) -> Result<()> {

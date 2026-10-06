@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -33,13 +34,34 @@ def main():
         parser.error("CUI has tracked changes; review them and pass --allow-dirty-cui for local development")
     native = ROOT / "target" / "cui"
     config = "Release" if options.release else "Debug"
-    run(["cmake", "-S", source, "-B", native, "-DCUI_BUILD_SHARED=OFF", "-DCUI_BUILD_EXAMPLES=OFF", "-DCUI_BUILD_TESTS=OFF", "-DCUI_BUILD_BINDING_TESTS=OFF", f"-DCMAKE_BUILD_TYPE={config}"])
-    run(["cmake", "--build", native, "--config", config, "--target", "cui", "--parallel", "4"])
+    windows = sys.platform == "win32"
+    run(["cmake", "-S", source, "-B", native, f"-DCUI_BUILD_SHARED={'ON' if windows else 'OFF'}", "-DCUI_BUILD_EXAMPLES=OFF", "-DCUI_BUILD_TESTS=OFF", "-DCUI_BUILD_BINDING_TESTS=OFF", f"-DCMAKE_BUILD_TYPE={config}"])
+    run(["cmake", "--build", native, "--config", config, "--target", "cui_winui_build" if windows else "cui", "--parallel", "4"])
     name = "cui.lib" if sys.platform == "win32" else "libcui.a"
     lib = next((directory for directory in [native / config, native] if (directory / name).exists()), None)
     if lib is None:
         parser.error(f"CUI build did not produce {name}")
     env = dict(os.environ, CUI_LIB_DIR=str(lib))
+    if windows:
+        # Windows consumers link an import library and load WinUI through cui.dll.
+        # Stage beside both normal binaries and Cargo's test executables.
+        target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target"))
+        if not target.is_absolute():
+            target = ROOT / target
+        target_triple = os.environ.get("CARGO_BUILD_TARGET")
+        for index, arg in enumerate(extra):
+            if arg == "--": break
+            if arg == "--target" and index + 1 < len(extra): target_triple = extra[index + 1]
+            elif arg.startswith("--target="): target_triple = arg.split("=", 1)[1]
+        if target_triple: target /= target_triple
+        output = target / ("release" if options.release else "debug")
+        for name in ("cui.dll", "Microsoft.WindowsAppRuntime.Bootstrap.dll"):
+            dll = lib / name
+            if not dll.is_file(): parser.error(f"CUI build did not produce required runtime {dll}")
+            for destination in (output, output / "deps"):
+                destination.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(dll, destination / name)
+        env["PATH"] = str(lib) + os.pathsep + env.get("PATH", "")
     cmd = ["cargo", "--config", "patch.crates-io.cui.path=" + json.dumps(str(source / "bindings" / "rust")), options.command, "--locked"]
     if options.command == "run":
         cmd += ["-p", "archaic"]

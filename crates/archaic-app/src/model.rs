@@ -21,10 +21,15 @@ pub struct Outgoing {
 
 #[derive(Default)]
 pub struct Model {
+    pub images: std::collections::VecDeque<crate::image_viewer::CachedImage>,
+    pub image_open: Option<(String, String)>,
+    pub history_sync: Option<archaic_matrix::HistorySyncStatus>,
+    pub profile: Option<archaic_matrix::MemberProfile>,
     pub active_space: Option<String>,
     pub direct_only: bool,
     pub avatars: HashMap<String, cui::Icon>,
     pub avatar_revision: u64,
+    pub display_names: HashMap<String, String>,
     pub member_counts: HashMap<String, u64>,
     pub link_join: Option<(String, Vec<String>, Option<String>)>,
     pub blocked: std::collections::HashSet<String>,
@@ -33,6 +38,7 @@ pub struct Model {
     pub browser_login: bool,
     pub reauthentication: bool,
     pub outbox: Vec<archaic_matrix::outbox::Item>,
+    pub thread_sends: HashMap<String, crate::thread_pane::PendingSend>,
     pub transfer_progress: HashMap<String, (u64, u64)>,
     pub security: crate::security::State,
     pub tools: crate::tool_state::ToolState,
@@ -45,9 +51,11 @@ pub struct Model {
     pub filter: String,
     pub selected: Option<String>,
     pub messages: Vec<Message>,
+    pub history_cache: std::collections::VecDeque<crate::history_state::CachedHistory>,
     pub message_selected: Option<String>,
     pub message_draft: Option<crate::message_state::ActionDraft>,
     pub history_info: archaic_matrix::HistoryInfo,
+    pub history_jump: Option<String>,
     pub history_pending: Option<archaic_matrix::HistoryLoad>,
     pub history_error: Option<(archaic_matrix::HistoryLoad, &'static str)>,
     pub drafts: HashMap<String, String>,
@@ -68,11 +76,71 @@ pub struct Model {
 }
 
 impl Model {
+    pub fn account_name(&self) -> &str {
+        self.display_names
+            .get("account")
+            .filter(|n| !n.trim().is_empty())
+            .map(String::as_str)
+            .unwrap_or(&self.user)
+    }
+    pub fn user_name<'a>(&'a self, user: &'a str) -> &'a str {
+        self.selected
+            .as_ref()
+            .and_then(|r| self.display_names.get(&format!("user:{r}:{user}")))
+            .filter(|n| !n.trim().is_empty())
+            .map(String::as_str)
+            .or_else(|| {
+                self.profile
+                    .as_ref()
+                    .filter(|p| p.loaded && p.user == user && !p.name.trim().is_empty())
+                    .map(|p| p.name.as_str())
+            })
+            .unwrap_or_else(|| {
+                if user == self.user {
+                    self.account_name()
+                } else {
+                    user
+                }
+            })
+    }
+
     pub fn apply(&mut self, event: Event) {
         if event.epoch != self.epoch {
             return;
         }
         match event.kind {
+            EventKind::DisplayName { key, name } => {
+                let name = crate::daylight::text(&name, 1024);
+                if self.display_names.get(&key) != Some(&name) {
+                    if self.display_names.len() >= 4096 && !self.display_names.contains_key(&key) {
+                        self.display_names.retain(|k, _| k == "account");
+                    }
+                    self.display_names.insert(key, name);
+                    self.avatar_revision = self.avatar_revision.wrapping_add(1);
+                }
+            }
+            EventKind::HistorySync(status) => self.history_sync = Some(status),
+            EventKind::MemberProfile(profile) => {
+                if self.selected.as_ref() == Some(&profile.room)
+                    && self
+                        .profile
+                        .as_ref()
+                        .is_some_and(|p| p.room == profile.room && p.user == profile.user)
+                {
+                    self.profile = Some(profile);
+                }
+            }
+            EventKind::ImagePreview {
+                room_id,
+                event_id,
+                result,
+            } => {
+                if self.selected.as_ref() == Some(&room_id) {
+                    if let Ok(data) = result {
+                        self.cache_image(room_id, event_id, data);
+                    }
+                }
+            }
             EventKind::Avatar { key, pixels } => {
                 let image = pixels.and_then(|v| cui::Icon::rgba(&v, 128, 128).ok());
                 if let Some(image) = image {
@@ -143,8 +211,25 @@ impl Model {
             EventKind::Activity {
                 room_id,
                 unread,
+                latest,
                 typing,
             } => {
+                if let Some(latest) = latest {
+                    if self
+                        .activity
+                        .viewed
+                        .get(&room_id)
+                        .is_some_and(|seen| seen.as_ref() != Some(&latest))
+                    {
+                        self.activity.viewed.remove(&room_id);
+                    }
+                    self.activity.latest.insert(room_id.clone(), latest);
+                }
+                let unread = if self.activity.viewed.contains_key(&room_id) {
+                    0
+                } else {
+                    unread
+                };
                 self.activity.unread.insert(room_id.clone(), unread);
                 if let Some(names) = typing {
                     self.activity
@@ -160,10 +245,12 @@ impl Model {
                 }
             }
             EventKind::RoomToolResult { request, result } => {
-                if matches!(request.action, archaic_matrix::ToolAction::MarkRead { .. })
-                    && result.is_err()
-                {
-                    self.activity.read.remove(&request.room_id);
+                if matches!(request.action, archaic_matrix::ToolAction::MarkRead { .. }) {
+                    if result.is_err() {
+                        self.activity.read.remove(&request.room_id);
+                    } else {
+                        self.activity.unread.insert(request.room_id.clone(), 0);
+                    }
                 }
                 self.tool_result(request, result)
             }
@@ -192,7 +279,16 @@ impl Model {
             EventKind::MessageActionResult { request, result } => {
                 self.message_result(request, result)
             }
-            EventKind::Outbox(items) => self.outbox = items,
+            EventKind::Outbox(items) => self.update_outbox(items),
+            EventKind::ThreadQueued {
+                transaction,
+                result,
+            } => self.thread_queued(&transaction, result),
+            EventKind::Delivery {
+                room_id,
+                transaction,
+                event_id,
+            } => self.delivery_result(&room_id, &transaction, event_id),
             EventKind::Queued { transaction } => self.confirm_sent(&transaction),
             EventKind::Sent { transaction } => self.confirm_sent(&transaction),
             EventKind::Joined(room) => self.joined(room),
@@ -228,6 +324,15 @@ impl Model {
             EventKind::Error(key) => self.apply_error(key),
         }
         self.hide_blocked();
+        if self.image_open.as_ref().is_some_and(|(room, event)| {
+            self.selected.as_ref() != Some(room)
+                || self.image_message(event).is_none_or(|m| {
+                    m.deleted || m.attachment.as_ref().is_none_or(|a| a.kind != "m.image")
+                })
+        }) {
+            self.image_open = None;
+            self.tools.preview = None;
+        }
     }
 
     fn hide_blocked(&mut self) {
@@ -284,7 +389,7 @@ impl Model {
         self.error = warning;
     }
     fn joined(&mut self, room: RoomSummary) {
-        self.selected = Some(room.id.clone());
+        let restored = self.switch_history(room.id.clone());
         if let Some(existing) = self
             .rooms
             .iter_mut()
@@ -294,12 +399,11 @@ impl Model {
         } else {
             self.rooms.push(room);
         }
-        self.clear_history();
         self.filter.clear();
         self.joining = false;
         self.show_join = false;
         self.join_error = None;
-        self.status = "loading";
+        self.status = if restored { "ready" } else { "loading" };
     }
 
     fn apply_error(&mut self, key: &'static str) {
@@ -418,7 +522,114 @@ impl Model {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn names_are_scoped_and_stale_accounts_cannot_change_them() {
+        let mut model = super::Model {
+            epoch: 7,
+            user: "@me:local".into(),
+            selected: Some("!a:local".into()),
+            ..Default::default()
+        };
+        for (key, name) in [
+            ("account", "My name"),
+            ("user:!a:local:@bob:local", "Bobby"),
+        ] {
+            model.apply(archaic_matrix::Event {
+                epoch: 7,
+                kind: archaic_matrix::EventKind::DisplayName {
+                    key: key.into(),
+                    name: name.into(),
+                },
+            });
+        }
+        assert_eq!(model.account_name(), "My name");
+        assert_eq!(model.user_name("@me:local"), "My name");
+        assert_eq!(model.user_name("@bob:local"), "Bobby");
+        model.selected = Some("!other:local".into());
+        assert_eq!(model.user_name("@bob:local"), "@bob:local");
+        model.apply(archaic_matrix::Event {
+            epoch: 6,
+            kind: archaic_matrix::EventKind::DisplayName {
+                key: "account".into(),
+                name: "Other account".into(),
+            },
+        });
+        assert_eq!(model.account_name(), "My name");
+        model.apply(archaic_matrix::Event {
+            epoch: 7,
+            kind: archaic_matrix::EventKind::DisplayName {
+                key: "account".into(),
+                name: "".into(),
+            },
+        });
+        assert_eq!(model.account_name(), "@me:local");
+    }
+
     use super::*;
+    #[test]
+    fn switching_rooms_restores_history_and_clears_it_on_logout_or_membership_loss() {
+        use archaic_matrix::{HistoryInfo, HistoryLoad};
+        let mut m = connected();
+        m.messages = vec![Message {
+            id: "$old".into(),
+            body: Some("Cached history".into()),
+            ..Default::default()
+        }];
+        m.history_info.can_load_more = true;
+        m.status = "ready";
+        assert!(!m.switch_history("!b:local".into()));
+        assert!(m.messages.is_empty());
+        m.status = "loading";
+        m.apply(Event {
+            epoch: 1,
+            kind: EventKind::History {
+                room_id: "!a:local".into(),
+                messages: vec![],
+                info: HistoryInfo::default(),
+                kind: HistoryLoad::Recent,
+            },
+        });
+        assert!(m.switch_history("!a:local".into()));
+        assert_eq!(m.messages[0].id, "$old");
+        assert!(m.history_info.can_load_more);
+        m.status = "ready";
+        m.switch_history("!b:local".into());
+        m.status = "loading";
+        m.apply(Event {
+            epoch: 2,
+            kind: EventKind::History {
+                room_id: "!a:local".into(),
+                messages: vec![Message {
+                    id: "$updated".into(),
+                    ..Default::default()
+                }],
+                info: HistoryInfo::default(),
+                kind: HistoryLoad::Recent,
+            },
+        });
+        assert!(m.messages.is_empty());
+        assert!(m.switch_history("!a:local".into()));
+        assert_eq!(m.messages[0].id, "$updated");
+        m.switch_history("!b:local".into());
+        m.update_rooms(
+            m.rooms
+                .iter()
+                .filter(|r| r.id != "!a:local")
+                .cloned()
+                .collect(),
+        );
+        assert!(m.history_cache.is_empty());
+        m.status = "ready";
+        m.messages = vec![Message::default()];
+        m.switch_history("!a:local".into());
+        assert!(!m.history_cache.is_empty());
+        m.apply(Event {
+            epoch: 2,
+            kind: EventKind::SignedOut,
+        });
+        assert!(m.history_cache.is_empty());
+    }
+
     fn connected() -> Model {
         Model {
             epoch: 2,
@@ -899,5 +1110,30 @@ mod tests {
         model.clear_history();
         assert!(model.tools.search_key.is_none());
         assert!(!model.tools_busy());
+    }
+}
+
+#[cfg(test)]
+mod unread_tests {
+    use super::*;
+    #[test]
+    fn opened_room_suppresses_stale_unread_but_new_activity_restores_it() {
+        let mut model = Model::default();
+        model
+            .activity
+            .viewed
+            .insert("!r:x".into(), Some("$old".into()));
+        for (latest, expected) in [(None, 0), (Some("$old"), 0), (Some("$new"), 1)] {
+            model.apply(Event {
+                epoch: 0,
+                kind: EventKind::Activity {
+                    room_id: "!r:x".into(),
+                    unread: 1,
+                    latest: latest.map(str::to_owned),
+                    typing: None,
+                },
+            });
+            assert_eq!(model.activity.unread["!r:x"], expected);
+        }
     }
 }

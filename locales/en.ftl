@@ -224,7 +224,7 @@ events-unavailable = Events without readable content
 security-title = Security & recovery
 security-close = Back to conversations
 security-devices = Devices & verification
-security-recovery = Recovery & identity
+security-recovery = Recovery & key backup
 security-keys = Encrypted room-key files
 security-verify = Verify selected device
 security-accept = Accept request
@@ -241,13 +241,16 @@ security-verification-compare = Compare the codes on both devices
 security-verification-confirmed = Confirmed locally; waiting for the other device
 security-verification-done = Verification completed
 security-verification-cancelled = Verification cancelled or timed out
-security-recovery-hint = Existing identity? Unlock with your recovery key. New account? Set up identity, then recovery. Existing keys are never reset here.
+security-recovery-hint = Room keys are backed up encrypted on your homeserver.
+    Unlock an existing backup with your recovery key, or set up a new one.
+    Keep your recovery key safe; uploads run automatically.
 security-bootstrap = Set up identity for a new account
 security-recovery-key = Recovery key or recovery passphrase
 security-recover = Unlock recovery
-security-enable = Create recovery key
+security-enable = Set up key backup & recovery
 security-key-saved = I saved this key securely — hide it
-security-keyfile-hint = Key exports are encrypted. Choose a strong passphrase (at least 12 characters) and a new destination file.
+security-keyfile-hint = Key files are encrypted with a passphrase of at least 12 characters.
+    Choose a new destination file when exporting.
 security-keyfile-password = Key-file passphrase
 security-export = Export room keys…
 security-import = Import room keys…
@@ -257,7 +260,7 @@ security-recovery-disabled = Recovery not set up
 security-recovery-incomplete = Recovery needs attention
 security-recovery-unknown = Checking recovery state
 security-identity = Identity keys
-security-backup = Backup unlocked
+security-backup = Key backup
 security-available = Available
 security-missing = Not available
 security-current = This device
@@ -451,8 +454,111 @@ settings-title = Settings
 settings-account = Account
 settings-notifications = Notifications & privacy
 settings-advanced = Advanced
-sidebar-toggle = Show or hide conversations
+sidebar-toggle = Collapse or expand conversations
 
 security-settings-description = Verify devices, restore encrypted history, and manage recovery keys.
 
 favorites = Favorites
+
+profile-back = ← Room details
+profile-role = Role
+profile-identity = Identity
+profile-verified = Verified
+profile-unverified = Unverified
+profile-admin = Admin
+profile-moderator = Moderator
+profile-member = Member
+profile-message = Send message
+profile-receipt = Jump to read receipt
+profile-share = Copy profile link
+profile-mention = Mention
+profile-copy = Copy Matrix ID
+profile-ignore = Ignore user
+profile-unignore = Stop ignoring
+link-open-failed = Could not open this link in your browser.
+
+message-layout = Message layout
+message-bubbles = Bubbles
+message-compact = Compact
+
+settings-account-hint = Your identity and saved accounts.
+settings-appearance-hint = Make Archaic feel like yours.
+settings-notifications-hint = Choose how Archaic gets your attention.
+settings-advanced-hint = Links and desktop tools.
+
+emoji-previous = Previous
+emoji-next = Next
+
+history-sync-title = Background history sync
+history-sync-waiting = Waiting for the initial sync…
+history-sync-temporary = Temporary session: background history storage is off.
+history-sync-rooms = Rooms fully synced
+history-sync-events = Events cached locally
+history-sync-encrypted = Encrypted events awaiting keys
+history-sync-retrying = Rooms retrying after an error
+
+composer-more = More message options
+composer-sticker = Sticker
+composer-voice = Voice message
+composer-poll = Poll
+poll-question = Question
+poll-answers = Answers — one per line (2–20)
+poll-invalid = Enter a question and 2–20 different answers.
+voice-hint = Record up to two minutes. Your microphone is used only after you press Record.
+voice-record = Record
+voice-stop = Stop recording
+voice-recording = Recording
+voice-ready = Ready to send
+voice-unavailable = The microphone is unavailable or this audio format is unsupported.
+voice-invalid = The recording is empty or invalid.
+
+account-main = Main account
+account-saved = Saved accounts on this device
+account-add = Another account
+account-open = Open account
+account-slot-placeholder = e.g. work
+account-slot-hint = Choose a local name for another account.
+    Your Matrix display name stays the same.
+
+security-backup-active = Encrypted key backup is enabled on this device.
+security-backup-locked = A key backup exists. Unlock it with your recovery key below.
+security-backup-none = No server key backup is set up yet.
+security-backup-unknown = Could not check the server key backup. Try Refresh.
+security-backup-unlock-first = A backup already exists. Unlock it with your recovery key first.
+
+message-read-by = Read by
+
+delivery-sending = Sending…
+delivery-delivered = Delivered to server
+delivery-failed = Could not send. Click to retry or cancel.
+
+# Shared CUI chat labels. Literal placeholders are expanded by CUI.
+chat-message = Message
+chat-send = Send
+chat-context = Reply or edit context
+chat-attachments = Attachments
+chat-cancel-context = Cancel reply or edit
+chat-attach = Attach file
+chat-emoji = Emoji
+chat-create-poll = Create poll
+chat-more = More message options
+chat-composer-help = Enter sends; Shift+Enter inserts a newline; Escape cancels
+chat-editing = Editing message · Esc to cancel
+chat-replying = Replying to { "{author}" } · { "{preview}" }
+chat-thread-one = { "{count}" } reply in thread →
+chat-thread-many = { "{count}" } replies in thread →
+chat-reply-one = { "{count}" } reply
+chat-reply-many = { "{count}" } replies
+chat-vote-one = { "{count}" } vote
+chat-vote-many = { "{count}" } votes
+chat-poll-closed = Poll closed
+chat-poll-select = Select an option
+chat-poll-tap = Tap an option to vote
+chat-poll-results = Vote to see results
+chat-send-failed = Failed to send
+chat-delivered = Delivered
+chat-sending = Sending
+chat-conversation-pane = Conversation pane { "{count}" }
+text-size = Text size
+keyboard-shortcuts = Keyboard shortcuts
+navigation-spaces = Spaces

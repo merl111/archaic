@@ -82,15 +82,19 @@ pub enum Panel {
     Account,
     Room,
     History,
+    Composer,
 }
 pub struct Shell {
     brand: Widget,
+    top_spacer: Widget,
     pub quick_reaction: Cell<bool>,
     pub base: Widget,
     pub body: Widget,
     pub layers: Widget,
     pub sheet_body: Widget,
     pub sidebar: Widget,
+    pub sidebar_header: Widget,
+    pub sidebar_surface: Widget,
     pub sidebar_toggle: Widget,
     pub left_split: Widget,
     pub right_split: Widget,
@@ -102,6 +106,9 @@ pub struct Shell {
     pub main: Widget,
     pub top: Widget,
     pub spaces: ChatComponent,
+    pub space_picker: Widget,
+    pub space_ids: RefCell<Vec<u64>>,
+    space_width: Cell<f64>,
     pub login_host: Widget,
     pub nav: ChatComponent,
     pub header: ChatComponent,
@@ -127,6 +134,11 @@ pub struct Shell {
     pub ids: RefCell<Ids>,
     styled: RefCell<Vec<(Widget, bool, f64, i32)>>,
     modal: Cell<bool>,
+    focus_return: RefCell<Option<Widget>>,
+    pub text_scale: Cell<f64>,
+    pub sidebar_controls: RefCell<Vec<Widget>>,
+    sidebar_wide: Cell<bool>,
+    sidebar_before_narrow: Cell<bool>,
     connected: Cell<bool>,
     compose_scope: RefCell<String>,
 }
@@ -143,19 +155,23 @@ impl Shell {
         let top = page.box_layout(sys::CUI_HORIZONTAL, 12)?;
         style(&top, &t, t.background, 0., 6)?;
         top.set_min_size(1, 44)?;
-        let sidebar_toggle =
-            top.symbol_button(sys::CUI_SYMBOL_PANEL, &tr.text("sidebar-toggle"))?;
-        style(&sidebar_toggle, &t, t.surface, 12., 8)?;
         let brand = top.icon(Some(&crate::daylight_art::brand(&t)?))?;
         brand.set_icon_size(22)?;
         let name = top.label("Archaic")?;
         name.set_font("sans", 13.5, 800)?;
         let spaces = ChatComponent::create(&top, ChatKind::Spaces, &t)?;
-        spaces.root.expand(false)?;
+        crate::chat_labels::apply(&spaces, tr)?;
+        let space_picker = page.select(&[])?;
+        space_picker.accessibility(&tr.text("navigation-spaces"), "")?;
+        space_picker.set_visible(false)?;
+        spaces.root.expand(true)?;
+        name.set_min_size(90, 1)?;
         spaces.part(0)?.set_min_size(110, 42)?;
-        top.box_layout(sys::CUI_HORIZONTAL, 0)?.expand(true)?;
+        let top_spacer = top.box_layout(sys::CUI_HORIZONTAL, 0)?;
+        top_spacer.expand(true)?;
         let top_actions = top.box_layout(sys::CUI_HORIZONTAL, 8)?;
-        let account_button = top.symbol_button(sys::CUI_SYMBOL_MENU, &tr.text("settings-title"))?;
+        let account_button =
+            top.symbol_button(sys::CUI_SYMBOL_SETTINGS, &tr.text("settings-title"))?;
         account_button.set_icon_only(false)?;
         style(&account_button, &t, t.surface, 18., 8)?;
         let login_host = page.box_layout(sys::CUI_VERTICAL, 0)?;
@@ -175,7 +191,7 @@ impl Shell {
         content
             .box_layout(sys::CUI_HORIZONTAL, 0)?
             .set_min_size(1, 12)?;
-        let left_split = body.split(sys::CUI_HORIZONTAL, 0.23)?;
+        let left_split = body.split(sys::CUI_HORIZONTAL, 0.21)?;
         left_split.expand(true)?;
         let left_pane = left_split.split_pane(0)?;
         let sidebar = left_pane.box_layout(sys::CUI_VERTICAL, 0)?;
@@ -187,7 +203,12 @@ impl Shell {
         style(&sidebar, &t, t.surface, 20., 0)?;
         let sidebar_head = sidebar.box_layout(sys::CUI_VERTICAL, 10)?;
         sidebar_head.box_set_padding(16)?;
+        let sidebar_header = sidebar_head.box_layout(sys::CUI_HORIZONTAL, 8)?;
+        let sidebar_toggle =
+            sidebar_header.symbol_button(sys::CUI_SYMBOL_PANEL, &tr.text("sidebar-toggle"))?;
+        style(&sidebar_toggle, &t, t.surface, 12., 8)?;
         let nav = ChatComponent::create(&sidebar, ChatKind::Rooms, &t)?;
+        crate::chat_labels::apply(&nav, tr)?;
         let main = right_split
             .split_pane(0)?
             .box_layout(sys::CUI_VERTICAL, 0)?;
@@ -195,6 +216,7 @@ impl Shell {
         main.expand(true)?;
         style(&main, &t, t.surface, 20., 0)?;
         let header = ChatComponent::create(&main, ChatKind::Header, &t)?;
+        crate::chat_labels::apply(&header, tr)?;
         header.root.expand(false)?;
         header.part(0)?.set_min_size(1, 72)?;
         header.set_commands(&[
@@ -218,7 +240,9 @@ impl Shell {
         let composer_parent = main.box_layout(sys::CUI_VERTICAL, 0)?;
         composer_parent.expand(true)?;
         let composer = ChatComponent::create(&main, ChatKind::Composer, &t)?;
+        crate::chat_labels::apply(&composer, tr)?;
         let inspector = ChatComponent::create(&right_pane, ChatKind::Inspector, &t)?;
+        crate::chat_labels::apply(&inspector, tr)?;
         inspector.root.expand(true)?;
         inspector.root.set_min_size(220, 1)?;
         inspector.set_commands(&[ChatCommand {
@@ -277,23 +301,29 @@ impl Shell {
         ];
         Ok(Self {
             brand,
+            top_spacer,
             quick_reaction: Cell::new(false),
             base,
             body,
             layers,
             sheet_body,
             sidebar: sidebar_head,
+            sidebar_header,
+            sidebar_surface: sidebar,
             sidebar_toggle,
             left_split,
             right_split,
             left_pane,
             right_pane,
             sidebar_open: Cell::new(true),
-            left_fraction: Cell::new(0.23),
+            left_fraction: Cell::new(0.21),
             right_fraction: Cell::new(0.73),
             main: composer_parent,
             top: top_actions,
             spaces,
+            space_picker,
+            space_ids: Default::default(),
+            space_width: Cell::new(0.),
             login_host,
             nav,
             header,
@@ -314,11 +344,16 @@ impl Shell {
             scrim,
             content,
             panel: Cell::new(Panel::None),
-            inspector_open: Cell::new(true),
+            inspector_open: Cell::new(false),
             theme: RefCell::new(t),
             ids: Default::default(),
             styled: RefCell::new(styled),
             modal: Cell::new(false),
+            focus_return: Default::default(),
+            text_scale: Cell::new(1.),
+            sidebar_controls: Default::default(),
+            sidebar_wide: Cell::new(true),
+            sidebar_before_narrow: Cell::new(true),
             connected: Cell::new(false),
             compose_scope: Default::default(),
         })
@@ -350,6 +385,8 @@ impl Shell {
             t.selected = 0x293f4bff;
             t.accent = 0x99dbecff;
             t.on_accent = 0x112631ff;
+            t.hover = 0x314754ff;
+            t.rail = t.background;
         }
         self.brand
             .set_icon(Some(&crate::daylight_art::brand(&t)?))?;
@@ -361,6 +398,23 @@ impl Shell {
                 *r,
                 *p,
             )?;
+        }
+        style(
+            &self.scrim,
+            &t,
+            if dark { 0x000000a6 } else { 0x15253070 },
+            0.,
+            0,
+        )?;
+        for sheet in [&self.sheet, &self.message_sheet] {
+            sheet.set_style(Some(&sys::cui_widget_style {
+                background: t.surface,
+                foreground: t.foreground,
+                border: if dark { 0x526a78ff } else { 0xb6c8d5ff },
+                border_width: 1.,
+                radius: 24.,
+                padding: 24,
+            }))?;
         }
         for c in [
             &self.spaces,
@@ -429,11 +483,8 @@ impl Shell {
                 } else {
                     "rooms"
                 }),
-                detail: if r.membership == archaic_matrix::Membership::Invited {
-                    tr.text("invitation")
-                } else {
-                    String::new()
-                },
+                detail: room_preview(r, m, tr),
+                trailing: crate::timeline_view::room_time(r.info.recent),
                 unread: m
                     .activity
                     .unread
@@ -464,23 +515,36 @@ impl Shell {
                 .map(|r| NavItem {
                     id: ids.id(&format!("{}:{}", m.epoch, r.id)),
                     title: text(&r.name, 80),
-                    avatar: avatar(&r.name),
+                    avatar: Avatar {
+                        image: m.avatars.get(&format!("room:{}", r.id)).cloned(),
+                        ..avatar(&r.name)
+                    },
                     ..Default::default()
                 }),
         );
-        self.spaces.part(0)?.set_min_size(
-            (110 + (spaces.len().saturating_sub(1) * 160)).min(640) as i32,
-            42,
-        )?;
+        let width = spaces.iter().try_fold(4.0, |width, item| -> Result<f64> {
+            Ok(width + cui::measure_text(&item.title, "sans", 13., 600)?.0 + 56.)
+        })?;
+        self.space_width.set(width.ceil());
+        self.space_picker
+            .set_items(&spaces.iter().map(|s| s.title.as_str()).collect::<Vec<_>>())?;
+        *self.space_ids.borrow_mut() = spaces.iter().map(|s| s.id).collect();
         self.spaces.rooms(&spaces)?;
-        self.spaces.select(if m.direct_only {
+        let active_space = if m.direct_only {
             u64::MAX - 1
         } else {
             m.active_space
                 .as_ref()
                 .map(|id| ids.id(&format!("{}:{id}", m.epoch)))
                 .unwrap_or(u64::MAX)
-        })?;
+        };
+        self.spaces.select(active_space)?;
+        self.space_picker.set_selected(
+            spaces
+                .iter()
+                .position(|s| s.id == active_space)
+                .map_or(0, |i| i as i32),
+        )?;
         self.nav.rooms(&items)?;
         let selected = m
             .selected
@@ -596,9 +660,27 @@ impl Shell {
                 },
             ]);
         }
+        if let Some(profile) = &m.profile
+            && m.selected.as_ref() == Some(&profile.room)
+        {
+            about = crate::profile::items(profile, m, tr);
+            self.inspector.set_commands(&[ChatCommand {
+                id: 100,
+                label: tr.text("profile-back"),
+                action: sys::CUI_CHAT_MORE,
+                ..Default::default()
+            }])?;
+        } else {
+            self.inspector.set_commands(&[ChatCommand {
+                id: 1,
+                label: tr.text("daylight-about"),
+                action: sys::CUI_CHAT_MORE,
+                ..Default::default()
+            }])?;
+        }
         self.inspector.rooms(&about)?;
         set_text(&self.account_button, &tr.text("settings-title"))?;
-        self.account_button.set_tooltip(&m.user)?;
+        self.account_button.set_tooltip(m.account_name())?;
         self.room_button.set_enabled(room.is_some())?;
         self.history_button.set_enabled(room.is_some())?;
         self.content.set_visible(matches!(
@@ -608,6 +690,9 @@ impl Shell {
         Ok(())
     }
     pub fn modal(&self, show: bool, title: &str, compact: bool) -> Result<()> {
+        if show && !self.modal.get() {
+            *self.focus_return.borrow_mut() = self.base.focused_descendant()?;
+        }
         self.base.set_enabled(!show)?;
         self.scrim.set_visible(show)?;
         self.sheet.set_visible(show && !compact)?;
@@ -623,20 +708,82 @@ impl Shell {
             }
         }
         if !show && before {
-            self.composer.part(0)?.focus()?;
+            let restored = self
+                .focus_return
+                .borrow_mut()
+                .take()
+                .map(|w| w.focus())
+                .transpose()?
+                .unwrap_or(false);
+            if !restored && self.connected.get() {
+                self.composer.part(0)?.focus()?;
+            }
         }
         Ok(())
     }
     pub fn is_modal(&self) -> bool {
         self.modal.get()
     }
+    pub fn sidebar_expanded(&self) -> bool {
+        self.sidebar_open.get()
+    }
     pub fn refresh(&self, scale: f64) -> Result<()> {
         let width = self.base.allocated_size()?.map(|s| s.0).unwrap_or(1440);
+        let zoom = self.text_scale.get();
+        let wide = width as f64 >= 1100. * zoom;
+        let was_wide = self.sidebar_wide.replace(wide);
+        if was_wide && !wide {
+            self.sidebar_before_narrow.set(self.sidebar_open.get());
+            self.left_fraction
+                .set(self.left_split.split_get_position()?);
+            self.sidebar_open.set(false);
+        }
+        if !was_wide && wide {
+            self.sidebar_open.set(self.sidebar_before_narrow.get());
+        }
+        let expanded = self.sidebar_expanded();
+        for control in self.sidebar_controls.borrow().iter() {
+            control.set_visible(expanded)?;
+        }
+        self.spaces
+            .part(0)?
+            .set_min_size(110, (42. * zoom) as i32)?;
+        self.header.part(0)?.set_min_size(1, (72. * zoom) as i32)?;
+        self.account_button.set_icon_only(!wide)?;
         self.right_pane
-            .set_visible(self.inspector_open.get() && width >= 1000)?;
-        self.left_pane.set_visible(self.sidebar_open.get())?;
+            .set_visible(self.inspector_open.get() && width as f64 >= 1400. * zoom)?;
+        self.left_pane.set_visible(true)?;
+        self.sidebar_surface.set_min_size(
+            if expanded {
+                (240. * zoom) as i32
+            } else {
+                (80. * zoom) as i32
+            },
+            1,
+        )?;
+        self.sidebar
+            .box_set_padding(if expanded { 16 } else { 8 })?;
+        if !expanded {
+            let split_width = self
+                .left_split
+                .allocated_size()?
+                .map(|s| s.0)
+                .unwrap_or(width);
+            self.left_split
+                .split_set_position(80. * zoom / split_width.max(1) as f64)?;
+        } else if !was_wide {
+            self.left_split
+                .split_set_position(self.left_fraction.get())?;
+        }
         self.sidebar_toggle.set_visible(self.connected.get())?;
-        self.spaces.root.set_visible(self.connected.get())?;
+        let compact_spaces = !wide || (self.space_width.get() + 360.) * zoom > width as f64;
+        self.top_spacer
+            .expand(!self.connected.get() || compact_spaces)?;
+        self.spaces
+            .root
+            .set_visible(self.connected.get() && !compact_spaces)?;
+        self.space_picker
+            .set_visible(self.connected.get() && compact_spaces)?;
         self.room_button
             .set_visible(width < 1200 && self.connected.get())?;
         self.history_button
@@ -672,4 +819,51 @@ mod tests {
         assert!(ids.key(old).is_none());
         assert_eq!(ids.id("2:!a:x"), new);
     }
+}
+
+fn room_preview(r: &archaic_matrix::RoomSummary, m: &Model, tr: &Translator) -> String {
+    if r.membership == archaic_matrix::Membership::Invited {
+        return tr.text("invitation");
+    }
+    let loaded = if m.selected.as_ref() == Some(&r.id) {
+        Some(&m.messages)
+    } else {
+        m.history_cache
+            .iter()
+            .find(|h| h.room == r.id)
+            .map(|h| &h.messages)
+    };
+    if let Some(last) = loaded
+        .into_iter()
+        .flatten()
+        .filter(|v| !v.deleted && v.thread_root.is_none())
+        .max_by_key(|v| v.timestamp)
+        .filter(|v| v.timestamp >= r.info.recent)
+    {
+        return text(
+            &last
+                .body
+                .as_deref()
+                .unwrap_or("")
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" "),
+            256,
+        );
+    }
+    if let Some(p) = r
+        .info
+        .preview
+        .as_ref()
+        .filter(|p| !m.blocked.contains(&p.sender))
+    {
+        if p.encrypted {
+            return tr.text("encrypted-message");
+        }
+        return text(
+            &p.body.split_whitespace().collect::<Vec<_>>().join(" "),
+            256,
+        );
+    }
+    text(&r.info.topic, 256)
 }

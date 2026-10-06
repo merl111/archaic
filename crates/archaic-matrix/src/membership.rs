@@ -27,6 +27,7 @@ pub(crate) async fn summary(room: &Room) -> RoomSummary {
     let encryption = room.encryption_state();
     RoomSummary {
         info: crate::RoomInfo {
+            preview: None,
             children: if room.is_space() {
                 room.get_state_events(matrix_sdk::ruma::events::StateEventType::SpaceChild)
                     .await

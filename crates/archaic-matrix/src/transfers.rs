@@ -89,6 +89,21 @@ async fn perform(
                     .await
                     .map_err(|_| "file-read-failed")??;
             let mime = crate::attachments::detect_mime(&bytes);
+            let preview = if mime.type_() == mime::IMAGE {
+                let preview_bytes = bytes.clone();
+                tokio::task::spawn_blocking(move || {
+                    decode_preview(
+                        image::ImageReader::new(std::io::Cursor::new(preview_bytes)),
+                        512,
+                        384,
+                    )
+                })
+                .await
+                .ok()
+                .and_then(Result::ok)
+            } else {
+                None
+            };
             room.send_queue()
                 .send_attachment(
                     name,
@@ -98,6 +113,18 @@ async fn perform(
                 )
                 .await
                 .map_err(|_| "outbox-failed")?;
+            if let Some(data) = preview {
+                crate::worker::emit(
+                    events,
+                    epoch,
+                    EventKind::ImagePreview {
+                        room_id: request.room_id.clone(),
+                        event_id: format!("~{}", request.id),
+                        result: Ok(data),
+                    },
+                )
+                .await;
+            }
             Ok(ToolData::QueuedUpload)
         }
         ToolAction::Download { event_id, path } => {
@@ -115,46 +142,23 @@ async fn perform(
             Ok(ToolData::Downloaded)
         }
         ToolAction::Preview { event_id } => {
-            let dir = tempfile::tempdir().map_err(|_| "file-save-failed")?;
-            let path = dir.path().join("verified-image");
-            crate::attachments::download_progress(
+            let image = preview_image(
                 &room,
                 event_id,
-                &path,
                 Some(Progress {
                     epoch,
                     request: request.clone(),
                     events: events.clone(),
                 }),
+                1024,
+                768,
             )
             .await?;
-            tokio::task::spawn_blocking(move || {
-                let _keep = dir;
-                let mut reader = image::ImageReader::open(path)
-                    .map_err(|_| "preview-invalid")?
-                    .with_guessed_format()
-                    .map_err(|_| "preview-invalid")?;
-                let mut limits = image::Limits::default();
-                limits.max_image_width = Some(8192);
-                limits.max_image_height = Some(8192);
-                limits.max_alloc = Some(64 * 1024 * 1024);
-                reader.limits(limits);
-                let image = reader.decode().map_err(|_| "preview-invalid")?;
-                let image = if image.width() > 1024 || image.height() > 768 {
-                    image.thumbnail(1024, 768)
-                } else {
-                    image
-                }
-                .into_rgba8();
-                let (width, height) = image.dimensions();
-                Ok(ToolData::Preview {
-                    pixels: image.into_raw(),
-                    width,
-                    height,
-                })
+            Ok(ToolData::Preview {
+                pixels: image.pixels,
+                width: image.width,
+                height: image.height,
             })
-            .await
-            .map_err(|_| "preview-invalid")?
         }
         _ => Err("attachment-unavailable"),
     }
@@ -306,4 +310,88 @@ pub(crate) async fn download_source(
         p.report(received, received);
     }
     Ok(())
+}
+
+/// Shared by automatic thumbnails and the explicit larger viewer. Downloads
+/// remain size-bounded, authenticated and verified before pixels are exposed.
+pub(crate) async fn preview_image(
+    room: &matrix_sdk::Room,
+    event: &str,
+    progress: Option<Progress>,
+    max_width: u32,
+    max_height: u32,
+) -> Result<crate::ImagePreview, &'static str> {
+    let dir = tempfile::tempdir().map_err(|_| "file-save-failed")?;
+    let path = dir.path().join("verified-image");
+    crate::attachments::download_progress(room, event, &path, progress).await?;
+    tokio::task::spawn_blocking(move || {
+        let _keep = dir;
+        decode_preview(
+            image::ImageReader::open(path).map_err(|_| "preview-invalid")?,
+            max_width,
+            max_height,
+        )
+    })
+    .await
+    .map_err(|_| "preview-invalid")?
+}
+fn decode_preview<R: std::io::BufRead + Seek>(
+    reader: image::ImageReader<R>,
+    max_width: u32,
+    max_height: u32,
+) -> Result<crate::ImagePreview, &'static str> {
+    let mut reader = reader
+        .with_guessed_format()
+        .map_err(|_| "preview-invalid")?;
+    let mut limits = image::Limits::default();
+    limits.max_image_width = Some(8192);
+    limits.max_image_height = Some(8192);
+    limits.max_alloc = Some(64 * 1024 * 1024);
+    reader.limits(limits);
+    let image = reader.decode().map_err(|_| "preview-invalid")?;
+    let image = if image.width() > max_width || image.height() > max_height {
+        image.thumbnail(max_width, max_height)
+    } else {
+        image
+    }
+    .into_rgba8();
+    let (width, height) = image.dimensions();
+    Ok(crate::ImagePreview {
+        pixels: image.into_raw(),
+        width,
+        height,
+    })
+}
+
+#[cfg(test)]
+mod preview_tests {
+    use super::*;
+    #[test]
+    fn decode_fits_large_images_without_upscaling_and_rejects_invalid_data() {
+        for (w, h, expected) in [
+            (2, 3, (2, 3)),
+            (1600, 900, (512, 288)),
+            (900, 1600, (216, 384)),
+        ] {
+            let mut png = std::io::Cursor::new(Vec::new());
+            image::RgbaImage::from_pixel(w, h, image::Rgba([15, 100, 200, 255]))
+                .write_to(&mut png, image::ImageFormat::Png)
+                .unwrap();
+            png.set_position(0);
+            let preview = decode_preview(image::ImageReader::new(png), 512, 384).unwrap();
+            assert_eq!((preview.width, preview.height), expected);
+            assert_eq!(
+                preview.pixels.len(),
+                (preview.width * preview.height * 4) as usize
+            );
+        }
+        assert!(
+            decode_preview(
+                image::ImageReader::new(std::io::Cursor::new(b"not an image")),
+                512,
+                384
+            )
+            .is_err()
+        );
+    }
 }

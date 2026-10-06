@@ -8,6 +8,7 @@ use wiremock::{
     Mock, MockServer, ResponseTemplate,
     matchers::{method, path_regex, query_param},
 };
+mod composer;
 mod media;
 mod relations;
 mod search;

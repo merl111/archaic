@@ -91,6 +91,8 @@ pub(crate) fn detect_mime(bytes: &[u8]) -> mime::Mime {
         mime::IMAGE_JPEG
     } else if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") {
         mime::IMAGE_GIF
+    } else if bytes.len() >= 12 && bytes.starts_with(b"RIFF") && &bytes[8..12] == b"WEBP" {
+        "image/webp".parse().expect("static MIME type")
     } else {
         mime::APPLICATION_OCTET_STREAM
     }

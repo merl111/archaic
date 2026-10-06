@@ -1,4 +1,4 @@
-//! Non-secret desktop preferences, scoped to a named account profile.
+//! Global appearance and account-scoped notification preferences (no secrets).
 use std::{
     collections::BTreeMap,
     io::{Read, Write},
@@ -6,6 +6,10 @@ use std::{
 };
 #[derive(serde::Serialize, serde::Deserialize, Default)]
 struct Profiles {
+    #[serde(default)]
+    compact_messages: bool,
+    #[serde(default)]
+    text_size: u8,
     notifications: BTreeMap<String, bool>,
 }
 fn read(path: &Path) -> std::io::Result<Profiles> {
@@ -35,6 +39,28 @@ pub fn save_notifications(path: &Path, profile: &str, enabled: bool) -> std::io:
         return Err(std::io::ErrorKind::InvalidData.into());
     }
     settings.notifications.insert(profile.into(), enabled);
+    write(path, &settings)
+}
+pub fn compact_messages(path: &Path) -> bool {
+    read(path).map(|p| p.compact_messages).unwrap_or(false)
+}
+pub fn save_compact_messages(path: &Path, compact: bool) -> std::io::Result<()> {
+    let mut settings = read(path)?;
+    settings.compact_messages = compact;
+    write(path, &settings)
+}
+pub fn text_size(path: &Path) -> u8 {
+    read(path).map(|p| p.text_size.min(4)).unwrap_or(0)
+}
+pub fn save_text_size(path: &Path, size: u8) -> std::io::Result<()> {
+    if size > 4 {
+        return Err(std::io::ErrorKind::InvalidInput.into());
+    }
+    let mut settings = read(path)?;
+    settings.text_size = size;
+    write(path, &settings)
+}
+fn write(path: &Path, settings: &Profiles) -> std::io::Result<()> {
     let parent = path.parent().ok_or(std::io::ErrorKind::InvalidInput)?;
     std::fs::create_dir_all(parent)?;
     let mut file = tempfile::NamedTempFile::new_in(parent)?;
@@ -46,6 +72,37 @@ pub fn save_notifications(path: &Path, profile: &str, enabled: bool) -> std::io:
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn text_size_persists_and_validates_without_erasing_other_preferences() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("desktop.json");
+        assert_eq!(text_size(&path), 0);
+        save_notifications(&path, "work", true).unwrap();
+        save_compact_messages(&path, true).unwrap();
+        save_text_size(&path, 4).unwrap();
+        assert_eq!(text_size(&path), 4);
+        assert!(notifications(&path, "work"));
+        assert!(compact_messages(&path));
+        assert!(save_text_size(&path, 5).is_err());
+        assert_eq!(text_size(&path), 4);
+        std::fs::write(&path, br#"{"notifications":{}}"#).unwrap();
+        assert_eq!(text_size(&path), 0); // Existing settings migrate without a rewrite.
+        std::fs::write(&path, b"corrupt").unwrap();
+        assert!(save_text_size(&path, 1).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), b"corrupt");
+    }
+    #[test]
+    fn message_layout_persists_without_changing_account_notifications() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("desktop.json");
+        save_notifications(&path, "work", true).unwrap();
+        assert!(!compact_messages(&path));
+        save_compact_messages(&path, true).unwrap();
+        assert!(compact_messages(&path));
+        assert!(notifications(&path, "work"));
+        save_notifications(&path, "home", false).unwrap();
+        assert!(compact_messages(&path));
+    }
     #[test]
     fn notification_settings_are_account_scoped_and_corruption_is_not_overwritten() {
         let root = tempfile::tempdir().unwrap();

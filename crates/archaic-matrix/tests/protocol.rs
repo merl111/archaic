@@ -541,3 +541,117 @@ async fn joining_validates_retries_and_opens_the_resolved_room() {
     );
     worker.abort();
 }
+
+#[tokio::test]
+async fn cached_rooms_and_recent_history_restore_before_network_sync() {
+    use archaic_matrix::storage::Profile;
+    let server = server().await;
+    let directory = tempfile::tempdir().unwrap();
+    let vault = MemoryVault::default();
+    let profile = Profile::open(directory.path().into(), &vault).unwrap();
+    let (sender, commands, events, mut receiver) = channels();
+    let worker = tokio::spawn(archaic_matrix::run_with_profile(commands, events, profile));
+    next(&mut receiver, |e| matches!(e, EventKind::SignedOut)).await;
+    sender
+        .send(Command::Login {
+            epoch: 1,
+            server: server.uri(),
+            username: "alice".into(),
+            password: "test-password".into(),
+        })
+        .await
+        .unwrap();
+    next(
+        &mut receiver,
+        |e| matches!(e,EventKind::Rooms(r) if !r.is_empty()),
+    )
+    .await;
+    sender
+        .send(Command::Select("!studio:local".into()))
+        .await
+        .unwrap();
+    let history = next(
+        &mut receiver,
+        |e| matches!(e,EventKind::History {messages,..} if !messages.is_empty()),
+    )
+    .await;
+    let EventKind::History {
+        messages: before, ..
+    } = history.kind
+    else {
+        unreachable!()
+    };
+    drop(sender);
+    worker.await.unwrap();
+    // A stalled network must not gate restoration or a cached viewport.
+    server.reset().await;
+    Mock::given(method("GET"))
+        .respond_with(ResponseTemplate::new(503).set_delay(Duration::from_secs(30)))
+        .mount(&server)
+        .await;
+    let profile = Profile::open(directory.path().into(), &vault).unwrap();
+    let (sender, commands, events, mut receiver) = channels();
+    let worker = tokio::spawn(archaic_matrix::run_with_profile(commands, events, profile));
+    tokio::time::timeout(Duration::from_secs(10), async {
+        next(&mut receiver, |e| matches!(e, EventKind::Connected(_))).await;
+        next(
+            &mut receiver,
+            |e| matches!(e,EventKind::Rooms(r) if !r.is_empty()),
+        )
+        .await;
+        sender
+            .send(Command::Select("!studio:local".into()))
+            .await
+            .unwrap();
+        let event = next(&mut receiver, |e| matches!(e, EventKind::History { .. })).await;
+        let EventKind::History { messages, .. } = event.kind else {
+            unreachable!()
+        };
+        assert_eq!(messages, before);
+    })
+    .await
+    .expect("cached UI must not wait for the stalled network request");
+    drop(sender);
+    worker.await.unwrap();
+}
+
+#[tokio::test]
+async fn account_and_room_display_names_arrive_without_avatar_downloads() {
+    let server = server().await;
+    Mock::given(method("GET"))
+        .and(path_regex(
+            r"/_matrix/client/(v3|r0)/profile/.*/displayname$",
+        ))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!({"displayname":"Alice Example"})),
+        )
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path_regex(r"/_matrix/client/(v3|r0)/rooms/.*/members$"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"chunk":[
+            {"type":"m.room.member","state_key":"@alice:local","sender":"@alice:local","event_id":"$member","origin_server_ts":2,"content":{"membership":"join","displayname":"Alice"}}
+        ]}))).mount(&server).await;
+    let (sender, commands, events, mut receiver) = channels();
+    let worker = tokio::spawn(archaic_matrix::run(commands, events));
+    sender
+        .send(Command::Login {
+            epoch: 1,
+            server: server.uri(),
+            username: "alice".into(),
+            password: "test".into(),
+        })
+        .await
+        .unwrap();
+    next(&mut receiver, |e| matches!(e, EventKind::DisplayName { key, name } if key == "account" && name == "Alice Example")).await;
+    sender
+        .send(Command::Select("!studio:local".into()))
+        .await
+        .unwrap();
+    next(&mut receiver, |e| matches!(e, EventKind::DisplayName { key, name } if key == "user:!studio:local:@alice:local" && name == "Alice")).await;
+    drop(sender);
+    tokio::time::timeout(Duration::from_secs(2), worker)
+        .await
+        .unwrap()
+        .unwrap();
+}

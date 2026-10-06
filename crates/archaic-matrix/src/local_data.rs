@@ -6,8 +6,8 @@ pub(crate) struct LocalData {
     storage: Option<(Arc<Profile>, String)>,
     pub drafts: HashMap<String, String>,
     pub recent: HashMap<String, u64>,
-    pub index_dirty: bool,
-    pub index: crate::search_index::Index,
+    pub previews: HashMap<String, crate::RoomPreview>,
+    pub index: crate::archive::Archive,
 }
 impl LocalData {
     pub fn open(tokens: Option<&TokenStore>) -> Result<Self, &'static str> {
@@ -16,18 +16,19 @@ impl LocalData {
             Some((profile, id)) => profile.read_data(id, "drafts")?,
             None => HashMap::new(),
         };
-        let index = match &storage {
-            Some((p, id)) => p.read_data(id, "search-index")?,
-            None => Default::default(),
-        };
+        let index = crate::archive::Archive::open(storage.as_ref())?;
         let recent = match &storage {
             Some((p, id)) => p.read_data(id, "room-recency")?,
             None => HashMap::new(),
         };
+        let previews = match &storage {
+            Some((p, id)) => p.read_data(id, "room-previews")?,
+            None => HashMap::new(),
+        };
         Ok(Self {
+            previews,
             recent,
             storage,
-            index_dirty: false,
             drafts,
             index,
         })
@@ -45,6 +46,35 @@ impl LocalData {
                     .ok()
                     .flatten()
                     .unwrap_or_default();
+                let value: serde_json::Value =
+                    serde_json::from_str(raw.json().get()).unwrap_or_default();
+                let content = &value["content"];
+                let preview = self.previews.get_mut(id.as_str());
+                let redacts = value["redacts"].as_str().or(content["redacts"].as_str());
+                if kind == "m.room.redaction"
+                    && preview
+                        .as_ref()
+                        .is_some_and(|p| redacts == Some(p.event.as_str()))
+                {
+                    self.previews.remove(id.as_str());
+                    changed = true;
+                    continue;
+                }
+                if content["m.relates_to"]["rel_type"] == "m.replace" {
+                    if let Some(p) = preview
+                        && content["m.relates_to"]["event_id"].as_str() == Some(p.event.as_str())
+                        && value["sender"].as_str() == Some(p.sender.as_str())
+                    {
+                        p.body = content["m.new_content"]["body"]
+                            .as_str()
+                            .unwrap_or("")
+                            .chars()
+                            .take(180)
+                            .collect();
+                        changed = true;
+                    }
+                    continue;
+                }
                 if !matches!(
                     kind.as_str(),
                     "m.room.message"
@@ -56,7 +86,22 @@ impl LocalData {
                 }
                 if let Some(ts) = raw.get_field::<u64>("origin_server_ts").ok().flatten() {
                     let recent = self.recent.entry(id.to_string()).or_default();
-                    if ts > *recent {
+                    if ts >= *recent {
+                        let body = content["body"]
+                            .as_str()
+                            .unwrap_or("")
+                            .chars()
+                            .take(180)
+                            .collect();
+                        self.previews.insert(
+                            id.to_string(),
+                            crate::RoomPreview {
+                                event: value["event_id"].as_str().unwrap_or("").into(),
+                                sender: value["sender"].as_str().unwrap_or("").into(),
+                                body,
+                                encrypted: kind == "m.room.encrypted",
+                            },
+                        );
                         *recent = ts;
                         changed = true;
                     }
@@ -65,14 +110,8 @@ impl LocalData {
         }
         if changed && let Some((p, id)) = &self.storage {
             p.write_data(id, "room-recency", &self.recent)?;
+            p.write_data(id, "room-previews", &self.previews)?;
         }
-        Ok(())
-    }
-    pub fn save_index(&mut self) -> Result<(), &'static str> {
-        if let Some((p, id)) = &self.storage {
-            p.write_data(id, "search-index", &self.index)?;
-        }
-        self.index_dirty = false;
         Ok(())
     }
     pub fn save_draft(&mut self, room: String, body: String) -> Result<(), &'static str> {

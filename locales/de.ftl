@@ -225,7 +225,7 @@ events-unavailable = Ereignisse ohne lesbaren Inhalt
 security-title = Sicherheit & Wiederherstellung
 security-close = Zurück zu Unterhaltungen
 security-devices = Geräte & Verifizierung
-security-recovery = Wiederherstellung & Identität
+security-recovery = Wiederherstellung & Schlüsselsicherung
 security-keys = Verschlüsselte Raumschlüsseldateien
 security-verify = Ausgewähltes Gerät verifizieren
 security-accept = Anfrage annehmen
@@ -242,13 +242,16 @@ security-verification-compare = Vergleiche die Codes auf beiden Geräten
 security-verification-confirmed = Lokal bestätigt; warte auf das andere Gerät
 security-verification-done = Verifizierung abgeschlossen
 security-verification-cancelled = Verifizierung abgebrochen oder Zeitlimit erreicht
-security-recovery-hint = Bestehende Identität? Mit dem Wiederherstellungsschlüssel entsperren. Neues Konto? Identität und danach Wiederherstellung einrichten. Bestehende Schlüssel werden hier nie zurückgesetzt.
+security-recovery-hint = Raumschlüssel werden verschlüsselt auf dem Homeserver gesichert.
+    Bestehende Sicherung mit dem Schlüssel entsperren oder eine neue einrichten.
+    Wiederherstellungsschlüssel sicher aufbewahren; Uploads laufen automatisch.
 security-bootstrap = Identität für ein neues Konto einrichten
 security-recovery-key = Wiederherstellungsschlüssel oder Wiederherstellungspassphrase
 security-recover = Wiederherstellung entsperren
-security-enable = Wiederherstellungsschlüssel erstellen
+security-enable = Schlüsselsicherung einrichten
 security-key-saved = Ich habe diesen Schlüssel sicher gespeichert — ausblenden
-security-keyfile-hint = Schlüsselexporte sind verschlüsselt. Wähle eine starke Passphrase (mindestens 12 Zeichen) und eine neue Zieldatei.
+security-keyfile-hint = Schlüsseldateien mit einer Passphrase (mind. 12 Zeichen) verschlüsseln.
+    Beim Export eine neue Zieldatei wählen.
 security-keyfile-password = Passphrase der Schlüsseldatei
 security-export = Raumschlüssel exportieren…
 security-import = Raumschlüssel importieren…
@@ -258,7 +261,7 @@ security-recovery-disabled = Wiederherstellung nicht eingerichtet
 security-recovery-incomplete = Wiederherstellung benötigt Aufmerksamkeit
 security-recovery-unknown = Wiederherstellungsstatus wird geprüft
 security-identity = Identitätsschlüssel
-security-backup = Sicherung entsperrt
+security-backup = Schlüsselsicherung
 security-available = Verfügbar
 security-missing = Nicht verfügbar
 security-current = Dieses Gerät
@@ -452,8 +455,111 @@ settings-title = Einstellungen
 settings-account = Konto
 settings-notifications = Benachrichtigungen & Datenschutz
 settings-advanced = Erweitert
-sidebar-toggle = Unterhaltungen ein- oder ausblenden
+sidebar-toggle = Unterhaltungen ein- oder ausklappen
 
 security-settings-description = Geräte verifizieren, verschlüsselte Nachrichten wiederherstellen und Wiederherstellungsschlüssel verwalten.
 
 favorites = Favoriten
+
+profile-back = ← Raumdetails
+profile-role = Rolle
+profile-identity = Identität
+profile-verified = Verifiziert
+profile-unverified = Unverifiziert
+profile-admin = Admin
+profile-moderator = Moderator
+profile-member = Mitglied
+profile-message = Nachricht senden
+profile-receipt = Zur Lesebestätigung springen
+profile-share = Profillink kopieren
+profile-mention = Erwähnen
+profile-copy = Matrix-ID kopieren
+profile-ignore = Person ignorieren
+profile-unignore = Ignorieren beenden
+link-open-failed = Der Link konnte nicht im Browser geöffnet werden.
+
+message-layout = Nachrichtenlayout
+message-bubbles = Sprechblasen
+message-compact = Kompakt
+
+settings-account-hint = Deine Identität und gespeicherten Konten.
+settings-appearance-hint = Passe Archaic an deine Wünsche an.
+settings-notifications-hint = Lege deine Benachrichtigungen fest.
+settings-advanced-hint = Links und Desktop-Werkzeuge.
+
+emoji-previous = Zurück
+emoji-next = Weiter
+
+history-sync-title = Verlauf im Hintergrund synchronisieren
+history-sync-waiting = Warte auf die erste Synchronisierung…
+history-sync-temporary = Temporäre Sitzung: Verlaufsspeicherung im Hintergrund ist deaktiviert.
+history-sync-rooms = Vollständig synchronisierte Räume
+history-sync-events = Lokal gespeicherte Ereignisse
+history-sync-encrypted = Verschlüsselte Ereignisse warten auf Schlüssel
+history-sync-retrying = Räume mit erneutem Versuch nach einem Fehler
+
+composer-more = Weitere Nachrichtenoptionen
+composer-sticker = Sticker
+composer-voice = Sprachnachricht
+composer-poll = Umfrage
+poll-question = Frage
+poll-answers = Antworten — eine pro Zeile (2–20)
+poll-invalid = Gib eine Frage und 2–20 unterschiedliche Antworten ein.
+voice-hint = Nimm bis zu zwei Minuten auf. Das Mikrofon wird erst nach Aufnahme starten verwendet.
+voice-record = Aufnahme starten
+voice-stop = Aufnahme beenden
+voice-recording = Aufnahme läuft
+voice-ready = Bereit zum Senden
+voice-unavailable = Das Mikrofon ist nicht verfügbar oder das Audioformat wird nicht unterstützt.
+voice-invalid = Die Aufnahme ist leer oder ungültig.
+
+account-main = Hauptkonto
+account-saved = Gespeicherte Konten auf diesem Gerät
+account-add = Weiteres Konto
+account-open = Konto öffnen
+account-slot-placeholder = z. B. arbeit
+account-slot-hint = Wähle einen lokalen Namen für ein weiteres Konto.
+    Dein Matrix-Anzeigename bleibt unverändert.
+
+security-backup-active = Verschlüsselte Schlüsselsicherung ist auf diesem Gerät aktiviert.
+security-backup-locked = Eine Sicherung existiert. Mit dem Wiederherstellungsschlüssel entsperren.
+security-backup-none = Noch keine Schlüsselsicherung auf dem Server eingerichtet.
+security-backup-unknown = Schlüsselsicherung konnte nicht geprüft werden. Bitte aktualisieren.
+security-backup-unlock-first = Eine Sicherung existiert bereits. Zuerst mit dem Wiederherstellungsschlüssel entsperren.
+
+message-read-by = Gelesen von
+
+delivery-sending = Wird gesendet…
+delivery-delivered = An den Server zugestellt
+delivery-failed = Senden fehlgeschlagen. Zum Wiederholen oder Abbrechen anklicken.
+
+# Shared CUI chat labels. Literal placeholders are expanded by CUI.
+chat-message = Nachricht
+chat-send = Senden
+chat-context = Antwort- oder Bearbeitungskontext
+chat-attachments = Anhänge
+chat-cancel-context = Antwort oder Bearbeitung abbrechen
+chat-attach = Datei anhängen
+chat-emoji = Emoji
+chat-create-poll = Umfrage erstellen
+chat-more = Weitere Nachrichtenoptionen
+chat-composer-help = Eingabe sendet; Umschalt+Eingabe fügt einen Zeilenumbruch ein; Escape bricht ab
+chat-editing = Nachricht bearbeiten · Esc zum Abbrechen
+chat-replying = Antwort an { "{author}" } · { "{preview}" }
+chat-thread-one = { "{count}" } Antwort im Thread →
+chat-thread-many = { "{count}" } Antworten im Thread →
+chat-reply-one = { "{count}" } Antwort
+chat-reply-many = { "{count}" } Antworten
+chat-vote-one = { "{count}" } Stimme
+chat-vote-many = { "{count}" } Stimmen
+chat-poll-closed = Umfrage geschlossen
+chat-poll-select = Option auswählen
+chat-poll-tap = Zum Abstimmen eine Option wählen
+chat-poll-results = Abstimmen, um Ergebnisse zu sehen
+chat-send-failed = Senden fehlgeschlagen
+chat-delivered = Zugestellt
+chat-sending = Wird gesendet
+chat-conversation-pane = Gesprächsbereich { "{count}" }
+text-size = Textgröße
+keyboard-shortcuts = Tastenkürzel
+navigation-spaces = Bereiche

@@ -1,12 +1,23 @@
 # Archaic
 
+<img src="assets/branding/archaic-logo.png" alt="Archaic: an architectural A with a C-shaped opening and cyan bands" width="192">
+
+Archaic foundations, modern conversations. The name is a nod to building a modern desktop app on a C GUI library.
+
 A native Matrix desktop client built with Rust and CUI, targeting Linux, Windows and macOS.
 
 **Early development build.** Archaic connects to real Matrix homeservers with password, classic browser SSO or delegated OAuth, restores saved devices, and supports security/recovery controls, persistent outgoing text, incremental history, message actions, attachments and search. It is not yet an Element replacement. Use a test account while acceptance work continues. Closing the window keeps a saved session; **Sign out** revokes it. See [security and messaging workflows](docs/SECURITY-MESSAGING.md) for the current behavior and remaining work in priorities 1–3.
 
 ## Build and run
 
-Keep the repositories next to each other:
+Clone both private repositories with a GitHub account that has access, keeping them next to each other:
+
+```sh
+git clone https://github.com/merl111/cui.git
+git clone https://github.com/merl111/archaic.git
+git -C cui checkout "$(cat archaic/cui-revision)"
+cd archaic
+```
 
 ```text
 workspace/
@@ -14,7 +25,7 @@ workspace/
   archaic/
 ```
 
-Requirements: Rust 1.96 or newer, Cargo, Python 3.10+, CMake, a native C compiler and Git. The first build downloads Rust dependencies, including the Matrix SDK and its TLS/cryptography implementation. Linux additionally needs GTK 4.6+ development files, Xext, D-Bus development files and pkg-config; runtime GTK and libdbus remain system dependencies. Saved sign-in also requires a running Secret Service provider (such as GNOME Keyring or a compatible KWallet configuration). SQLite is compiled into the app through the Matrix SDK. macOS uses the Xcode command-line tools/AppKit. Windows uses an MSVC developer terminal with the Windows SDK. Windows/macOS build and runtime verification are still pending.
+Requirements: Rust 1.96 or newer, Cargo, Python 3.10+, CMake, a native C compiler and Git. The first build downloads Rust dependencies, including the Matrix SDK and its TLS/cryptography implementation. Linux additionally needs GTK 4.6+ development files, Xext, D-Bus development files and pkg-config; runtime GTK and libdbus remain system dependencies. Saved sign-in also requires a running Secret Service provider (such as GNOME Keyring or a compatible KWallet configuration). SQLite is compiled into the app through the Matrix SDK. macOS uses the Xcode command-line tools/AppKit. Windows uses a Visual Studio 2022 MSVC developer terminal, the Windows SDK, NuGet, and the Windows App SDK 1.8 runtime. Windows/macOS build and runtime verification are still pending.
 
 From this directory:
 
@@ -26,7 +37,7 @@ python3 tools/dev.py build --release
 python3 tools/dev.py test
 ```
 
-On Windows, use `py -3 tools/dev.py run` from the developer terminal. The helper builds CUI's static library, configures `CUI_LIB_DIR`, and builds the public Rust binding from the same pinned source revision. Set `CUI_SOURCE_DIR` to use another checkout of that revision. A revision mismatch or tracked modifications stop the build; `--allow-dirty-cui` permits reviewed local library work without silently changing the pin. `Cargo.lock` is checked in. CUI has no remote yet, so source acquisition remains explicit rather than using an invented repository URL.
+On Windows, use `py -3 tools/dev.py run` from the developer terminal. The helper builds CUI statically on Linux/macOS and as a WinUI DLL on Windows, configures `CUI_LIB_DIR`, and builds the public Rust binding from the same pinned source revision. Windows builds stage `cui.dll` and `Microsoft.WindowsAppRuntime.Bootstrap.dll` beside the app and test executables; release archives include them. Install the Windows App SDK 1.8 runtime and the matching Microsoft VC++ runtime separately. Set `CUI_SOURCE_DIR` to use another checkout of that revision. A revision mismatch or tracked modifications stop the build; `--allow-dirty-cui` permits reviewed local library work without silently changing the pin. `Cargo.lock` is checked in. CUI source is available in the private [merl111/cui](https://github.com/merl111/cui) repository; check out the commit recorded in `cui-revision` before building.
 
 The development executable is `target/debug/archaic` (`archaic.exe` on Windows). Release builds use `target/release`. These are development binaries, not signed installers or macOS application bundles.
 

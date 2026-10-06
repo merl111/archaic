@@ -10,6 +10,8 @@ use crate::timeline::{Entry, aggregate, decode};
 
 #[derive(Default)]
 pub(crate) struct History {
+    cached_limit: usize,
+    cached_more: bool,
     room_id: String,
     entries: Vec<Entry>,
     cursor: Option<String>,
@@ -22,6 +24,75 @@ pub(crate) struct History {
 }
 
 impl History {
+    pub fn activate(&mut self, cache: &mut std::collections::VecDeque<Self>, room: &str) {
+        if self.room_id == room {
+            return;
+        }
+        let next = cache
+            .iter()
+            .position(|h| h.room_id == room)
+            .and_then(|i| cache.remove(i))
+            .unwrap_or_default();
+        let previous = std::mem::replace(self, next);
+        if previous.initialized {
+            cache.retain(|h| h.room_id != previous.room_id);
+            cache.push_back(previous);
+        }
+        while cache.len() > 32 {
+            cache.pop_front();
+        }
+    }
+    pub fn belongs_to(&self, rooms: &std::collections::HashSet<&str>) -> bool {
+        rooms.contains(self.room_id.as_str())
+    }
+
+    pub fn is_cached(&self) -> bool {
+        self.cached_limit > 0
+    }
+    fn cached(
+        &mut self,
+        room: &Room,
+        kind: HistoryLoad,
+        archive: &crate::archive::Archive,
+    ) -> Result<Option<(Vec<Message>, HistoryInfo)>, &'static str> {
+        if !archive.persistent()
+            || (self.cached_limit == 0 && self.forward.is_some() && kind != HistoryLoad::Latest)
+        {
+            return Ok(None);
+        }
+        if kind == HistoryLoad::Latest {
+            self.cached_limit = 0;
+        }
+        if kind == HistoryLoad::Newer || (kind == HistoryLoad::Older && self.cached_limit == 0) {
+            return Ok(None);
+        }
+        let limit = if kind == HistoryLoad::Older {
+            (self.cached_limit + PAGE_SIZE).min(WINDOW_LIMIT)
+        } else {
+            self.cached_limit.max(PAGE_SIZE)
+        };
+        let redacts = room
+            .clone_info()
+            .room_version_rules_or_default()
+            .redaction
+            .keep_room_redaction_redacts;
+        let page = archive.recent(room.room_id().as_str(), limit, redacts)?;
+        if page.values.is_empty() {
+            return Ok(None);
+        }
+        self.entries = deduplicate(
+            page.values
+                .into_iter()
+                .map(|v| decode(v, redacts))
+                .collect(),
+        );
+        self.cached_limit = limit;
+        self.cached_more = page.more;
+        self.initialized = true;
+        self.forward = None;
+        Ok(Some(self.snapshot()))
+    }
+
     pub async fn context(
         &mut self,
         room: &Room,
@@ -74,7 +145,8 @@ impl History {
         room: &Room,
         timeline: &matrix_sdk::sync::Timeline,
     ) -> Option<(Vec<Message>, HistoryInfo)> {
-        if self.forward.is_some()
+        if self.cached_limit > 0
+            || self.forward.is_some()
             || !self.initialized
             || self.room_id != room.room_id().as_str()
             || (timeline.events.is_empty() && !timeline.limited)
@@ -115,12 +187,50 @@ impl History {
         &mut self,
         room: &Room,
         kind: HistoryLoad,
+        archive: &crate::archive::Archive,
     ) -> Result<(Vec<Message>, HistoryInfo), &'static str> {
         if self.room_id != room.room_id().as_str() {
             *self = Self {
                 room_id: room.room_id().to_string(),
                 ..Self::default()
             };
+        }
+        if kind == HistoryLoad::Older && self.cached_limit > 0 {
+            // The user has reached beyond the local window: fetch one page now
+            // instead of waiting for background round-robin to reach this room.
+            let before = archive.recent(
+                room.room_id().as_str(),
+                self.cached_limit + PAGE_SIZE,
+                false,
+            )?;
+            let roots = before
+                .values
+                .iter()
+                .filter(|v| v["type"] == "m.room.message" || v["type"] == "m.room.encrypted")
+                .count();
+            if before.more && roots < self.cached_limit + PAGE_SIZE {
+                crate::archive_sync::fetch(archive, room, "history").await?;
+            }
+            if self.cached_limit >= WINDOW_LIMIT
+                && let Some(first) = self.snapshot().0.first()
+            {
+                return self.context(room, &first.id).await;
+            }
+        }
+        if self.cached_limit == 0 && self.forward.is_some() && kind == HistoryLoad::Recent {
+            return Ok(self.snapshot());
+        }
+        if let Some(snapshot) = self.cached(room, kind, archive)? {
+            // Never wait for the network when there is a local viewport. The background
+            // archiver fills remaining history and publishes refreshed cache snapshots.
+            return Ok(snapshot);
+        }
+        if kind == HistoryLoad::Older
+            && self.entries.len() >= WINDOW_LIMIT
+            && self.cursor.is_some()
+            && let Some(first) = self.snapshot().0.first()
+        {
+            return self.context(room, &first.id).await;
         }
         if kind == HistoryLoad::Older && (!self.initialized || !self.info().can_load_more) {
             return Ok(self.snapshot());
@@ -152,13 +262,19 @@ impl History {
         if kind != HistoryLoad::Newer {
             chunk.reverse();
         }
-        let entries = chunk
+        let values = chunk
+            .iter()
+            .map(|event| crate::details::value(room, event))
+            .collect::<Result<Vec<_>, _>>()?;
+        archive.merge(
+            room.room_id().as_str(),
+            values.clone(),
+            rules.keep_room_redaction_redacts,
+        )?;
+        let entries = values
             .into_iter()
-            .map(|event| {
-                let value = crate::details::value(room, &event)?;
-                Ok(decode(value, rules.keep_room_redaction_redacts))
-            })
-            .collect::<Result<Vec<_>, &'static str>>()?;
+            .map(|value| decode(value, rules.keep_room_redaction_redacts))
+            .collect();
         self.apply_page(kind, entries, response.end)?;
         Ok(self.snapshot())
     }
@@ -253,18 +369,26 @@ impl History {
             .then(|| self.snapshot())
     }
     fn info(&self) -> HistoryInfo {
+        if self.cached_limit > 0 {
+            return HistoryInfo {
+                can_load_more: self.cached_more,
+                can_load_newer: false,
+                at_limit: self.cached_limit >= WINDOW_LIMIT,
+                gap: false,
+            };
+        }
         let at_limit =
             self.limited || self.entries.len() >= WINDOW_LIMIT || self.seen.len() >= PAGE_LIMIT;
         HistoryInfo {
             can_load_newer: self.forward.is_some()
                 && !at_limit
                 && self.seen_forward.len() < PAGE_LIMIT,
-            can_load_more: self.cursor.is_some() && !at_limit,
+            can_load_more: self.cursor.is_some() && self.seen.len() < PAGE_LIMIT,
             at_limit,
             gap: self.gap,
         }
     }
-    fn snapshot(&self) -> (Vec<Message>, HistoryInfo) {
+    pub(crate) fn snapshot(&self) -> (Vec<Message>, HistoryInfo) {
         (aggregate(&self.entries), self.info())
     }
 }
@@ -279,6 +403,37 @@ fn deduplicate(entries: Vec<Entry>) -> Vec<Entry> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn switching_keeps_expanded_windows_and_pagination_cursors() {
+        let mut h = History {
+            room_id: "!a:x".into(),
+            entries: entries(&[1, 2, 3]),
+            cursor: Some("older".into()),
+            initialized: true,
+            cached_limit: 100,
+            ..Default::default()
+        };
+        let mut cache = std::collections::VecDeque::new();
+        h.activate(&mut cache, "!b:x");
+        assert!(!h.initialized);
+        h.room_id = "!b:x".into();
+        h.initialized = true;
+        h.entries = entries(&[4]);
+        h.activate(&mut cache, "!a:x");
+        assert_eq!(ids(&h), ["1", "2", "3"]);
+        assert_eq!(h.cursor.as_deref(), Some("older"));
+        assert_eq!(h.cached_limit, 100);
+        h.activate(&mut cache, "!a:x");
+        assert_eq!(cache.len(), 1);
+        assert_eq!(cache[0].room_id, "!b:x");
+        for n in 0..40 {
+            h.activate(&mut cache, &format!("!{n}:x"));
+            h.room_id = format!("!{n}:x");
+            h.initialized = true;
+        }
+        assert_eq!(cache.len(), 32);
+    }
 
     fn entries(ids: &[usize]) -> Vec<Entry> {
         ids.iter()
@@ -391,7 +546,7 @@ mod tests {
             &(0..WINDOW_LIMIT).collect::<Vec<_>>(),
             Some("a"),
         );
-        assert!(h.info().at_limit && !h.info().can_load_more);
+        assert!(h.info().at_limit && h.info().can_load_more);
         page(&mut h, HistoryLoad::Recent, &[499, 500, 501], Some("b"));
         assert_eq!(h.entries.len(), WINDOW_LIMIT);
         assert_eq!(h.entries[0].id, "2");

@@ -20,6 +20,7 @@ enum Relation {
     Edit {
         target: String,
         body: String,
+        formatted_body: Option<String>,
         msgtype: String,
     },
     Reaction {
@@ -80,9 +81,25 @@ pub(crate) fn decode(value: Value, redacts_in_content: bool) -> Entry {
                 entry.relation = Some(Relation::Edit {
                     target: target.into(),
                     body: body.into(),
+                    formatted_body: formatted(new),
                     msgtype: msgtype.into(),
                 });
             }
+        }
+        Some("m.sticker" | "org.matrix.msc3381.poll.start") => {
+            let body = content["body"]
+                .as_str()
+                .or_else(|| content["org.matrix.msc1767.text"].as_str())
+                .unwrap_or("Poll")
+                .to_owned();
+            entry.message = Some(Message {
+                id: entry.id.clone(),
+                sender: entry.sender.clone(),
+                timestamp: entry.timestamp,
+                body: (!deleted).then_some(body),
+                deleted,
+                ..Message::default()
+            });
         }
         Some("m.room.message" | "m.room.encrypted") => {
             let undecrypted = !deleted && !entry.room_message;
@@ -98,6 +115,9 @@ pub(crate) fn decode(value: Value, redacts_in_content: bool) -> Entry {
                 body: (!deleted && !undecrypted)
                     .then(|| content["body"].as_str().map(str::to_owned))
                     .flatten(),
+                formatted_body: (!deleted && !undecrypted)
+                    .then(|| formatted(content))
+                    .flatten(),
                 editable: !deleted && !undecrypted && entry.msgtype == "m.text",
                 deleted,
                 reply_to: relation["m.in_reply_to"]["event_id"]
@@ -112,6 +132,11 @@ pub(crate) fn decode(value: Value, redacts_in_content: bool) -> Entry {
             });
         }
         _ => {}
+    }
+    if let Some(message) = &mut entry.message {
+        message.transaction_id = value["unsigned"]["transaction_id"]
+            .as_str()
+            .map(str::to_owned);
     }
     entry.bundled = bundled_replacement(&value, redacts_in_content);
 
@@ -196,6 +221,7 @@ pub(crate) fn aggregate(entries: &[Entry]) -> Vec<Message> {
         .enumerate()
         .map(|(i, m)| (m.id.clone(), i))
         .collect();
+    receipt_anchors(entries, &positions, &mut messages);
     let originals: HashMap<_, _> = entries
         .iter()
         .filter(|e| e.message.is_some())
@@ -230,9 +256,18 @@ pub(crate) fn aggregate(entries: &[Entry]) -> Vec<Message> {
         }
     }
     for message in &mut messages {
+        if message.reply_to.is_some()
+            && let Some(body) = &mut message.body
+        {
+            *body = matrix_sdk::ruma::events::room::message::sanitize::remove_plain_reply_fallback(
+                body,
+            )
+            .to_owned();
+        }
         if message.deleted || redacted.contains(message.id.as_str()) {
             message.deleted = true;
             message.body = None;
+            message.formatted_body = None;
             message.editable = false;
             message.edited = false;
             message.reply_to = None;
@@ -241,6 +276,47 @@ pub(crate) fn aggregate(entries: &[Entry]) -> Vec<Message> {
         }
     }
     messages
+}
+
+// A receipt may name a reaction, edit, or state event that has no visible row.
+// Place it on the last visible event preceding it, never on the edited target.
+fn receipt_anchors(
+    entries: &[Entry],
+    positions: &HashMap<String, usize>,
+    messages: &mut [Message],
+) {
+    let mut main = None;
+    let mut threads = HashMap::<String, usize>::new();
+    for entry in entries {
+        if let Some(&i) = positions.get(&entry.id) {
+            let message = &messages[i];
+            if message.thread_root.is_none() {
+                main = Some(i);
+            }
+            threads.insert(
+                message.thread_root.as_ref().unwrap_or(&message.id).clone(),
+                i,
+            );
+            continue;
+        }
+        if let Some(i) = main {
+            messages[i].receipt_events.push(entry.id.clone());
+        }
+        let target = match &entry.relation {
+            Some(
+                Relation::Edit { target, .. }
+                | Relation::Reaction { target, .. }
+                | Relation::Redaction(target),
+            ) => target,
+            None => continue,
+        };
+        if let Some(&i) = positions.get(target) {
+            let root = messages[i].thread_root.as_ref().unwrap_or(&messages[i].id);
+            if let Some(&last) = threads.get(root) {
+                messages[last].thread_receipt_events.push(entry.id.clone());
+            }
+        }
+    }
 }
 
 fn apply_edit<'a>(
@@ -252,6 +328,7 @@ fn apply_edit<'a>(
     let Some(Relation::Edit {
         target,
         body,
+        formatted_body,
         msgtype,
     }) = &entry.relation
     else {
@@ -269,6 +346,7 @@ fn apply_edit<'a>(
         return;
     }
     message.body = Some(body.to_owned());
+    message.formatted_body = formatted_body.clone();
     message.edited = true;
     message.editable = original.msgtype == "m.text" && msgtype == "m.text";
     edits.insert(target, rank);
@@ -349,6 +427,28 @@ mod tests {
             50,
         )
     }
+    #[test]
+    fn reply_fallback_is_removed_without_removing_real_quotes() {
+        let body = "> <@a:local> Original\n> second line\n\n> Actual quote\nMy reply";
+        let reply = event(
+            "$reply",
+            "@b:local",
+            "m.room.message",
+            json!({
+                "msgtype":"m.text", "body":body,
+                "m.relates_to":{"m.in_reply_to":{"event_id":"$original"}}
+            }),
+            2,
+        );
+        let messages = aggregate(&[text("$original", "Original"), reply, text("$quote", body)]);
+        assert_eq!(
+            messages[1].body.as_deref(),
+            Some("> Actual quote\nMy reply")
+        );
+        assert_eq!(messages[1].reply_to.as_deref(), Some("$original"));
+        assert_eq!(messages[2].body.as_deref(), Some(body));
+    }
+
     #[test]
     fn ciphertext_never_exposes_untrusted_plaintext_fields() {
         let value = json!({"event_id":"$encrypted","type":"m.room.encrypted","sender":"@a:local","origin_server_ts":1,
@@ -509,4 +609,15 @@ mod tests {
         assert!(aggregate(&entries)[0].attachment.is_none());
         assert!(revisions(&entries, "$original").is_empty());
     }
+}
+
+fn formatted(content: &Value) -> Option<String> {
+    (content["format"] == "org.matrix.custom.html")
+        .then(|| {
+            content["formatted_body"]
+                .as_str()
+                .filter(|s| s.len() <= 65536)
+                .map(str::to_owned)
+        })
+        .flatten()
 }

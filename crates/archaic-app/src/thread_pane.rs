@@ -25,7 +25,6 @@ pub struct ThreadPane {
     status: Widget,
     pub target: RefCell<Option<Target>>,
     pub open: Cell<bool>,
-    was_pending: Cell<bool>,
 }
 impl ThreadPane {
     pub fn new(parent: &Widget, tr: &Translator, theme: &Theme) -> Result<Self> {
@@ -38,13 +37,14 @@ impl ThreadPane {
         title.set_font("sans", 12., 700)?;
         title.expand(true)?;
         let close = head.symbol_button(sys::CUI_SYMBOL_CLOSE, &tr.text("cancel"))?;
-        let timeline = Timeline::new(&root, tr, theme)?;
+        let timeline = Timeline::new(&root, tr, theme, crate::timeline_view::TimelineKind::Thread)?;
         let foot = root.box_layout(sys::CUI_VERTICAL, 8)?;
         foot.box_set_padding(14)?;
         let status = foot.label("")?;
         status.set_role(sys::CUI_ROLE_CAPTION)?;
         let more = foot.button(&tr.text("details-more"))?;
         let composer = ChatComponent::create(&root, ChatKind::Composer, theme)?;
+        crate::chat_labels::apply(&composer, tr)?;
         let mut presentation = composer.presentation()?;
         presentation.composer_tools = 1 << 6;
         presentation.composer_padding = 14.;
@@ -63,7 +63,6 @@ impl ThreadPane {
             status,
             target: Default::default(),
             open: Cell::new(false),
-            was_pending: Cell::new(false),
         })
     }
     pub fn theme(&self, t: &Theme) -> Result<()> {
@@ -115,13 +114,6 @@ impl ThreadPane {
             &format!("{}:{}:{}", target.epoch, target.room, target.event),
             false,
         )?;
-        let pending = m
-            .message_draft
-            .as_ref()
-            .is_some_and(|d| d.kind == ActionKind::Thread && d.pending);
-        if self.was_pending.replace(pending) && m.message_draft.is_none() {
-            self.composer.part(0)?.set_text("")?;
-        }
         let error = m
             .tools
             .error
@@ -130,7 +122,7 @@ impl ThreadPane {
             tr.text(e)
         } else if m.tools_busy() {
             tr.text("loading")
-        } else if items.len() <= 1 {
+        } else if m.with_local_echoes(&items, Some(&target.event)).len() <= 1 {
             tr.text("daylight-thread-empty")
         } else {
             String::new()
@@ -139,16 +131,15 @@ impl ThreadPane {
         self.status.set_visible(!status.is_empty())?;
         self.more.set_visible(details.is_some_and(|d| d.more))?;
         self.more.set_enabled(m.can_tool() && !fixture)?;
-        self.close.set_enabled(!pending)?;
+        self.close.set_enabled(true)?;
         let foreign_action = m
             .message_draft
             .as_ref()
             .is_some_and(|d| d.kind != ActionKind::Thread || d.target != target.event);
-        self.composer
-            .busy(pending || m.tools_busy() || foreign_action)?;
+        self.composer.busy(foreign_action)?;
         self.composer
             .part(0)?
-            .set_enabled(!fixture && !pending && !m.tools_busy() && !foreign_action)?;
+            .set_enabled(!fixture && m.phase == Phase::Connected && !foreign_action)?;
         Ok(())
     }
 }
@@ -192,15 +183,6 @@ impl Controller {
             .borrow()
             .message_draft
             .as_ref()
-            .is_some_and(|d| d.kind == ActionKind::Thread && d.pending)
-        {
-            return Ok(());
-        }
-        if self
-            .model
-            .borrow()
-            .message_draft
-            .as_ref()
             .is_some_and(|d| d.kind == ActionKind::Thread)
         {
             self.model.borrow_mut().message_draft = None;
@@ -221,21 +203,180 @@ impl Controller {
         let Some(target) = self.view.thread_pane.target.borrow().clone() else {
             return Ok(());
         };
-        {
-            let mut m = self.model.borrow_mut();
-            if m.epoch != target.epoch || m.selected.as_ref() != Some(&target.room) {
-                return Ok(());
-            }
-            if m.message_draft
-                .as_ref()
-                .is_some_and(|d| d.kind != ActionKind::Thread || d.target != target.event)
-            {
-                return Ok(());
-            }
-            m.message_selected = Some(target.event);
-            m.begin_message_action(ActionKind::Thread);
+        let prepared = self.model.borrow().prepare_thread_send(&target, value);
+        let Some((id, pending)) = prepared else {
+            return Ok(());
+        };
+        if self.enqueue(pending.command(&id)) {
+            self.model.borrow_mut().start_thread_send(id, pending);
+            self.view.thread_pane.composer.part(0)?.set_text("")?;
         }
-        self.view.message_controls.body.set_text(value)?;
-        self.submit_message()
+        self.render()
+    }
+}
+
+#[derive(Clone)]
+pub struct PendingSend {
+    pub room: String,
+    pub root: String,
+    pub latest: String,
+    pub body: String,
+}
+impl PendingSend {
+    pub fn command(&self, id: &str) -> archaic_matrix::Command {
+        archaic_matrix::Command::EnqueueThread {
+            room_id: self.room.clone(),
+            root: self.root.clone(),
+            latest: self.latest.clone(),
+            body: self.body.clone(),
+            transaction: id.into(),
+        }
+    }
+}
+impl Model {
+    pub fn prepare_thread_send(
+        &self,
+        target: &Target,
+        body: &str,
+    ) -> Option<(String, PendingSend)> {
+        if self.epoch != target.epoch
+            || self.selected.as_ref() != Some(&target.room)
+            || self.phase != Phase::Connected
+            || body.trim().is_empty()
+            || body.len() > 32_000
+            || self.message_draft.is_some()
+            || self.room_pending.is_some()
+            || !self
+                .selected_room()
+                .is_some_and(|r| r.membership == archaic_matrix::Membership::Joined)
+        {
+            return None;
+        }
+        if !self.messages.iter().any(|m| m.id == target.event)
+            && !self
+                .tools
+                .details
+                .as_ref()
+                .is_some_and(|d| d.message.id == target.event)
+        {
+            return None;
+        }
+        let latest = self
+            .tools
+            .details
+            .as_ref()
+            .filter(|d| d.message.id == target.event)
+            .and_then(|d| d.thread.last())
+            .map(|m| m.id.clone())
+            .or_else(|| {
+                self.messages
+                    .iter()
+                    .rev()
+                    .find(|m| m.thread_root.as_ref() == Some(&target.event))
+                    .map(|m| m.id.clone())
+            })
+            .unwrap_or_else(|| target.event.clone());
+        Some((
+            archaic_matrix::transaction_id().to_string(),
+            PendingSend {
+                room: target.room.clone(),
+                root: target.event.clone(),
+                latest,
+                body: body.into(),
+            },
+        ))
+    }
+    pub fn start_thread_send(&mut self, id: String, pending: PendingSend) {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        self.update_outbox(vec![archaic_matrix::outbox::Item {
+            room_id: pending.room.clone(),
+            id: id.clone(),
+            body: pending.body.clone(),
+            failed: false,
+            message: Some(archaic_matrix::Message {
+                id: format!("~{id}"),
+                transaction_id: Some(id.clone()),
+                sender: self.user.clone(),
+                body: Some(pending.body.clone()),
+                timestamp,
+                thread_root: Some(pending.root.clone()),
+                ..Default::default()
+            }),
+            target: None,
+            reaction: None,
+            event_id: None,
+        }]);
+        self.thread_sends.insert(id, pending);
+    }
+    pub fn thread_queued(&mut self, id: &str, result: std::result::Result<(), &'static str>) {
+        if !self.thread_sends.contains_key(id) {
+            return;
+        }
+        match result {
+            Ok(()) => {
+                self.thread_sends.remove(id);
+                self.outbox.retain(|i| i.id != id);
+            }
+            Err(_) => {
+                if let Some(item) = self.outbox.iter_mut().find(|i| i.id == id) {
+                    item.failed = true;
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn setup() -> (Model, Target) {
+        let mut m = crate::visual_fixture::model();
+        let room = m.selected.clone().unwrap();
+        let root = m.messages[0].id.clone();
+        m.message_draft = None;
+        let target = Target {
+            epoch: m.epoch,
+            room,
+            event: root,
+        };
+        (m, target)
+    }
+    #[test]
+    fn thread_send_does_not_take_the_global_action_lock_or_block_another_send() {
+        let (mut m, target) = setup();
+        let (id, pending) = m.prepare_thread_send(&target, "First reply").unwrap();
+        m.start_thread_send(id.clone(), pending);
+        assert!(m.message_draft.is_none());
+        assert!(!m.sending);
+        assert!(m.room_action_allowed(&archaic_matrix::RoomAction::Leave));
+        let (second, _) = m.prepare_thread_send(&target, "Second reply").unwrap();
+        assert_ne!(id, second);
+        assert_eq!(
+            m.with_local_echoes(&[], Some(&target.event))[0]
+                .body
+                .as_deref(),
+            Some("First reply")
+        );
+        m.thread_queued(&id, Ok(()));
+        assert!(m.thread_sends.is_empty());
+        assert!(m.message_draft.is_none());
+    }
+    #[test]
+    fn local_queue_failure_keeps_text_and_retry_without_modifying_other_room() {
+        let (mut m, target) = setup();
+        let (id, pending) = m.prepare_thread_send(&target, "Keep this text").unwrap();
+        m.start_thread_send(id.clone(), pending);
+        m.selected = Some("!other:local".into());
+        m.thread_queued(&id, Err("outbox-failed"));
+        assert!(m.outbox[0].failed);
+        assert_eq!(m.outbox[0].body, "Keep this text");
+        assert!(
+            matches!(m.thread_sends[&id].command(&id),archaic_matrix::Command::EnqueueThread { room_id,body,.. } if room_id==target.room && body=="Keep this text")
+        );
+        assert_eq!(m.selected.as_deref(), Some("!other:local"));
+        assert!(m.prepare_thread_send(&target, "stale target").is_none());
     }
 }

@@ -61,6 +61,7 @@ pub struct Snapshot {
     pub devices: Vec<Device>,
     pub recovery: &'static str,
     pub backup: bool,
+    pub backup_exists: Option<bool>,
     pub identity: bool,
     pub flow: Option<Flow>,
 }
@@ -153,6 +154,7 @@ impl Security {
                 _ => "security-recovery-unknown",
             },
             backup: encryption.backups().are_enabled().await,
+            backup_exists: encryption.backups().exists_on_server().await.ok(),
             identity: encryption
                 .cross_signing_status()
                 .await
@@ -267,6 +269,15 @@ impl Security {
                     .is_some_and(|s| s.has_master && s.has_self_signing && s.has_user_signing)
                 {
                     return Err("security-bootstrap-first");
+                }
+                if !encryption.backups().are_enabled().await
+                    && encryption
+                        .backups()
+                        .fetch_exists_on_server()
+                        .await
+                        .map_err(failure)?
+                {
+                    return Err("security-backup-unlock-first");
                 }
                 return encryption
                     .recovery()

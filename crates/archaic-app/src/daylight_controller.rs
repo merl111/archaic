@@ -12,11 +12,24 @@ impl Controller {
         crate::daylight::style(&self.view.login, &t, t.background, 0., 40)?;
         crate::daylight::style(&self.view.login_card, &t, t.surface, 24., 32)?;
         crate::daylight::style(&self.view.search, &t, t.selected, 12., 8)?;
-        for w in [&self.view.ui.account_button, &self.view.security_toggle] {
-            crate::daylight::style(w, &t, t.surface, 18., 8)?;
-        }
+        crate::daylight::style(&self.view.ui.account_button, &t, t.surface, 18., 8)?;
         crate::daylight::style(&self.view.ui.close, &t, t.selected, 12., 6)?;
         crate::daylight::style(&self.view.ui.message_close, &t, t.selected, 12., 6)?;
+        for w in [
+            &self.view.new_toggle,
+            &self.view.join_toggle,
+            &self.view.ui.sidebar_toggle,
+            &self.view.ui.favorite_button,
+            &self.view.ui.room_button,
+            &self.view.ui.history_button,
+            &self.view.ui.info_button,
+            &self.view.ui.close,
+            &self.view.ui.message_close,
+        ] {
+            w.set_icon_size(18)?;
+            w.set_min_size(36, 36)?;
+            crate::daylight::style(w, &t, t.surface, 10., 8)?;
+        }
         self.view.sign_in.set_style(Some(&sys::cui_widget_style {
             background: t.foreground,
             foreground: t.surface,
@@ -38,7 +51,11 @@ impl Controller {
         self.render()
     }
     pub fn account_panel(&self) -> Result<()> {
-        self.open_panel(Panel::Account)
+        if self.view.settings.selected() == 3 {
+            self.open_security()
+        } else {
+            self.open_panel(Panel::Account)
+        }
     }
     pub fn room_panel(&self) -> Result<()> {
         self.open_panel(Panel::Room)
@@ -77,6 +94,7 @@ impl Controller {
             ui.left_fraction.set(ui.left_split.split_get_position()?);
         }
         ui.sidebar_open.set(!ui.sidebar_open.get());
+        self.render()?;
         ui.refresh(self.window.scale()?)?;
         if ui.sidebar_open.get() {
             ui.left_split.split_set_position(ui.left_fraction.get())?;
@@ -99,6 +117,10 @@ impl Controller {
         Ok(())
     }
     pub fn close_panel(&self) -> Result<()> {
+        if self.model.borrow_mut().image_open.take().is_some() {
+            self.render()?;
+            return Ok(());
+        }
         if self.view.emoji.target.borrow().is_some() || self.view.reaction.target.borrow().is_some()
         {
             return self.close_emoji();
@@ -147,13 +169,9 @@ impl Controller {
             m.message_draft = None;
             m.room_confirmation = None;
         }
+        self.view.extras.reset();
         self.view.ui.panel.set(Panel::None);
         self.render()?;
-        if self.model.borrow().phase == Phase::Connected {
-            self.view.composer.focus()?;
-        } else {
-            self.view.server.focus()?;
-        }
         Ok(())
     }
     pub(crate) fn chat_tools(&self, mode: i32) -> Result<()> {
@@ -262,7 +280,7 @@ impl Controller {
         }
         self.refresh_chat_surfaces()
     }
-    fn refresh_chat_surfaces(&self) -> Result<()> {
+    pub(crate) fn refresh_chat_surfaces(&self) -> Result<()> {
         let dark = self
             .app
             .upgrade()
@@ -272,7 +290,15 @@ impl Controller {
         }
         let scale = self.window.scale()?;
         self.view.ui.refresh(scale)?;
+        self.view.settings.refresh(self.view.ui.text_scale.get())?;
+        let zoom = self.view.ui.text_scale.get();
+        self.view
+            .account_avatar
+            .part(0)?
+            .set_min_size((84. * zoom) as i32, (84. * zoom) as i32)?;
         self.view.account_avatar.refresh(scale)?;
+        let height = self.view.ui.base.allocated_size()?.map_or(900, |s| s.1);
+        self.view.image_viewer.resize(height, zoom)?;
         if self.view.thread_pane.open.get() {
             self.view.ui.right_pane.set_visible(false)?;
         }
@@ -285,6 +311,14 @@ impl Controller {
         let key = self.view.ui.ids.borrow().key(id)?;
         key.strip_prefix(&format!("{}:", self.model.borrow().epoch))
             .map(str::to_owned)
+    }
+    pub(crate) fn choose_space(&self) -> Result<()> {
+        let index = self.view.ui.space_picker.get_selected()?;
+        let id = self.view.ui.space_ids.borrow().get(index as usize).copied();
+        if let Some(id) = id {
+            self.chat_space(id)?;
+        }
+        Ok(())
     }
     fn chat_space(&self, id: u64) -> Result<()> {
         if id == u64::MAX || id == u64::MAX - 1 {
@@ -310,6 +344,9 @@ impl Controller {
         }
     }
     fn chat_inspector(&self, e: cui::ChatEvent) -> Result<()> {
+        if self.model.borrow().profile.is_some() {
+            return self.profile_action(e.id);
+        }
         if e.action == sys::CUI_CHAT_OPEN_ROOM {
             return Ok(());
         }
@@ -327,7 +364,9 @@ impl Controller {
         match e.action {
             sys::CUI_CHAT_SEND if !self.fixture => {
                 self.view.composer.set_text(&e.text)?;
-                if self
+                if self.model.borrow().tools.upload.is_some() {
+                    self.upload_file()?;
+                } else if self
                     .model
                     .borrow()
                     .message_draft
@@ -340,10 +379,17 @@ impl Controller {
                 }
             }
             sys::CUI_CHAT_CHANGED => self.composer_input()?,
-            sys::CUI_CHAT_CANCEL => self.cancel_message()?,
+            sys::CUI_CHAT_CANCEL => {
+                if self.model.borrow().tools.upload.is_some() {
+                    self.discard_upload()?;
+                } else {
+                    self.cancel_message()?;
+                }
+            }
             sys::CUI_CHAT_EMOJI => self.show_emoji(crate::emoji_picker::Kind::Compose)?,
+            sys::CUI_CHAT_COMPOSE_MORE => self.composer_more()?,
             sys::CUI_CHAT_ATTACH => {
-                self.chat_tools(0)?;
+                self.model.borrow_mut().tools.sticker = false;
                 if !self.fixture {
                     self.choose_file()?;
                 }
@@ -364,7 +410,66 @@ impl Controller {
         };
         self.chat_message_for(e, id, false)
     }
+    fn open_reply_original(&self, e: &cui::ChatEvent, thread: bool) -> Result<()> {
+        let timeline = if thread {
+            &self.view.thread_pane.timeline
+        } else {
+            &self.view.timeline
+        };
+        let Some(target) = timeline.event_id(e.detail) else {
+            return Ok(());
+        };
+        if timeline.chat.scroll_to(e.detail).is_ok() {
+            return Ok(());
+        }
+        let (room, loaded, busy) = {
+            let m = self.model.borrow();
+            (
+                m.selected.clone(),
+                m.messages.iter().any(|v| v.id == target),
+                m.history_pending.is_some(),
+            )
+        };
+        if loaded {
+            self.model.borrow_mut().history_jump = Some(target);
+            return self.render();
+        }
+        if let Some(room_id) = room
+            && !busy
+            && !self.fixture
+            && self.enqueue(archaic_matrix::Command::Context {
+                room_id,
+                event_id: target.clone(),
+            })
+        {
+            let mut m = self.model.borrow_mut();
+            m.history_jump = Some(target);
+            m.history_pending = Some(archaic_matrix::HistoryLoad::Latest);
+            m.history_error = None;
+        }
+        self.render()
+    }
+
     fn chat_message_for(&self, e: cui::ChatEvent, id: String, thread: bool) -> Result<()> {
+        if e.action == sys::CUI_CHAT_ATTACHMENT {
+            let image = self
+                .model
+                .borrow()
+                .image_message(&id)
+                .is_some_and(|m| m.attachment.as_ref().is_some_and(|a| a.kind == "m.image"));
+            if image {
+                self.model.borrow_mut().message_selected = Some(id);
+                return self.open_image();
+            }
+        }
+        if e.action == sys::CUI_CHAT_DELIVERY {
+            let chat = if thread {
+                &self.view.thread_pane.timeline.chat
+            } else {
+                &self.view.timeline.chat
+            };
+            return self.open_delivery_menu(chat, &e, &id);
+        }
         {
             let mut m = self.model.borrow_mut();
             if m.message_draft.is_some() || m.tools_busy() {
@@ -376,6 +481,20 @@ impl Controller {
             }
         }
         match e.action {
+            sys::CUI_CHAT_OPEN_REPLY => self.open_reply_original(&e, thread)?,
+            sys::CUI_CHAT_LINK => {
+                if crate::message_links::valid(&e.text) && crate::open_browser(&e.text).is_err() {
+                    self.model.borrow_mut().error = Some("link-open-failed");
+                    self.render()?;
+                }
+            }
+            sys::CUI_CHAT_OPEN_PROFILE => {
+                if e.detail != 0 && !e.text.is_empty() {
+                    self.open_member_profile(e.text)?;
+                } else {
+                    self.open_user_profile()?;
+                }
+            }
             sys::CUI_CHAT_REPLY => self.reply_message()?,
             sys::CUI_CHAT_THREAD => self.open_thread()?,
             sys::CUI_CHAT_MORE => {
@@ -387,7 +506,15 @@ impl Controller {
                 self.open_message_menu(chat, &e)?;
             }
             sys::CUI_CHAT_COPY => {
-                if let Some(message) = self.model.borrow().selected_message() {
+                let timeline = if thread {
+                    &self.view.thread_pane.timeline
+                } else {
+                    &self.view.timeline
+                };
+                let selected = timeline.chat.part(0)?.selected_text()?;
+                if !selected.is_empty() {
+                    self.window.clipboard_text(&selected)?;
+                } else if let Some(message) = self.model.borrow().selected_message() {
                     self.window.clipboard_text(
                         &message.body.as_deref().unwrap_or("").replace('\0', "�"),
                     )?;
@@ -410,8 +537,16 @@ impl Controller {
                 }
             }
             sys::CUI_CHAT_ATTACHMENT => {
-                self.chat_tools(2)?;
-                self.load_details()?;
+                let image =
+                    self.model.borrow().selected_message().is_some_and(|m| {
+                        m.attachment.as_ref().is_some_and(|a| a.kind == "m.image")
+                    });
+                if image {
+                    self.open_image()?;
+                } else {
+                    self.chat_tools(2)?;
+                    self.load_details()?;
+                }
             }
             _ => {}
         }

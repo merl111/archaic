@@ -58,6 +58,8 @@ impl View {
         primary(&[&o.apply], t)
     }
     fn theme_account(&self, t: &Theme) -> Result<()> {
+        self.settings.theme(t)?;
+        self.extras.theme(t)?;
         fields(
             &[
                 &self.server,
@@ -71,6 +73,9 @@ impl View {
                 &self.profiles,
                 &self.switch_profile,
                 &self.appearance,
+                &self.message_layout,
+                &self.text_size,
+                &self.shortcuts,
                 &self.deep_link,
                 &self.open_link,
                 &self.sign_out,

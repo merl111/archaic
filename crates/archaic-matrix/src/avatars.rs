@@ -17,11 +17,13 @@ use tokio::{
 pub(crate) struct Avatars {
     jobs: HashMap<String, (String, Instant, JoinHandle<()>)>,
     permits: Arc<Semaphore>,
+    image_room: String,
 }
 impl Default for Avatars {
     fn default() -> Self {
         Self {
             jobs: HashMap::new(),
+            image_room: String::new(),
             permits: Arc::new(Semaphore::new(4)),
         }
     }
@@ -72,6 +74,17 @@ impl Avatars {
     ) {
         let (account_client, account_events) = (client.clone(), events.clone());
         self.start("account".into(), String::new(), async move {
+            if let Ok(name) = account_client.account().get_display_name().await {
+                emit(
+                    &account_events,
+                    epoch,
+                    EventKind::DisplayName {
+                        key: "account".into(),
+                        name: name.unwrap_or_default(),
+                    },
+                )
+                .await;
+            }
             if let Ok(url) = account_client.account().get_avatar_url().await {
                 let bytes = match url {
                     Some(url) => account_client
@@ -95,7 +108,7 @@ impl Avatars {
             let version = room.avatar_url().map(|u| u.to_string()).unwrap_or_default();
             let (image_events, room_copy) = (events.clone(), room.clone());
             self.start(key.clone(), version, async move {
-                let bytes = room_copy.avatar(format()).await;
+                let bytes = room_avatar(&room_copy).await;
                 if let Ok(bytes) = bytes {
                     deliver(&image_events, epoch, key, bytes).await;
                 }
@@ -129,9 +142,15 @@ impl Avatars {
         events: &mpsc::Sender<Event>,
         epoch: u64,
     ) {
+        self.images(room, messages, events, epoch);
         for sender in messages
             .iter()
-            .map(|m| m.sender.clone())
+            .flat_map(|m| {
+                std::iter::once(m.sender.clone())
+                    .chain(m.reactions.iter().map(|r| r.sender.clone()))
+                    .chain(m.read_by.iter().cloned())
+                    .chain(m.thread_read_by.iter().cloned())
+            })
             .chain(room.client().user_id().map(ToString::to_string))
         {
             let key = format!("user:{}:{sender}", room.room_id());
@@ -140,11 +159,84 @@ impl Avatars {
                 let Ok(id) = matrix_sdk::ruma::UserId::parse(&sender) else {
                     return;
                 };
-                if let Ok(Some(member)) = room.get_member(&id).await
-                    && let Ok(bytes) = member.avatar(format()).await
-                {
-                    deliver(&events, epoch, key, bytes).await;
+                if let Ok(Some(member)) = room.get_member(&id).await {
+                    emit(
+                        &events,
+                        epoch,
+                        EventKind::DisplayName {
+                            key: key.clone(),
+                            name: member.display_name().unwrap_or_default().to_owned(),
+                        },
+                    )
+                    .await;
+                    if let Ok(bytes) = member.avatar(format()).await {
+                        deliver(&events, epoch, key, bytes).await;
+                    }
                 }
+            });
+        }
+    }
+    fn images(
+        &mut self,
+        room: &Room,
+        messages: &[Message],
+        events: &mpsc::Sender<Event>,
+        epoch: u64,
+    ) {
+        if self.image_room != room.room_id().as_str() {
+            self.jobs.retain(|key, (_, _, job)| {
+                if key.starts_with("image:") {
+                    job.abort();
+                    false
+                } else {
+                    true
+                }
+            });
+            self.image_room = room.room_id().to_string();
+        }
+        for message in messages
+            .iter()
+            .rev()
+            .filter(|m| {
+                !m.deleted
+                    && !m.undecrypted
+                    && m.id.starts_with('$')
+                    && m.attachment.as_ref().is_some_and(|a| a.kind == "m.image")
+            })
+            .take(48)
+        {
+            let key = format!("image:{}:{}", room.room_id(), message.id);
+            if self.jobs.contains_key(&key) {
+                continue;
+            }
+            // Finished thumbnail jobs can be evicted as older history is loaded.
+            if self.jobs.keys().filter(|k| k.starts_with("image:")).count() >= 48 {
+                if let Some(key) = self
+                    .jobs
+                    .iter()
+                    .filter(|(k, (_, _, j))| k.starts_with("image:") && j.is_finished())
+                    .min_by_key(|(_, (_, at, _))| *at)
+                    .map(|(k, _)| k.clone())
+                {
+                    self.jobs.remove(&key);
+                } else {
+                    break;
+                }
+            }
+            let (room, events, event_id) = (room.clone(), events.clone(), message.id.clone());
+            self.start(key, String::new(), async move {
+                let result =
+                    crate::transfers::preview_image(&room, &event_id, None, 512, 384).await;
+                emit(
+                    &events,
+                    epoch,
+                    EventKind::ImagePreview {
+                        room_id: room.room_id().to_string(),
+                        event_id,
+                        result,
+                    },
+                )
+                .await;
             });
         }
     }
@@ -184,6 +276,23 @@ fn decode(bytes: &[u8]) -> Option<Vec<u8>> {
             .into_raw(),
     )
 }
+// Direct rooms often deliberately have no m.room.avatar. Match their peer's
+// profile, rather than leaving an initial forever. Group rooms keep room art.
+async fn room_avatar(room: &Room) -> matrix_sdk::Result<Option<Vec<u8>>> {
+    if let Some(bytes) = room.avatar(format()).await? {
+        return Ok(Some(bytes));
+    }
+    if room.is_direct().await? && room.active_members_count() <= 2 {
+        let members = room.members(RoomMemberships::ACTIVE).await?;
+        for member in members {
+            if Some(member.user_id()) != room.client().user_id() {
+                return member.avatar(format()).await;
+            }
+        }
+    }
+    Ok(None)
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

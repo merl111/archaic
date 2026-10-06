@@ -34,9 +34,19 @@ impl Controller {
             archaic_matrix::storage::profile_names().unwrap_or_else(|_| vec!["default".into()]);
         let previous = self.rendering.replace(true);
         let result = (|| {
+            let labels: Vec<String> = names
+                .iter()
+                .map(|name| {
+                    if name == "default" {
+                        self.tr.text("account-main")
+                    } else {
+                        name.clone()
+                    }
+                })
+                .collect();
             self.view
                 .profiles
-                .set_items(&names.iter().map(String::as_str).collect::<Vec<_>>())?;
+                .set_items(&labels.iter().map(String::as_str).collect::<Vec<_>>())?;
             let index = names
                 .iter()
                 .position(|n| n == &*self.active_profile.borrow());
@@ -197,6 +207,37 @@ impl Controller {
 }
 
 impl Controller {
+    pub fn show_shortcuts(&self) -> Result<()> {
+        let primary = if cfg!(target_os = "macos") {
+            "⌘"
+        } else {
+            "Ctrl+"
+        };
+        let message = [
+            ("shortcut-rooms", "K"),
+            ("new-conversation", "N"),
+            ("join-room", "J"),
+            ("tool-search", "F"),
+            ("refresh", "R"),
+            ("organization", "Shift+O"),
+            ("security-title", "Shift+S"),
+            ("open-link", "L"),
+        ]
+        .iter()
+        .map(|(key, shortcut)| format!("{primary}{shortcut}   {}", self.tr.text(key)))
+        .collect::<Vec<_>>()
+        .join("\n");
+        let button = self.view.shortcuts.clone();
+        self.window.alert(
+            &self.tr.text("keyboard-shortcuts"),
+            &message,
+            &self.tr.text("cancel"),
+            move |_, _, _| {
+                let _ = button.focus();
+            },
+        )?;
+        Ok(())
+    }
     pub fn install_shortcuts(self: &std::rc::Rc<Self>, app: &cui::App) -> Result<()> {
         use cui::sys::{CUI_MOD_PRIMARY, CUI_MOD_SHIFT};
         let bar = app.menu()?;
@@ -254,6 +295,9 @@ impl Controller {
         }
         match action {
             0 => {
+                self.view.ui.sidebar_open.set(true);
+                self.render()?;
+                self.refresh_chat_surfaces()?;
                 self.view.search.focus()?;
             }
             1 => self.toggle_new()?,

@@ -51,7 +51,7 @@ impl Controller {
             action,
         })
     }
-    fn submit_tool(&self, request: ToolRequest) -> Result<()> {
+    pub(crate) fn submit_tool(&self, request: ToolRequest) -> Result<()> {
         if self.enqueue(Command::RoomTool(request.clone())) {
             let mut model = self.model.borrow_mut();
             model.tools.pending = Some(request);
@@ -168,6 +168,38 @@ impl Controller {
     pub fn choose_file(&self) -> Result<()> {
         self.file_dialog(false)
     }
+    pub fn open_image(&self) -> Result<()> {
+        self.remember_draft()?;
+        {
+            let mut m = self.model.borrow_mut();
+            let Some(event) = m.message_selected.clone() else {
+                return Ok(());
+            };
+            let Some(room) = m.selected.clone() else {
+                return Ok(());
+            };
+            if !m.image_message(&event).is_some_and(|v| {
+                !v.deleted && v.attachment.as_ref().is_some_and(|a| a.kind == "m.image")
+            }) {
+                return Ok(());
+            }
+            m.image_open = Some((room, event));
+            m.tools.show = false;
+            m.tools.error = None;
+        }
+        self.view.ui.panel.set(crate::daylight::Panel::None);
+        self.render()?;
+        if self
+            .model
+            .borrow()
+            .message_selected
+            .as_ref()
+            .is_some_and(|id| id.starts_with('$'))
+        {
+            self.preview_file()?;
+        }
+        Ok(())
+    }
     pub fn preview_file(&self) -> Result<()> {
         let id = self.model.borrow().message_selected.clone();
         if let Some(event_id) = id {
@@ -260,6 +292,7 @@ impl Controller {
                 event_id: id.clone(),
                 path: path.into(),
             },
+            None if model.tools.sticker => ToolAction::Sticker { path: path.into() },
             None => ToolAction::QueueUpload { path: path.into() },
         };
         let request = ToolRequest {

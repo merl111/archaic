@@ -63,6 +63,204 @@ const EMOJI: &[(&str, &str)] = &[
     ("🎮", "game controller"),
     ("💻", "computer laptop"),
     ("🦀", "crab rust"),
+    ("😁", "beaming grin smile"),
+    ("😆", "laugh squint"),
+    ("🤣", "rolling laughing rofl"),
+    ("🙂", "slightly smiling"),
+    ("😘", "kiss love"),
+    ("😗", "kissing"),
+    ("😚", "kiss closed eyes"),
+    ("😋", "delicious yum"),
+    ("😛", "tongue"),
+    ("😜", "wink tongue"),
+    ("🤪", "crazy zany"),
+    ("🤨", "raised eyebrow"),
+    ("🧐", "monocle curious"),
+    ("🤓", "nerd glasses"),
+    ("🥳", "party birthday"),
+    ("😏", "smirk"),
+    ("😒", "unamused"),
+    ("😞", "disappointed"),
+    ("😔", "pensive"),
+    ("😟", "worried"),
+    ("😕", "confused"),
+    ("😤", "angry triumph"),
+    ("😠", "angry"),
+    ("😡", "rage angry"),
+    ("🤬", "swearing"),
+    ("🤯", "mind blown"),
+    ("😳", "flushed embarrassed"),
+    ("🥺", "pleading please"),
+    ("🥹", "tears touched"),
+    ("😨", "fear scared"),
+    ("😱", "scream shocked"),
+    ("😢", "cry tear"),
+    ("😓", "sweat sad"),
+    ("🤗", "hug"),
+    ("🤭", "giggle hand mouth"),
+    ("🫢", "gasp surprise"),
+    ("🫡", "salute"),
+    ("🤫", "quiet shush"),
+    ("🤥", "lying"),
+    ("😶", "speechless"),
+    ("😐", "neutral"),
+    ("😑", "expressionless"),
+    ("🙄", "eye roll"),
+    ("😬", "grimace"),
+    ("😴", "sleep tired"),
+    ("🥱", "yawn tired"),
+    ("🤤", "drool"),
+    ("🤒", "ill fever"),
+    ("🤕", "hurt bandage"),
+    ("🤢", "nauseous sick"),
+    ("🤮", "vomit"),
+    ("🤧", "sneeze"),
+    ("😷", "mask"),
+    ("🥶", "cold freezing"),
+    ("🥵", "hot heat"),
+    ("😇", "angel innocent"),
+    ("😈", "devil"),
+    ("👻", "ghost spooky"),
+    ("💀", "skull dead"),
+    ("🤖", "robot bot"),
+    ("👽", "alien"),
+    ("💩", "poop"),
+    ("🙈", "see no evil monkey"),
+    ("🙉", "hear no evil monkey"),
+    ("🙊", "speak no evil monkey"),
+    ("🫶", "heart hands love"),
+    ("👌", "ok hand"),
+    ("🤌", "pinched fingers"),
+    ("🤏", "small pinch"),
+    ("✌️", "peace victory"),
+    ("🤞", "crossed fingers luck"),
+    ("🤟", "love you hand"),
+    ("🤘", "rock horns"),
+    ("🤙", "call me"),
+    ("👈", "point left"),
+    ("👉", "point right"),
+    ("👆", "point up"),
+    ("👇", "point down"),
+    ("✋", "stop hand"),
+    ("🤚", "raised hand"),
+    ("✊", "fist solidarity"),
+    ("👊", "fist bump"),
+    ("🖖", "vulcan live long"),
+    ("🫰", "finger heart"),
+    ("👍🏻", "thumbs up light skin"),
+    ("👍🏼", "thumbs up medium light skin"),
+    ("👍🏽", "thumbs up medium skin"),
+    ("👍🏾", "thumbs up medium dark skin"),
+    ("👍🏿", "thumbs up dark skin"),
+    ("👋🏻", "wave light skin"),
+    ("👋🏼", "wave medium light skin"),
+    ("👋🏽", "wave medium skin"),
+    ("👋🏾", "wave medium dark skin"),
+    ("👋🏿", "wave dark skin"),
+    ("💔", "broken heart"),
+    ("💕", "two hearts"),
+    ("💖", "sparkling heart"),
+    ("💗", "growing heart"),
+    ("💘", "heart arrow"),
+    ("💝", "heart gift"),
+    ("🩵", "light blue heart"),
+    ("🩷", "pink heart"),
+    ("🩶", "gray grey heart"),
+    ("💥", "boom collision"),
+    ("💫", "dizzy star"),
+    ("💦", "sweat water"),
+    ("💤", "sleep zzz"),
+    ("🎈", "balloon birthday"),
+    ("🎁", "gift present"),
+    ("🏆", "trophy winner"),
+    ("🥇", "gold medal first"),
+    ("🎯", "target bullseye"),
+    ("⚽", "football soccer"),
+    ("🏀", "basketball"),
+    ("🎸", "guitar music"),
+    ("🎧", "headphones music"),
+    ("🎬", "movie film"),
+    ("📷", "camera photo"),
+    ("📚", "books read"),
+    ("📝", "memo note write"),
+    ("📌", "pin"),
+    ("📎", "paperclip attachment"),
+    ("🔗", "link"),
+    ("🔒", "lock secure"),
+    ("🔑", "key"),
+    ("🛠️", "tools work"),
+    ("⚙️", "gear settings"),
+    ("🐧", "penguin linux"),
+    ("🐼", "panda"),
+    ("🐨", "koala"),
+    ("🦁", "lion"),
+    ("🐸", "frog"),
+    ("🐢", "turtle slow"),
+    ("🦋", "butterfly"),
+    ("🐝", "bee"),
+    ("🌱", "seedling grow"),
+    ("🌲", "tree"),
+    ("🌸", "cherry blossom"),
+    ("🌹", "rose flower"),
+    ("🍀", "clover luck"),
+    ("🌍", "earth globe europe africa"),
+    ("🌎", "earth globe america"),
+    ("🌏", "earth globe asia"),
+    ("⚡", "lightning fast"),
+    ("❄️", "snowflake winter"),
+    ("🌧️", "rain weather"),
+    ("🌊", "wave sea ocean"),
+    ("🍎", "apple"),
+    ("🍌", "banana"),
+    ("🍓", "strawberry"),
+    ("🍉", "watermelon"),
+    ("🍔", "burger"),
+    ("🍟", "fries"),
+    ("🌮", "taco"),
+    ("🍣", "sushi"),
+    ("🍪", "cookie"),
+    ("🍩", "donut"),
+    ("🍦", "ice cream"),
+    ("🍫", "chocolate"),
+    ("🫖", "tea"),
+    ("🥤", "drink soda"),
+    ("🍷", "wine"),
+    ("🥂", "cheers champagne"),
+    ("✈️", "airplane travel"),
+    ("🚗", "car"),
+    ("🚲", "bicycle bike"),
+    ("🚆", "train"),
+    ("🏠", "house home"),
+    ("🏖️", "beach holiday"),
+    ("⛰️", "mountain"),
+    ("⏰", "alarm time"),
+    ("⌛", "hourglass wait"),
+    ("🔔", "bell notification"),
+    ("📢", "announcement"),
+    ("🚧", "construction work"),
+    ("⚠️", "warning"),
+    ("🚨", "alert emergency"),
+    ("⛔", "stop no entry"),
+    ("❓", "question"),
+    ("❗", "exclamation important"),
+    ("🔴", "red circle"),
+    ("🟢", "green circle"),
+    ("🔵", "blue circle"),
+    ("🏳️‍🌈", "rainbow pride flag"),
+    ("🇦🇹", "austria flag"),
+    ("🇩🇪", "germany flag"),
+    ("🇬🇧", "uk united kingdom flag"),
+    ("🇺🇸", "us united states flag"),
+    ("🇫🇷", "france flag"),
+    ("🇳🇱", "netherlands flag"),
+    ("🇪🇸", "spain flag"),
+    ("🇮🇹", "italy flag"),
+    ("🇨🇭", "switzerland flag"),
+    ("🇺🇦", "ukraine flag"),
+    ("🇯🇵", "japan flag"),
+    ("🇨🇦", "canada flag"),
+    ("🇧🇷", "brazil flag"),
+    ("🇦🇺", "australia flag"),
 ];
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
@@ -81,6 +279,11 @@ pub struct Picker {
     pub root: Widget,
     pub window: Option<Window>,
     pub more: Widget,
+    pub previous: Widget,
+    pub next: Widget,
+    page_label: Widget,
+    page: Cell<usize>,
+    last_query: RefCell<String>,
     expanded: Widget,
     expanded_mode: Cell<bool>,
     quick_buttons: Vec<Widget>,
@@ -163,12 +366,22 @@ impl Picker {
             cells.push(cell);
         }
         let empty = expanded.label(&tr.text("daylight-emoji-empty"))?;
+        let pager = expanded.box_layout(sys::CUI_HORIZONTAL, 12)?;
+        let previous = pager.button(&tr.text("emoji-previous"))?;
+        let page_label = pager.label("")?;
+        page_label.expand(true)?;
+        let next = pager.button(&tr.text("emoji-next"))?;
         let insert = expanded.button(&tr.text("daylight-emoji-insert"))?;
         root.set_visible(false)?;
         let result = Self {
             root,
             window,
             more,
+            previous,
+            next,
+            page_label,
+            page: Cell::new(0),
+            last_query: RefCell::new(String::new()),
             expanded,
             expanded_mode: Cell::new(false),
             quick_buttons,
@@ -193,7 +406,7 @@ impl Picker {
         if let Some(window) = &self.window {
             window.set_size(
                 if expanded { 480 } else { 404 },
-                if expanded { 590 } else { 126 },
+                if expanded { 638 } else { 126 },
             )?;
             if let Some((canvas, region)) = self.anchor.borrow().as_ref() {
                 window.popup_region(canvas, *region)?;
@@ -209,7 +422,7 @@ impl Picker {
             background: t.surface,
             foreground: t.foreground,
             border: t.border,
-            border_width: if self.window.is_some() { 1. } else { 0. },
+            border_width: 1.,
             radius: 24.,
             padding: 24,
         }))?;
@@ -218,6 +431,8 @@ impl Picker {
             &self.close,
             &self.insert,
             &self.more,
+            &self.previous,
+            &self.next,
         ]) {
             style(b, t, t.selected, 10., 6)?;
         }
@@ -225,11 +440,32 @@ impl Picker {
     }
     pub fn filter(&self) -> Result<()> {
         let query = self.query.text()?.trim().to_lowercase();
+        if *self.last_query.borrow() != query {
+            self.page.set(0);
+            *self.last_query.borrow_mut() = query.clone();
+        }
+        let normalized = query.trim_matches(':').replace('_', " ");
         let matches = EMOJI
             .iter()
             .filter(|(glyph, name)| {
-                query.is_empty() || glyph.contains(&query) || name.contains(query.trim_matches(':'))
+                query.is_empty()
+                    || glyph.contains(&query)
+                    || normalized
+                        .split_whitespace()
+                        .all(|word| name.contains(word))
             })
+            .collect::<Vec<_>>();
+        let pages = matches.len().div_ceil(56).max(1);
+        let page = self.page.get().min(pages - 1);
+        self.page.set(page);
+        self.previous.set_enabled(page > 0)?;
+        self.next.set_enabled(page + 1 < pages)?;
+        self.page_label
+            .set_text(&format!("{} / {}", page + 1, pages))?;
+        let matches = matches
+            .into_iter()
+            .skip(page * 56)
+            .take(56)
             .collect::<Vec<_>>();
         *self.choices.borrow_mut() = matches.iter().map(|v| v.0.to_owned()).collect();
         for (i, b) in self.buttons.iter().enumerate() {
@@ -314,6 +550,16 @@ impl Controller {
         }
         Ok(())
     }
+    pub fn previous_emoji_page(&self) -> Result<()> {
+        let p = self.active_picker();
+        p.page.set(p.page.get().saturating_sub(1));
+        p.filter()
+    }
+    pub fn next_emoji_page(&self) -> Result<()> {
+        let p = self.active_picker();
+        p.page.set(p.page.get() + 1);
+        p.filter()
+    }
     pub fn filter_emoji(&self) -> Result<()> {
         self.active_picker().filter()
     }
@@ -328,7 +574,11 @@ impl Controller {
             .expect("reaction popup")
             .close()?;
         self.render()?;
-        self.view.composer.focus().map(|_| ())
+        if let Some((canvas, region)) = self.view.reaction.anchor.borrow_mut().take() {
+            canvas.focus()?;
+            canvas.canvas_focus_region(region)?;
+        }
+        Ok(())
     }
     pub fn insert_typed_emoji(&self) -> Result<()> {
         let value = self.active_picker().query.text()?;
@@ -360,10 +610,9 @@ impl Controller {
             } else {
                 self.view.composer.clone()
             };
-            let mut value = input.text()?;
+            let value = input.text()?;
             if value.len() + glyph.len() <= 65536 {
-                value.push_str(glyph);
-                input.set_text(&value)?;
+                input.insert_text(glyph)?;
             }
             if target.kind == Kind::Compose {
                 self.composer_input()?;

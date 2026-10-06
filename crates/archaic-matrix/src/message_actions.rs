@@ -110,7 +110,8 @@ async fn perform_inner(
             validate_body(body)?;
             let content = room
                 .make_reply_event(
-                    RoomMessageEventContentWithoutRelation::text_plain(body),
+                    RoomMessageEventContentWithoutRelation::text_plain(body)
+                        .add_mentions(crate::mentions::metadata(body)),
                     Reply {
                         event_id: id,
                         enforce_thread: if matches!(request.action, MessageAction::Thread(_)) {
@@ -138,9 +139,10 @@ async fn perform_inner(
             let content = room
                 .make_edit_event(
                     &id,
-                    EditedContent::RoomMessage(RoomMessageEventContentWithoutRelation::text_plain(
-                        body,
-                    )),
+                    EditedContent::RoomMessage(
+                        RoomMessageEventContentWithoutRelation::text_plain(body)
+                            .add_mentions(crate::mentions::metadata(body)),
+                    ),
                 )
                 .await
                 .map_err(|e| match e {

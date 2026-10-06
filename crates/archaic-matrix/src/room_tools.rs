@@ -20,6 +20,10 @@ impl RoomTools {
     ) -> Result<ToolData, &'static str> {
         let room = joined(client, &request.room_id)?;
         match &request.action {
+            ToolAction::Sticker { .. } | ToolAction::Voice { .. } | ToolAction::Poll { .. } => {
+                crate::composer_extras::send(&room, request).await?;
+                Ok(ToolData::Uploaded)
+            }
             ToolAction::QueueUpload { .. } | ToolAction::Preview { .. } => Err("transfer-busy"),
             ToolAction::Upload { path } => {
                 self.attachments.upload(&room, request, path).await?;

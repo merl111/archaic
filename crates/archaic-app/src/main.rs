@@ -3,6 +3,8 @@ mod activity;
 mod appearance;
 #[cfg(target_os = "macos")]
 mod apple_links;
+mod chat_labels;
+mod composer_extras;
 mod daylight;
 mod daylight_art;
 mod daylight_controller;
@@ -11,10 +13,12 @@ mod desktop;
 mod emoji_picker;
 mod history_controls;
 mod history_state;
+mod image_viewer;
 mod instance;
 mod join_form;
 mod login;
 mod message_controls;
+mod message_links;
 mod message_menu;
 mod message_state;
 mod model;
@@ -24,10 +28,12 @@ mod options;
 mod organization;
 mod outbox;
 mod preferences;
+mod profile;
 mod room_controls;
 mod room_state;
 mod search_snippet;
 mod security;
+mod settings_ui;
 mod status_item;
 mod thread_pane;
 mod timeline_view;
@@ -36,6 +42,7 @@ mod tool_controls;
 mod tool_state;
 mod view;
 mod visual_fixture;
+mod voice;
 mod widgets;
 use archaic_i18n::Translator;
 use archaic_matrix::{Command, Event, Membership, RoomAction, Sender};
@@ -77,14 +84,38 @@ impl Controller {
         result
     }
     fn render_inner(&self) -> Result<()> {
-        let model = self.model.borrow();
+        let mut model = self.model.borrow_mut();
         self.view
-            .profiles
+            .saved_accounts
             .set_visible(!model.temporary && !self.fixture)?;
         for command in self.desktop_commands.borrow().iter() {
             command.set_enabled(model.phase == Phase::Connected)?;
         }
-        self.view.render(&model, &self.tr, self.fixture)
+        self.view.render(&model, &self.tr, self.fixture)?;
+        if let Some(target) = model.history_jump.clone()
+            && let Some(message) = model.messages.iter().find(|m| m.id == target)
+        {
+            let thread_root = message.thread_root.clone();
+            if let Some(root) = thread_root {
+                *self.view.thread_pane.target.borrow_mut() = Some(crate::thread_pane::Target {
+                    epoch: model.epoch,
+                    room: model.selected.clone().unwrap_or_default(),
+                    event: root,
+                });
+                self.view.thread_pane.open.set(true);
+                self.view.ui.panel.set(crate::daylight::Panel::None);
+                // Context supplies the original even when cached thread details do not.
+                model.tools.details = None;
+                self.view.render(&model, &self.tr, self.fixture)?;
+                let id = self.view.thread_pane.timeline.ids.borrow_mut().id(&target);
+                self.view.thread_pane.timeline.chat.scroll_to(id)?;
+            } else {
+                let id = self.view.timeline.ids.borrow_mut().id(&target);
+                self.view.timeline.chat.scroll_to(id)?;
+            }
+            model.history_jump = None;
+        }
+        Ok(())
     }
     fn enqueue(&self, command: Command) -> bool {
         if self.sender.try_send(command).is_ok() {
@@ -137,6 +168,7 @@ impl Controller {
         }) {
             self.notification_sender.invalidate();
             *self.active_profile.borrow_mut() = name;
+            self.view.profile.set_text("")?;
             self.set_notifications(false)?;
             self.view.typing_opt.set_checked(false)?;
             self.view.read_opt.set_checked(false)?;
@@ -273,20 +305,37 @@ impl Controller {
         let id = Some(id);
         if let Some(id) = id {
             if self.model.borrow().selected.as_ref() == Some(&id) {
-                return Ok(());
+                let mut m = self.model.borrow_mut();
+                let latest = m
+                    .activity
+                    .latest
+                    .get(&id)
+                    .cloned()
+                    .or_else(|| m.messages.last().map(|v| v.id.clone()));
+                m.activity.viewed.insert(id.clone(), latest);
+                m.activity.unread.insert(id.clone(), 0);
+                m.activity.acknowledge = Some(id);
+                drop(m);
+                return self.render();
             }
             if self.fixture || self.enqueue(Command::Select(id.clone())) {
                 let mut model = self.model.borrow_mut();
-                model.selected = Some(id);
+                model.profile = None;
+                let latest = model.activity.latest.get(&id).cloned();
+                model.activity.viewed.insert(id.clone(), latest);
+                model.activity.unread.insert(id.clone(), 0);
+                model.activity.opened = Some(id.clone());
+                model.activity.acknowledge = Some(id.clone());
+                let restored = model.switch_history(id);
                 model.room_confirmation = None;
                 model.room_feedback = None;
                 self.view.room_controls.invite_user.set_text("")?;
-                model.clear_history();
                 model.status = if self.fixture {
                     "preview-fixture"
-                } else if model
-                    .selected_room()
-                    .is_some_and(|room| room.membership == Membership::Invited)
+                } else if restored
+                    || model
+                        .selected_room()
+                        .is_some_and(|room| room.membership == Membership::Invited)
                 {
                     "ready"
                 } else {
@@ -415,10 +464,50 @@ impl Controller {
         self.view.ui.nav.scroll(0.)?;
         self.render()
     }
+    fn apply_message_layout(&self) -> Result<()> {
+        let compact = self.view.message_layout.get_selected()? == 1;
+        self.view.timeline.set_compact(compact)?;
+        self.view.thread_pane.timeline.set_compact(compact)?;
+        Ok(())
+    }
+    fn apply_text_size(&self) -> Result<()> {
+        let index = self.view.text_size.get_selected()?.clamp(0, 4);
+        let zoom = 1. + f64::from(index) * 0.25;
+        if let Some(app) = self.app.upgrade() {
+            app.text_scale(zoom);
+        }
+        self.view.ui.text_scale.set(zoom);
+        self.refresh_chat_surfaces()
+    }
+    fn text_size(&self) -> Result<()> {
+        self.apply_text_size()?;
+        let failed = self.preference_path.as_ref().is_some_and(|p| {
+            crate::preferences::save_text_size(
+                &p.with_file_name("desktop.json"),
+                self.view.text_size.get_selected().unwrap_or(0).clamp(0, 4) as u8,
+            )
+            .is_err()
+        });
+        self.view.appearance_error.set_visible(failed)?;
+        Ok(())
+    }
+    fn message_layout(&self) -> Result<()> {
+        self.apply_message_layout()?;
+        let failed = self.preference_path.as_ref().is_some_and(|p| {
+            crate::preferences::save_compact_messages(
+                &p.with_file_name("desktop.json"),
+                self.view.message_layout.get_selected().unwrap_or(0) == 1,
+            )
+            .is_err()
+        });
+        self.view.appearance_error.set_visible(failed)?;
+        Ok(())
+    }
     fn appearance(&self) -> Result<()> {
         let appearance = appearance::Appearance::from_index(self.view.appearance.get_selected()?);
         if let Some(app) = self.app.upgrade() {
             app.theme(appearance.theme());
+            app.focus_indicators(true);
         }
         let failed = self
             .preference_path
@@ -675,6 +764,10 @@ impl Controller {
             (&self.view.reaction.query, Self::filter_emoji),
             (&self.view.reaction.insert, Self::insert_typed_emoji),
             (&self.view.reaction.more, Self::expand_reactions),
+            (&self.view.reaction.previous, Self::previous_emoji_page),
+            (&self.view.reaction.next, Self::next_emoji_page),
+            (&self.view.emoji.previous, Self::previous_emoji_page),
+            (&self.view.emoji.next, Self::next_emoji_page),
             (&self.view.emoji.close, Self::close_emoji),
             (&self.view.emoji.query, Self::filter_emoji),
             (&self.view.emoji.insert, Self::insert_typed_emoji),
@@ -687,8 +780,6 @@ impl Controller {
             (&self.view.oauth_login, Self::oauth_login),
             (&self.view.cancel_login, Self::cancel_login),
             (&self.view.temporary, Self::temporary),
-            (&self.view.outbox.retry, Self::retry_outbox),
-            (&self.view.outbox.cancel, Self::cancel_outbox),
             (&self.view.security_toggle, Self::open_security),
             (&self.view.security.close, Self::close_security),
             (&self.view.security.refresh, Self::refresh_security),
@@ -723,6 +814,8 @@ impl Controller {
             (&self.view.tools.original, Self::open_original),
             (&self.view.tools.download, Self::download_file),
             (&self.view.tools.preview, Self::preview_file),
+            (&self.view.image_viewer.retry, Self::open_image),
+            (&self.view.image_viewer.download, Self::download_file),
             (&self.view.tools.cancel_transfer, Self::cancel_transfer),
             (&self.view.tools.mark_read, Self::mark_read),
             (&self.view.message_controls.cancel, Self::cancel_message),
@@ -747,6 +840,7 @@ impl Controller {
             (&self.view.history_controls.newer, Self::newer_history),
             (&self.view.history_controls.latest, Self::latest_history),
             (&self.view.search, Self::filter),
+            (&self.view.ui.space_picker, Self::choose_space),
             (&self.view.new_toggle, Self::toggle_new),
             (&self.view.new_conversation.cancel, Self::toggle_new),
             (
@@ -758,6 +852,9 @@ impl Controller {
             (&self.view.join.join_cancel, Self::toggle_join),
             (&self.view.join.join_submit, Self::join),
             (&self.view.appearance, Self::appearance),
+            (&self.view.message_layout, Self::message_layout),
+            (&self.view.text_size, Self::text_size),
+            (&self.view.shortcuts, Self::show_shortcuts),
             (&self.view.room_controls.accept, Self::accept_invitation),
             (&self.view.room_controls.decline, Self::decline_invitation),
             (&self.view.room_controls.leave, Self::leave_room),
@@ -810,6 +907,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     });
     let app = Rc::new(App::new()?);
     app.theme(appearance.theme());
+    app.focus_indicators(true);
     let window = app.window(options.window_title(), 1440, 900)?;
     let root = window.root()?;
     let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -860,7 +958,6 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         app: Rc::downgrade(&app),
         preference_path,
     });
-    controller.view.profile.set_text(&options.profile)?;
     controller.refresh_profiles()?;
 
     if let Some(link) = &options.link {
@@ -872,8 +969,26 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         .appearance
         .set_selected(appearance.index())?;
     controller.apply_daylight_theme(appearance)?;
+    let compact = controller
+        .preference_path
+        .as_ref()
+        .is_some_and(|p| crate::preferences::compact_messages(&p.with_file_name("desktop.json")));
+    controller
+        .view
+        .message_layout
+        .set_selected(i32::from(compact))?;
+    controller.apply_message_layout()?;
+    let text_size = controller.preference_path.as_ref().map_or(0, |p| {
+        crate::preferences::text_size(&p.with_file_name("desktop.json"))
+    });
+    controller
+        .view
+        .text_size
+        .set_selected(i32::from(text_size))?;
+    controller.apply_text_size()?;
     controller.bind()?;
     controller.install_message_menu(&app)?;
+    controller.install_composer_menu(&app)?;
     let _escape = controller.install_dialog_shortcut(&app)?;
     controller.install_shortcuts(&app)?;
     controller.render()?;
@@ -930,6 +1045,9 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         None
     };
     window.show()?;
+    if controller.model.borrow().phase == Phase::SignedOut {
+        controller.view.server.focus()?;
+    }
     let result = app.run();
     instance.borrow_mut().take();
     controller.status_item.borrow_mut().take();

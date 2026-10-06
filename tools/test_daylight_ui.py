@@ -19,10 +19,16 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, unquote
 import daylight_navigation_fixture as navigation
+import daylight_image_fixture as images
 requests = []
 room = '!studio:local'
 message_events = [{'type': 'm.room.message', 'sender': '@bob:local', 'event_id': '$bob', 'origin_server_ts': 1790884800000, 'content': {'msgtype': 'm.text', 'body': 'Hello from Bob'}}, {'type': 'm.room.message', 'sender': '@alice:local', 'event_id': '$alice', 'origin_server_ts': 1790884860000, 'content': {'msgtype': 'm.text', 'body': 'My original message'}}]
 action_writes = []
+history_cursors = []
+receipts_moved = False
+delivery_fail = True
+delivery_read = False
+thread_lookup_blocked = False
 
 class Handler(BaseHTTPRequestHandler):
 
@@ -43,6 +49,12 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = unquote(urlparse(self.path).path)
         requests.append(('GET', path, None))
+        if args.images and images.get(self, path):
+            return
+        if path.endswith('/profile/@alice:local/displayname'):
+            return self.reply({'displayname':'Alice Example'})
+        if path.endswith('/profile/@alice:local/avatar_url'):
+            return self.reply({'avatar_url':'mxc://local/user'})
         if path.endswith('/devices'):
             return self.reply({'devices': [{'device_id': 'UI_TEST', 'display_name': 'This test device'}, {'device_id': 'OTHER', 'display_name': 'Second test device'}]})
         if path.endswith('/media/config'):
@@ -61,24 +73,47 @@ class Handler(BaseHTTPRequestHandler):
             return
         if '/directory/room/' in path:
             return self.reply({'room_id': '!new:local', 'servers': ['local']})
-        if args.navigation and navigation.get(self, path):
+        if (args.navigation or args.polish or args.settings or args.history_cache or args.receipts) and navigation.get(self, path):
             return
         if path.endswith('/versions'):
             return self.reply({'versions': ['v1.11']})
         if path.endswith('/sync'):
             time.sleep(0.15)
-            if args.navigation:
+            if args.navigation or args.settings or args.history_cache:
                 return self.reply(navigation.sync(len(requests)))
             state = [{'type': 'm.room.create', 'state_key': '', 'sender': '@alice:local', 'event_id': '$create', 'origin_server_ts': 1, 'content': {'creator': '@alice:local', 'room_version': '10'}}, {'type': 'm.room.member', 'state_key': '@alice:local', 'sender': '@alice:local', 'event_id': '$member', 'origin_server_ts': 2, 'content': {'membership': 'join', 'displayname': 'Alice'}}, {'type': 'm.room.name', 'state_key': '', 'sender': '@alice:local', 'event_id': '$name', 'origin_server_ts': 3, 'content': {'name': 'Native integration test'}}]
-            rooms = {room: {'state': {'events': state}, 'timeline': {'events': [], 'limited': False, 'prev_batch': 'history'}, 'unread_notifications': {}, 'summary': {'m.joined_member_count': 2}}}
+            if args.polish:
+                state.append(navigation.state_event('m.room.member','@bob:local', {'membership':'join','displayname':'Bob','avatar_url':'mxc://local/user'},'bob-member'))
+            rooms = {room: {'state': {'events': state}, 'timeline': {'events': list(message_events) if (args.threads or args.slow_thread or args.delivery) else [], 'limited': False, 'prev_batch': 'history'}, 'unread_notifications': {}, 'summary': {'m.joined_member_count': 2}}}
+            if args.delivery and delivery_read:
+                rooms[room]['ephemeral']={'events':[{'type':'m.receipt','content':{message_events[-1]['event_id']:{'m.read':{'@bob:local':{'ts':200,'thread_id':'main'}}}}}]}
+            if args.receipts:
+                for user in ['bob','carol','dana','erin']:
+                    state.append(navigation.state_event('m.room.member',f'@{user}:local',{'membership':'join','displayname':user.title(),'avatar_url':'mxc://local/user'},user+'-member'))
+                content={('$alice' if receipts_moved else '$bob'):{'m.read':{f'@{u}:local':{'ts':200 if receipts_moved else 100,'thread_id':'main'} for u in ['bob','carol','dana','erin']}}}
+                rooms[room]['ephemeral']={'events':[{'type':'m.receipt','content':content}]}
             return self.reply({'next_batch': 'batch-' + str(len(requests)), 'rooms': {'join': rooms}, 'account_data': {'events': [{'type': 'm.direct', 'content': {}}]}, 'device_one_time_keys_count': {'signed_curve25519': 50}})
         if path.endswith('/account_data/m.direct'):
             return self.reply({})
+        if args.replies and '/context/' in path:
+            original=dict(type='m.room.message',sender='@bob:local',event_id='$outside',origin_server_ts=1790884700000,content={'msgtype':'m.text','body':'Original outside loaded history'})
+            return self.reply({'event':dict(original,room_id=room),'events_before':[],'events_after':[dict(e,room_id=room) for e in message_events[:2]],'state':[]})
+        if args.slow_thread and thread_lookup_blocked and ('/event/' in path or '/relations/' in path):
+            time.sleep(20)
         if '/event/' in path:
             event = next((e for e in message_events if e['event_id'] == path.rsplit('/', 1)[1]), None)
             if event:
                 return self.reply(dict(event, room_id=room))
+        if path.endswith('/messages') and args.composer:
+            from urllib.parse import parse_qs
+            cursor = parse_qs(urlparse(self.path).query).get('from', [''])[0]
+            history_cursors.append(cursor)
+            if cursor == 'older-one':
+                return self.reply({'start': cursor, 'chunk': [{'type':'m.room.message','sender':'@bob:local','event_id':'$older','origin_server_ts':1790884700000,'content':{'msgtype':'m.text','body':'Older message loaded by scrolling'}}], 'state':[]})
+            return self.reply({'start':'history','end':'older-one','chunk':list(reversed(message_events)),'state':[]})
         if path.endswith('/messages'):
+            if args.history_cache and sum(p == path for _,p,_ in requests) > 1:
+                time.sleep(4) # Returning to a visited room must not wait for this response.
             return self.reply({'start': 'history', 'chunk': list(reversed(message_events)), 'state': []})
         return self.reply({'errcode': 'M_NOT_FOUND', 'error': 'Not found'}, 404)
 
@@ -116,6 +151,12 @@ class Handler(BaseHTTPRequestHandler):
             return
         if '/account_data/' in path:
             return self.reply({})
+        if args.slow_thread and body.get('m.relates_to',{}).get('rel_type')=='m.thread':
+            time.sleep(6)
+        if args.delivery and '/send/' in path:
+            time.sleep(3)
+            if delivery_fail and body.get('body') == 'Failed delivery test':
+                return self.reply({'errcode':'M_FORBIDDEN','error':'Synthetic failure'},403)
         eid = '$sent' + str(len(action_writes))
         if '/redact/' in path:
             event = {'type': 'm.room.redaction', 'sender': '@alice:local', 'event_id': eid, 'origin_server_ts': 1790884920000 + len(action_writes), 'redacts': path.split('/redact/')[1].split('/')[0], 'content': {}}
@@ -125,19 +166,51 @@ class Handler(BaseHTTPRequestHandler):
         message_events.append(event)
         return self.reply({'event_id': eid})
 parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--images', action='store_true')
 parser.add_argument('--navigation', action='store_true')
+parser.add_argument('--polish', action='store_true')
+parser.add_argument('--composer', action='store_true')
+parser.add_argument('--settings', action='store_true')
+parser.add_argument('--threads', action='store_true')
+parser.add_argument('--slow-thread', action='store_true')
+parser.add_argument('--receipts', action='store_true')
+parser.add_argument('--replies', action='store_true')
+parser.add_argument('--delivery', action='store_true')
+parser.add_argument('--history-cache', action='store_true')
+parser.add_argument('--theme', choices=['light','dark'], default='light')
 parser.add_argument('--binary', type=Path, default=Path(__file__).resolve().parents[1] / 'target/debug/archaic')
 parser.add_argument('--output', type=Path, default=Path(__file__).resolve().parents[1] / 'target/daylight-ui')
 args = parser.parse_args()
+if args.images: images.setup(message_events)
 output = args.output.resolve()
 output.mkdir(parents=True, exist_ok=True)
+if args.history_cache:
+    message_events[:] = [dict(type='m.room.message',sender='@bob:local',event_id=f'$history{i}',origin_server_ts=1790884800000+i*60000,content={'msgtype':'m.text','body':f'Cached message {i:02} stays in this conversation'}) for i in range(50)]
+if args.replies:
+    message_events.extend(dict(type='m.room.message',sender='@bob:local',event_id=f'$filler{i}',origin_server_ts=1790884860000+i*60000,content={'msgtype':'m.text','body':f'Intermediate message {i:02}'}) for i in range(24))
+    for target in ['$bob', '$outside']:
+        message_events.append(dict(type='m.room.message',sender='@alice:local',event_id='$reply'+target[1:],origin_server_ts=1790887000000,content={'msgtype':'m.text','body':'> <@bob:local> Original quote\n\nReply body only '+target,'m.relates_to':{'m.in_reply_to':{'event_id':target}}}))
+if args.polish:
+    message_events.append(dict(type='m.room.message',sender='@bob:local',event_id='$link',origin_server_ts=1790884900000,content={'msgtype':'m.text','body':'https://example.org/guide'}))
+    launcher = output / 'bin'
+    launcher.mkdir(exist_ok=True)
+    browser = launcher / 'xdg-open'
+    browser.write_text('#!/bin/sh\nprintf "%s\\n" "$1" > "$ARCHAIC_TEST_LINK"\n')
+    browser.chmod(0o700)
+if args.composer:
+    message_events[0]['content']['body'] = 'Hello @alice:local'
+    for i,user in enumerate(['@alice:local','@bob:local']):
+        message_events.append({'type':'m.reaction','sender':user,'event_id':'$reaction'+str(i),'origin_server_ts':1790884800100+i,'content':{'m.relates_to':{'rel_type':'m.annotation','event_id':'$bob','key':'👍'}}})
 if not os.environ.get('DISPLAY'):
     parser.error('Run under xvfb-run with a 1600x1050x24 screen (see module docstring).')
-env = dict(os.environ, GDK_BACKEND='x11', GDK_SCALE='1', GDK_DPI_SCALE='1', GSK_RENDERER='cairo', GTK_USE_PORTAL='0', DBUS_SESSION_BUS_ADDRESS='unix:path=/tmp/archaic-ui-test-no-bus')
+env = dict(os.environ, XDG_CONFIG_HOME=str(output/'config'), XDG_DATA_HOME=str(output/'data'), XDG_CACHE_HOME=str(output/'cache'), GDK_BACKEND='x11', GDK_SCALE='1', GDK_DPI_SCALE='1', GSK_RENDERER='cairo', GTK_USE_PORTAL='0', DBUS_SESSION_BUS_ADDRESS='unix:path=/tmp/archaic-ui-test-no-bus')
+if args.polish:
+    env['PATH'] = str(output/'bin') + os.pathsep + env.get('PATH','')
+    env['ARCHAIC_TEST_LINK'] = str(output/'opened-link.txt')
 server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
 threading.Thread(target=server.serve_forever, daemon=True).start()
 log = (output / 'runtime.log').open('w')
-app = subprocess.Popen([str(args.binary.resolve()), '--temporary-session', '--theme', 'light'], env=env, stderr=log)
+app = subprocess.Popen([str(args.binary.resolve()), '--temporary-session', '--theme', args.theme], env=env, stderr=log)
 x = c.CDLL('libX11.so.6')
 xt = c.CDLL('libXtst.so.6')
 x.XOpenDisplay.argtypes = [c.c_char_p]
@@ -242,6 +315,42 @@ try:
     press('Return')
     wait_for(lambda: any((p.endswith('/sync') for _, p, _ in requests)))
     time.sleep(0.5)
+    if args.history_cache:
+        def choose(value):
+            click(130,134); shortcut('a'); press('BackSpace'); type_text(value)
+            click(120,232)
+        choose('Native integration')
+        wait_for(lambda:any('/rooms/!studio:local/messages' in p for _,p,_ in requests))
+        time.sleep(.7)
+        xt.XTestFakeMotionEvent(display,-1,650,350,0)
+        for _ in range(6):
+            xt.XTestFakeButtonEvent(display,4,1,0); xt.XTestFakeButtonEvent(display,4,0,0)
+        x.XFlush(display);time.sleep(.4)
+        xt.XTestFakeMotionEvent(display,-1,120,232,0);x.XFlush(display)
+        capture('cached-before-switch')
+        choose('Room 39')
+        wait_for(lambda:any('/rooms/!room39:local/messages' in p for _,p,_ in requests))
+        time.sleep(.7)
+        choose('Native integration')
+        capture('cached-return-during-network-delay')
+        for name in ['cached-before-switch','cached-return-during-network-delay']:
+            subprocess.check_call(['convert',str(output/(name+'.png')),'-crop','590x480+425+150',str(output/(name+'-crop.png'))])
+        compared=subprocess.run(['compare','-metric','AE',str(output/'cached-before-switch-crop.png'),str(output/'cached-return-during-network-delay-crop.png'),'null:'],capture_output=True,text=True)
+        assert compared.returncode == 0, 'Cached messages or scroll position changed: '+compared.stderr
+        print('PASS room history and scroll position restored before delayed network response',flush=True)
+        raise SystemExit(0)
+    if args.settings:
+        click(130,134); type_text('Native integration'); time.sleep(.5); click(140,234)
+        wait_for(lambda:any(p.endswith('/messages') for _,p,_ in requests));time.sleep(1)
+        capture('names-space-avatar')
+        click(45,90);time.sleep(.5);capture('avatar-rail')
+        click(45,90);time.sleep(.5);capture('list-expanded')
+        click(1375,28);time.sleep(.5);capture('settings-account')
+        click(420,433);time.sleep(.8);capture('settings-security')
+        click(740,410);time.sleep(.3);capture('security-dropdown');press('Home');press('Down');press('Return');time.sleep(.4);capture('settings-recovery')
+        press('space');press('Home');press('Down');press('Down');press('Return');time.sleep(.4);capture('settings-keys')
+        print('SETTINGS screenshots captured',flush=True)
+        raise SystemExit(0)
     if args.navigation:
         navigation.checks(globals())
         raise SystemExit(0)
@@ -249,6 +358,183 @@ try:
     wait_for(lambda: any((p.endswith('/messages') for _, p, _ in requests)))
     time.sleep(0.5)
     capture('chat')
+    if args.images:
+        images.checks(globals())
+        raise SystemExit(0)
+    if args.delivery:
+        click(600,geometry()[2]-54);type_text('Delayed delivery test');press('Return')
+        wait_for(lambda:any(b.get('body')=='Delayed delivery test' for _,b in action_writes))
+        time.sleep(.4);capture('delivery-sending')
+        time.sleep(3.2);capture('delivery-delivered')
+        delivery_read=True;time.sleep(.8);capture('delivery-read')
+        delivery_read=False
+        click(600,geometry()[2]-54);type_text('Failed delivery test');press('Return')
+        wait_for(lambda:any(b.get('body')=='Failed delivery test' for _,b in action_writes))
+        time.sleep(3.5);capture('delivery-failed')
+        delivery_fail=False
+        click(1016,592);time.sleep(.4);capture('delivery-retry-menu')
+        press('Home');press('Return')
+        wait_for(lambda:sum(b.get('body')=='Failed delivery test' for _,b in action_writes)>=2)
+        time.sleep(3.5);capture('delivery-retried')
+        attempts=[p for p,b in action_writes if b.get('body')=='Failed delivery test']
+        assert len(set(attempts))==1, 'Retry must keep the original SDK transaction'
+        message_events.append({'type':'m.reaction','sender':'@bob:local','event_id':'$existing-reaction','origin_server_ts':1790884999999,'content':{'m.relates_to':{'rel_type':'m.annotation','event_id':'$bob','key':'👍'}}})
+        time.sleep(.8);capture('delivery-reaction-before')
+        click(495,300)
+        wait_for(lambda:any(b.get('m.relates_to',{}).get('key')=='👍' for _,b in action_writes))
+        time.sleep(.3);capture('delivery-reaction-sending')
+        time.sleep(3.2);capture('delivery-reaction-delivered')
+        print('PASS inline sending, failure, delivered, read, retry and reaction without an outbox bar',flush=True)
+        raise SystemExit(0)
+    if args.replies:
+        time.sleep(.8);capture('replies-before')
+        click(550,646);time.sleep(.6);capture('reply-loaded-original')
+        assert not any('/context/' in p for _,p,_ in requests), 'Loaded original should not be fetched again'
+        xt.XTestFakeMotionEvent(display,-1,700,600,0)
+        for _ in range(35):
+            xt.XTestFakeButtonEvent(display,5,1,0);xt.XTestFakeButtonEvent(display,5,0,0)
+        x.XFlush(display);time.sleep(.6)
+        click(550,720)
+        wait_for(lambda:any('/context/$outside' in p for _,p,_ in requests))
+        time.sleep(.7);capture('reply-older-original')
+        print('PASS reply quote clicks reuse loaded history and fetch missing original context',flush=True)
+        raise SystemExit(0)
+    if args.receipts:
+        time.sleep(1.5)
+        capture('readers-initial')
+        xt.XTestFakeMotionEvent(display,-1,950,300,0);x.XFlush(display);time.sleep(1)
+        capture('reader-tooltip')
+        click(950,300);time.sleep(.7);capture('reader-profile')
+        click(1200,85)
+        xt.XTestFakeMotionEvent(display,-1,150,150,0);x.XFlush(display)
+        receipts_moved=True
+        time.sleep(1.5)
+        capture('readers-moved')
+        click(1380,26);capture('receipt-settings');click(410,336);capture('receipt-appearance');click(800,491);press('Home');press('Down');press('Return');capture('receipt-compact-setting');press('Escape')
+        time.sleep(.4);capture('readers-compact')
+        print('RECEIPTS screenshots captured',flush=True)
+        raise SystemExit(0)
+    if args.threads or args.slow_thread:
+        xt.XTestFakeMotionEvent(display, -1, 520, 267, 0)
+        xt.XTestFakeButtonEvent(display, 3, 1, 0)
+        xt.XTestFakeButtonEvent(display, 3, 0, 0)
+        x.XFlush(display)
+        time.sleep(.4)
+        capture('thread-menu')
+        press('Down'); press('Down'); press('Return')
+        time.sleep(.5)
+        capture('thread-open')
+        click(1210, geometry()[2]-54)
+        type_text('Native thread reply')
+        thread_lookup_blocked=True
+        before_lookup=sum('/event/' in p or '/relations/' in p for _,p,_ in requests)
+        press('Return')
+        wait_for(lambda: any(b.get('m.relates_to', {}).get('rel_type') == 'm.thread' for _, b in action_writes))
+        if args.slow_thread:
+            time.sleep(.3);capture('thread-send-pending')
+            click(1210,geometry()[2]-54);type_text('Next reply can be typed')
+            capture('thread-send-editable')
+            click(1394,88);time.sleep(.3);capture('thread-send-closed')
+            click(600,geometry()[2]-54);type_text('Main chat stays usable')
+            capture('thread-send-main-usable')
+            assert sum('/event/' in p or '/relations/' in p for _,p,_ in requests)==before_lookup, 'Sending must reuse loaded thread metadata'
+            click(1380,26);time.sleep(.3);capture('thread-send-settings');press('Escape')
+            time.sleep(6);capture('thread-send-complete')
+            print('PASS slow thread send: no refetch, editable composer, closable pane and usable main chat/settings',flush=True)
+            raise SystemExit(0)
+        time.sleep(3)
+        capture('thread-reply')
+        click(1394, 88)
+        time.sleep(.4)
+        capture('main-after-thread')
+        print('PASS native thread reply relation; captured room and thread projections', flush=True)
+        raise SystemExit(0)
+    if args.composer:
+        xt.XTestFakeMotionEvent(display,-1,454,311,0); x.XFlush(display)
+        time.sleep(1.2); capture('reaction-tooltip')
+        click(900, geometry()[2]-54)
+        capture('composer-menu')
+        press('Down'); press('Down'); press('Return')
+        time.sleep(.3)
+        capture('poll-form')
+        click(540,337); type_text('Lunch')
+        click(490,435); type_text('Pizza'); press('Return'); type_text('Sushi')
+        click(720,648)
+        wait_for(lambda:any('/org.matrix.msc3381.poll.start/' in p for p,_ in action_writes))
+        time.sleep(.5)
+        capture('poll-sent')
+        click(540,geometry()[2]-54); type_text('@bob:local @room'); press('Return')
+        wait_for(lambda:any(b.get('m.mentions',{}).get('room') and '@bob:local' in b.get('m.mentions',{}).get('user_ids',[]) for _,b in action_writes))
+        time.sleep(.5)
+        xt.XTestFakeMotionEvent(display,-1,650,250,0)
+        xt.XTestFakeButtonEvent(display,4,1,0); xt.XTestFakeButtonEvent(display,4,0,0); x.XFlush(display)
+        wait_for(lambda:'older-one' in history_cursors)
+        capture('older-loaded')
+        click(900, geometry()[2]-54)
+        press('Down'); press('Return')
+        time.sleep(.3); capture('voice-form')
+        click(50,440) # Outside dismisses; never open a real microphone in tests.
+        time.sleep(.3); capture('voice-dismissed')
+        click(410,geometry()[2]-54)
+        time.sleep(.5)
+        press('Escape'); time.sleep(.5); capture('attachment-cancelled')
+        variant=subprocess.check_output(['xprop','-id',str(geometry()[0]),'_GTK_THEME_VARIANT'],env=env,text=True)
+        assert args.theme in variant,variant
+        print('PASS native poll send, mention metadata, scroll pagination, voice form, file-picker cancel and native title theme',flush=True)
+        raise SystemExit(0)
+    if args.polish:
+        click(460,267)
+        capture('body-click')
+        click(510,416)
+        time.sleep(.3)
+        capture('clicked-link')
+        assert (output/'opened-link.txt').read_text().strip() == 'https://example.org/guide'
+
+        click(405,275)
+        time.sleep(0.8)
+        capture('profile')
+        click(1200,85)
+        xt.XTestFakeMotionEvent(display, -1, 480,267,0)
+        xt.XTestFakeButtonEvent(display,3,1,0)
+        xt.XTestFakeButtonEvent(display,3,0,0)
+        x.XFlush(display)
+        time.sleep(.4)
+        capture('pointer-menu')
+        press('Escape')
+        click(1380,26)
+        time.sleep(0.4)
+        capture('settings')
+        click(410,336)
+        capture('settings-appearance')
+        click(800,491)
+        press('End'); press('Return')
+        capture('settings-compact')
+        press('Escape')
+        capture('compact-chat')
+        click(1380,26)
+        click(800,491)
+        press('Home'); press('Return')
+        click(800,407)
+        if args.theme == 'dark':
+            press('Home'); press('Down')
+        else:
+            press('End')
+        press('Return')
+        capture('theme-switched-settings')
+        press('Escape')
+        capture('theme-switched-chat')
+        click(854, geometry()[2]-54)
+        capture('expanded-emoji')
+        click(914,654)
+        capture('emoji-page-two')
+        click(630,251); type_text('salute')
+        capture('emoji-search-extra')
+        # Filtered grid collapses vertically: use keyboard focus order from search.
+        press('Tab'); press('Return')
+        press('Return')
+        wait_for(lambda:any(b.get('body')=='🫡' for _,b in action_writes))
+        print('PASS profile, pointer menu, compact messages, theme switching and extended emoji search',flush=True)
+        raise SystemExit(0)
     bottom = geometry()[2] - 54
     click(550, bottom)
     type_text('Ordinary draft survives')
@@ -281,7 +567,7 @@ try:
     time.sleep(0.5)
     click(1394, 88)
     time.sleep(0.4)
-    click(929, bottom)
+    click(854, bottom)
     time.sleep(0.3)
     capture('emoji')
     def modal_surface(name):
@@ -297,13 +583,13 @@ try:
     def backdrop_pixel(name):
         return subprocess.check_output(['convert', str(output / (name + '.png')), '-format', '%[pixel:p{40,440}]', 'info:'], text=True).strip()
     assert backdrop_pixel('emoji-dismissed') != backdrop_pixel('emoji')
-    click(929, bottom)
+    click(854, bottom)
     time.sleep(0.3)
     capture('emoji-reopened')
     assert modal_surface('emoji-reopened') == modal_surface('emoji')
     print('PASS opaque modal, inside hit testing, outside dismissal and reopen', flush=True)
     center = geometry()[2] // 2
-    click(527, center - 119)
+    click(527, center - 143)
     time.sleep(0.3)
     press('Return')
     wait_for(lambda: any((b.get('body') == '😀' for _, b in action_writes)))

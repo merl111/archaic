@@ -5,6 +5,7 @@ use archaic_i18n::Translator;
 use cui::{Result, Widget, sys};
 
 pub struct View {
+    pub extras: crate::composer_extras::Extras,
     sidebar_heading: Widget,
     pub ui: crate::daylight::Shell,
     pub emoji: crate::emoji_picker::Picker,
@@ -15,9 +16,11 @@ pub struct View {
     pub deep_link: Widget,
     pub open_link: Widget,
     pub profile: Widget,
+    pub(crate) account_name: Widget,
     pub(crate) account_avatar: cui::ChatComponent,
     pub switch_profile: Widget,
     pub profiles: Widget,
+    pub saved_accounts: Widget,
     pub organization: crate::organization::Controls,
     pub organization_toggle: Widget,
     pub typing_opt: Widget,
@@ -26,13 +29,17 @@ pub struct View {
     pub browser_login: Widget,
     pub oauth_login: Widget,
     pub cancel_login: Widget,
-    pub outbox: crate::outbox::Controls,
     pub security_toggle: Widget,
     pub security: crate::security::Controls,
     pub thread: Widget,
     pub tools_toggle: Widget,
     pub tools: crate::tool_controls::ToolControls,
+    pub image_viewer: crate::image_viewer::Viewer,
     pub appearance: Widget,
+    pub message_layout: Widget,
+    pub text_size: Widget,
+    pub shortcuts: Widget,
+    pub settings: crate::settings_ui::Settings,
     pub appearance_error: Widget,
     pub new_toggle: Widget,
     pub new_conversation: crate::new_conversation::NewConversationForm,
@@ -49,6 +56,8 @@ pub struct View {
     pub login_status: Widget,
     pub login: Widget,
     pub login_card: Widget,
+    pub login_form: Widget,
+    pub login_notes: Widget,
     pub server: Widget,
     pub username: Widget,
     pub password: Widget,
@@ -76,7 +85,6 @@ pub struct View {
 
 struct Dialogs {
     preferences: Widget,
-    security_host: Widget,
     organization_host: Widget,
     new_host: Widget,
     join_host: Widget,
@@ -96,8 +104,8 @@ impl View {
         let account_fields = AccountFields::new(&ui, tr)?;
         let preferences = account_fields.root.clone();
         let login = Login::new(&ui.login_host, tr)?;
-        let security_host = ui.card(&ui.sheet_body, 0., 0)?;
-        security_host.set_min_size(1, 440)?;
+        let security_host = account_fields.settings.pages[3].clone();
+
         let security = crate::security::Controls::new(&security_host, tr)?;
         let organization_host = ui.card(&ui.sheet_body, 0., 0)?;
         organization_host.set_min_size(1, 440)?;
@@ -107,7 +115,7 @@ impl View {
         let new_conversation = crate::new_conversation::NewConversationForm::new(&new_host, tr)?;
         let join_host = ui.card(&ui.sheet_body, 0., 0)?;
         let join = crate::join_form::JoinForm::new(&join_host, tr)?;
-        let sidebar_header = ui.sidebar.box_layout(sys::CUI_HORIZONTAL, 8)?;
+        let sidebar_header = ui.sidebar_header.clone();
         let home = label(
             &sidebar_header,
             &tr.text("daylight-home"),
@@ -140,13 +148,19 @@ impl View {
         let room_controls = crate::room_controls::RoomControls::new(&room_host, tr)?;
         let thread = ui.main.box_layout(sys::CUI_VERTICAL, 0)?;
         thread.expand(true)?;
-        let timeline = crate::timeline_view::Timeline::new(&thread, tr, &t)?;
+        let timeline = crate::timeline_view::Timeline::new(
+            &thread,
+            tr,
+            &t,
+            crate::timeline_view::TimelineKind::Room,
+        )?;
         let history_host = ui.card(&ui.sheet_body, 0., 0)?;
         let history_controls = crate::history_controls::HistoryControls::new(&history_host, tr)?;
-        let outbox = crate::outbox::Controls::new(&thread, tr)?;
         let tools_host = ui.card(&ui.sheet_body, 0., 0)?;
         tools_host.set_min_size(1, 440)?;
         let tools = crate::tool_controls::ToolControls::new(&tools_host, tr)?;
+        let image_viewer = crate::image_viewer::Viewer::new(&ui.sheet_body, tr)?;
+        let extras = crate::composer_extras::Extras::new(&ui, tr)?;
         let message_host = ui.card(&ui.message_body, 0., 0)?;
         let message_controls = crate::message_controls::MessageControls::new(&message_host, tr)?;
         let compose_group = ui.composer.root.clone();
@@ -155,7 +169,7 @@ impl View {
         composer.accessibility(&tr.text("composer"), "")?;
         let send = ui.composer.part(1)?;
         let mut presentation = ui.composer.presentation()?;
-        presentation.composer_tools = (1 << 5) | (1 << 6);
+        presentation.composer_tools = (1 << 5) | (1 << 6) | (1 << 8);
         ui.composer.set_presentation(&presentation)?;
         ui.composer
             .part(5)?
@@ -170,6 +184,7 @@ impl View {
         let rooms = ui.nav.root.clone();
         let workspace = ui.content.clone();
         Ok(Self {
+            extras,
             sidebar_heading: home,
             ui,
             thread_pane,
@@ -177,7 +192,6 @@ impl View {
             reaction,
             dialogs: Dialogs {
                 preferences,
-                security_host,
                 organization_host,
                 new_host,
                 join_host,
@@ -190,9 +204,11 @@ impl View {
             deep_link: account_fields.deep_link,
             open_link: account_fields.open_link,
             profile: account_fields.profile,
+            account_name: account_fields.account_name,
             account_avatar: account_fields.account_avatar,
             switch_profile: account_fields.switch_profile,
             profiles: account_fields.profiles,
+            saved_accounts: account_fields.saved_accounts,
             organization,
             organization_toggle,
             typing_opt: account_fields.typing_opt,
@@ -201,13 +217,17 @@ impl View {
             browser_login: login.browser,
             oauth_login: login.oauth,
             cancel_login: login.cancel,
-            outbox,
             security_toggle,
             security,
             thread,
             tools_toggle,
             tools,
+            image_viewer,
             appearance: account_fields.appearance,
+            message_layout: account_fields.message_layout,
+            text_size: account_fields.text_size,
+            shortcuts: account_fields.shortcuts,
+            settings: account_fields.settings,
             appearance_error: account_fields.appearance_error,
             new_toggle,
             new_conversation,
@@ -224,6 +244,8 @@ impl View {
             login_status: login.status,
             login: login.background,
             login_card: login.card,
+            login_form: login.form,
+            login_notes: login.notes,
             server: login.server,
             username: login.username,
             password: login.password,
@@ -252,6 +274,10 @@ impl View {
 
     fn render_login(&self, model: &Model, tr: &Translator, connected: bool) -> Result<()> {
         self.footer.set_visible(false)?;
+        self.login_form
+            .set_visible(model.phase != Phase::Restoring)?;
+        self.login_notes
+            .set_visible(model.phase != Phase::Restoring)?;
         self.login.set_visible(!connected)?;
         self.ui.login_host.set_visible(!connected)?;
         self.oauth_login
@@ -340,9 +366,23 @@ impl View {
                 .unwrap_or_else(|| tr.text("daylight-home"))
         };
         set_text(&self.sidebar_heading, &heading)?;
+        *self.ui.sidebar_controls.borrow_mut() = vec![
+            self.sidebar_heading.clone(),
+            self.search.clone(),
+            self.new_toggle.clone(),
+            self.join_toggle.clone(),
+        ];
+        for control in [
+            &self.sidebar_heading,
+            &self.search,
+            &self.new_toggle,
+            &self.join_toggle,
+        ] {
+            control.set_visible(self.ui.sidebar_expanded())?;
+        }
         self.account_avatar.rooms(&[cui::chat::NavItem {
             id: 1,
-            title: model.user.clone(),
+            title: model.account_name().to_owned(),
             avatar: cui::chat::Avatar {
                 image: model.avatars.get("account").cloned().or_else(|| {
                     model
@@ -351,11 +391,12 @@ impl View {
                         .and_then(|r| model.avatars.get(&format!("user:{r}:{}", model.user)))
                         .cloned()
                 }),
-                ..crate::daylight::avatar(&model.user)
+                ..crate::daylight::avatar(model.account_name())
             },
             ..Default::default()
         }])?;
         self.account_avatar.set_theme(&self.ui.theme.borrow())?;
+        set_text(&self.account_name, model.account_name())?;
         self.organization.render(model, tr)?;
         self.reauth_group.set_visible(model.reauthentication)?;
         for button in [&self.reauth, &self.reauth_sso, &self.reauth_oauth] {
@@ -442,12 +483,11 @@ impl View {
 
     fn render_dialogs(&self, m: &Model, tr: &Translator) -> Result<()> {
         use crate::daylight::Panel;
-        let security = m.security.show;
         let org = m.organization.show;
         let new = m.show_new;
         let join = m.show_join;
         let tools = m.tools.show;
-        if security || org || new || join || tools || m.message_draft.is_some() {
+        if org || new || join || tools || m.message_draft.is_some() {
             self.ui.panel.set(Panel::None);
         }
         let panel = self.ui.panel.get();
@@ -462,8 +502,15 @@ impl View {
                 && !(d.kind == crate::message_state::ActionKind::Thread
                     && self.thread_pane.open.get())
         });
+        if panel == Panel::Composer
+            && m.tools.status == Some("upload-done")
+            && m.tools.pending.is_none()
+        {
+            self.ui.panel.set(Panel::None);
+            self.extras.reset();
+        }
+        self.image_viewer.render(m, tr)?;
         let dialogs = [
-            (security, &self.dialogs.security_host, "security-title"),
             (org, &self.dialogs.organization_host, "organization"),
             (new, &self.dialogs.new_host, "new-conversation"),
             (join, &self.dialogs.join_host, "join-room"),
@@ -488,9 +535,21 @@ impl View {
             ),
             (panel == Panel::Room, &self.dialogs.room_host, "room-tools"),
             (
+                self.ui.panel.get() == Panel::Composer,
+                &self.extras.root,
+                self.extras.title(),
+            ),
+            (
                 panel == Panel::History,
                 &self.dialogs.history_host,
                 "timeline-messages",
+            ),
+            (
+                m.image_open
+                    .as_ref()
+                    .is_some_and(|(room, _)| m.selected.as_ref() == Some(room)),
+                &self.image_viewer.root,
+                "preview-file",
             ),
         ];
         // Async updates can leave several model workflows open. Keep one focused
@@ -502,7 +561,7 @@ impl View {
         self.ui.modal(
             active.is_some(),
             &active.map(|i| tr.text(dialogs[i].2)).unwrap_or_default(),
-            active == Some(5),
+            active == Some(4),
         )
     }
 
@@ -510,7 +569,7 @@ impl View {
         let draft = m.message_draft.as_ref().filter(|d| d.kind.inline());
         self.ui
             .composer
-            .busy(m.sending || draft.is_some_and(|d| d.pending))?;
+            .busy(m.sending || m.tools_busy() || draft.is_some_and(|d| d.pending))?;
         if let Some(d) = draft {
             let original = m.selected_message();
             self.ui.composer.context(
@@ -526,6 +585,28 @@ impl View {
         } else {
             self.ui.composer.context(0, "", "", false)?;
             set_text(&self.composer, m.draft())?;
+        }
+        let files = m
+            .tools
+            .upload
+            .as_ref()
+            .and_then(|r| match &r.action {
+                archaic_matrix::ToolAction::QueueUpload { path }
+                | archaic_matrix::ToolAction::Sticker { path } => Some(vec![
+                    path.file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .into_owned(),
+                ]),
+                _ => None,
+            })
+            .unwrap_or_default();
+        self.ui.composer.files(&files)?;
+        // File dialog errors must remain visible even without the tools dialog.
+        if !m.tools.show
+            && let Some(key) = m.tools.error
+        {
+            set_text(&self.typing_status, &tr.text(key))?;
         }
         self.ui
             .composer
@@ -553,7 +634,25 @@ impl View {
             selected.is_some_and(|room| room.membership == archaic_matrix::Membership::Joined);
         self.room_controls.render(model, tr, fixture)?;
         self.history_controls.render(model, tr, fixture)?;
-        self.outbox.render(model, tr, fixture)?;
+        let sync = if model.temporary {
+            tr.text("history-sync-temporary")
+        } else if let Some(s) = &model.history_sync {
+            format!(
+                "{}: {} / {}\n{}: {}\n{}: {}\n{}: {}",
+                tr.text("history-sync-rooms"),
+                s.complete,
+                s.rooms,
+                tr.text("history-sync-events"),
+                s.events,
+                tr.text("history-sync-encrypted"),
+                s.encrypted,
+                tr.text("history-sync-retrying"),
+                s.retrying
+            )
+        } else {
+            tr.text("history-sync-waiting")
+        };
+        set_text(&self.settings.sync_status, &sync)?;
         self.thread.set_visible(true)?;
         self.session_notice
             .set_tooltip(&tr.text("preview-fixture"))?;
@@ -570,16 +669,6 @@ impl View {
                 && model.phase == Phase::Connected
                 && !fixture
                 && !model.tools_busy()
-                && !model.message_draft.as_ref().is_some_and(|d| d.pending)
-                && !model.creating
-                && model.room_pending.is_none()
-                && model.room_confirmation.is_none(),
-        )?;
-        self.send.set_enabled(
-            joined
-                && !model.sending
-                && !fixture
-                && model.phase == Phase::Connected
                 && !model.message_draft.as_ref().is_some_and(|d| d.pending)
                 && !model.creating
                 && model.room_pending.is_none()
@@ -678,14 +767,20 @@ pub(crate) fn message_text(
 }
 
 struct AccountFields {
+    settings: crate::settings_ui::Settings,
     account: Widget,
     root: Widget,
+    account_name: Widget,
     account_avatar: cui::ChatComponent,
     security_toggle: Widget,
     profile: Widget,
     profiles: Widget,
+    saved_accounts: Widget,
     switch_profile: Widget,
     appearance: Widget,
+    message_layout: Widget,
+    text_size: Widget,
+    shortcuts: Widget,
     appearance_error: Widget,
     notifications: Widget,
     typing_opt: Widget,
@@ -702,47 +797,49 @@ struct AccountFields {
 }
 impl AccountFields {
     fn new(ui: &crate::daylight::Shell, tr: &Translator) -> Result<Self> {
-        let root = ui.card(&ui.sheet_body, 0., 0)?;
-        let tabs = root.tabs()?;
-        tabs.set_min_size(1, 360)?;
-        let preferences = tabs.tab_add(&tr.text("settings-account"))?;
-        let appearance_page = tabs.tab_add(&tr.text("appearance"))?;
-        let notification_page = tabs.tab_add(&tr.text("settings-notifications"))?;
-        let security_page = tabs.tab_add(&tr.text("security-title"))?;
-        let advanced = tabs.tab_add(&tr.text("settings-advanced"))?;
-        for page in [
-            &preferences,
-            &appearance_page,
-            &notification_page,
-            &security_page,
-            &advanced,
-        ] {
-            page.box_set_padding(16)?;
-        }
-        let security_toggle = security_page.button(&tr.text("security-title"))?;
-        label(
-            &security_page,
-            &tr.text("security-settings-description"),
-            sys::CUI_ROLE_BODY,
-        )?;
+        let settings = crate::settings_ui::Settings::new(ui, tr)?;
+        let root = settings.root.clone();
+        let preferences = settings.pages[0].clone();
+        let appearance_page = settings.pages[1].clone();
+        let notification_page = settings.pages[2].clone();
+        let advanced = settings.pages[4].clone();
+        let security_toggle = settings.security_button();
         label(
             &preferences,
             &tr.text("signed-in-as"),
             sys::CUI_ROLE_CAPTION,
         )?;
+        let identity = preferences.box_layout(sys::CUI_HORIZONTAL, 16)?;
         let account_avatar =
-            cui::ChatComponent::create(&preferences, cui::ChatKind::Avatar, &ui.theme.borrow())?;
+            cui::ChatComponent::create(&identity, cui::ChatKind::Avatar, &ui.theme.borrow())?;
         account_avatar.root.expand(false)?;
-        account_avatar.part(0)?.set_min_size(80, 100)?;
-        let account = label(&preferences, "", sys::CUI_ROLE_BODY)?;
-        let profile_row = preferences.box_layout(sys::CUI_HORIZONTAL, 12)?;
-        let profile = profile_row.entry("default")?;
-        profile.expand(true)?;
-        profile.accessibility(&tr.text("profile-name"), "")?;
-        let profiles = profile_row.select(&[])?;
+        account_avatar.part(0)?.set_min_size(84, 84)?;
+        let identity_text = identity.box_layout(sys::CUI_VERTICAL, 6)?;
+        identity_text.expand(true)?;
+        let account_name = label(&identity_text, "", sys::CUI_ROLE_HEADING)?;
+        let account = label(&identity_text, "", sys::CUI_ROLE_CAPTION)?;
+        preferences.separator()?;
+        let saved_accounts = preferences.box_layout(sys::CUI_VERTICAL, 8)?;
+        label(
+            &saved_accounts,
+            &tr.text("account-saved"),
+            sys::CUI_ROLE_CAPTION,
+        )?;
+        let profiles = saved_accounts.select(&[])?;
         profiles.expand(true)?;
-        profiles.accessibility(&tr.text("profile-saved"), "")?;
-        let switch_profile = profile_row.button(&tr.text("profile-switch"))?;
+        profiles.accessibility(&tr.text("account-saved"), "")?;
+        label(&preferences, &tr.text("account-add"), sys::CUI_ROLE_CAPTION)?;
+        let profile_row = preferences.box_layout(sys::CUI_HORIZONTAL, 12)?;
+        let profile = profile_row.entry("")?;
+        profile.set_placeholder(&tr.text("account-slot-placeholder"))?;
+        profile.expand(true)?;
+        profile.accessibility(&tr.text("profile-name"), &tr.text("account-slot-hint"))?;
+        let switch_profile = profile_row.button(&tr.text("account-open"))?;
+        label(
+            &preferences,
+            &tr.text("account-slot-hint"),
+            sys::CUI_ROLE_CAPTION,
+        )?;
         label(
             &appearance_page,
             &tr.text("appearance"),
@@ -754,6 +851,21 @@ impl AccountFields {
             &tr.text("theme-dark"),
         ])?;
         appearance.accessibility(&tr.text("appearance"), "")?;
+        label(
+            &appearance_page,
+            &tr.text("message-layout"),
+            sys::CUI_ROLE_CAPTION,
+        )?;
+        let message_layout =
+            appearance_page.select(&[&tr.text("message-bubbles"), &tr.text("message-compact")])?;
+        message_layout.accessibility(&tr.text("message-layout"), "")?;
+        label(
+            &appearance_page,
+            &tr.text("text-size"),
+            sys::CUI_ROLE_CAPTION,
+        )?;
+        let text_size = appearance_page.select(&["100%", "125%", "150%", "175%", "200%"])?;
+        text_size.accessibility(&tr.text("text-size"), "")?;
         let appearance_error = label(
             &appearance_page,
             &tr.text("appearance-save-failed"),
@@ -763,6 +875,7 @@ impl AccountFields {
         let notifications = notification_page.checkbox(&tr.text("desktop-notifications"), false)?;
         let typing_opt = notification_page.checkbox(&tr.text("activity-share-typing"), false)?;
         let read_opt = notification_page.checkbox(&tr.text("activity-private-read"), false)?;
+        let shortcuts = advanced.button(&tr.text("keyboard-shortcuts"))?;
         let deep_link = advanced.entry("")?;
         deep_link.set_placeholder(&tr.text("matrix-link"))?;
         deep_link.accessibility(&tr.text("matrix-link"), "")?;
@@ -776,14 +889,20 @@ impl AccountFields {
         let reauth_oauth = reauth_group.button(&tr.text("oauth-login"))?;
         let reauth_cancel = reauth_group.button(&tr.text("cancel"))?;
         Ok(Self {
+            settings,
             root,
+            account_name,
             account_avatar,
             security_toggle,
             account,
             profile,
             profiles,
+            saved_accounts,
             switch_profile,
             appearance,
+            message_layout,
+            text_size,
+            shortcuts,
             appearance_error,
             notifications,
             typing_opt,

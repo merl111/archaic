@@ -70,6 +70,7 @@ impl Details {
                 }
             }
         }
+        crate::receipts::populate_details(room, &mut latest).await;
         self.latest = Some(latest.clone());
         Some(latest)
     }
@@ -145,6 +146,7 @@ impl Details {
             .map(|(u, _)| u.to_string())
             .collect();
         latest.thread_read_by = thread_readers(room, &latest.message, &id).await?;
+        crate::receipts::populate_details(room, &mut latest).await;
         self.latest = Some(latest.clone());
         Ok(Some(latest))
     }
@@ -224,7 +226,7 @@ impl Details {
             .into_iter()
             .map(|(user, _)| user.to_string())
             .collect();
-        let result = MessageDetails {
+        let mut result = MessageDetails {
             thread: timeline::aggregate(&staged.entries)
                 .into_iter()
                 .filter(|m| m.thread_root.as_deref() == Some(event_id))
@@ -247,6 +249,7 @@ impl Details {
             more: staged.cursor.more(),
             loaded: staged.entries.len() - 1,
         };
+        crate::receipts::populate_details(room, &mut result).await;
         staged.latest = Some(result.clone());
         *self = staged;
         Ok(result)

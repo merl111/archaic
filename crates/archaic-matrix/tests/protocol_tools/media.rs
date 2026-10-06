@@ -1,6 +1,64 @@
 use super::*;
 use std::time::Duration;
 #[tokio::test]
+async fn queued_image_has_a_local_preview_before_upload_completes() {
+    let server = server().await;
+    Mock::given(method("GET"))
+        .and(path_regex(".*/media/config$"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"m.upload.size":30000000})))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path_regex(".*/upload$"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_delay(Duration::from_secs(5))
+                .set_body_json(json!({"content_uri":"mxc://local/pixel"})),
+        )
+        .mount(&server)
+        .await;
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("pixel.png");
+    image::RgbaImage::from_pixel(2, 3, image::Rgba([1, 2, 3, 255]))
+        .save(&path)
+        .unwrap();
+    let (sender, mut receiver, worker) = login(&server).await;
+    let upload = request(ToolAction::QueueUpload { path });
+    sender
+        .send(Command::RoomTool(upload.clone()))
+        .await
+        .unwrap();
+    let event = next(&mut receiver, |e| {
+        matches!(e, EventKind::ImagePreview { .. })
+    })
+    .await;
+    let EventKind::ImagePreview {
+        room_id,
+        event_id,
+        result,
+    } = event.kind
+    else {
+        unreachable!()
+    };
+    assert_eq!(room_id, upload.room_id);
+    assert_eq!(event_id, format!("~{}", upload.id));
+    let image = result.unwrap();
+    assert_eq!((image.width, image.height), (2, 3));
+    assert_eq!(image.pixels, [1, 2, 3, 255].repeat(6));
+    assert!(
+        !server
+            .received_requests()
+            .await
+            .unwrap()
+            .iter()
+            .any(|r| r.url.path().contains("/send/m.room.message/"))
+    );
+    drop(sender);
+    drop(receiver);
+    worker.await.unwrap();
+}
+
+#[tokio::test]
 async fn attachment_retry_keeps_bytes_name_and_message_transaction_and_discard_releases_snapshot() {
     let server = server().await;
     Mock::given(method("GET"))

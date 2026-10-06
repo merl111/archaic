@@ -21,6 +21,23 @@ hides/restores room information. Narrow windows open room information as a dialo
 Space filtering follows synced child-room links, including nested spaces; it does
 not join rooms or open administration dialogs. Home restores the full list.
 
+The inspector starts closed, leaving more room for the conversation. Divider
+fractions survive hiding, reopening and resizing panes. Conversation rows show
+the most recent available message preview and timestamp; thread summaries show
+participants and the latest loaded reply. Your messages align to the right in
+the bubble layout, with delivery/read indicators attached to their message.
+
+Image messages show an aspect-preserving thumbnail, including queued local
+uploads. Click it to open a larger preview with refresh and save controls; close
+the dialog with Escape or its close button. Authenticated/encrypted media uses
+the existing Matrix SDK transfer path. Background thumbnails are bounded to
+512×384, larger previews to 1024×768, and the session retains at most 48 thumbnail
+assets. Animated playback and full-resolution zoom are not implemented.
+
+Formatted Matrix text is sanitized into native strong, code, quote, list and
+HTTP(S) link spans. Drag across text and use Ctrl/Cmd+C to copy a selection.
+Emoji insertion replaces a selection or uses the current composer caret.
+
 Room, sender and account avatars load asynchronously through Matrix SDK media
 requests. CUI retains and clips the decoded image; missing images retain initials.
 The decoder bounds dimensions and memory, and requests are limited to four at a
@@ -65,7 +82,7 @@ The inspector collapses on narrower windows; room/history controls remain access
 ## Boundaries and honest status
 
 - This UI integrates existing Matrix features; it does not establish complete Element parity or production E2EE acceptance.
-- The picker contains 56 common emoji with name/shortcode filtering, plus Unicode paste input. It is not a complete Unicode catalog, custom-emote browser, or skin-tone selector. Glyph appearance depends on system fonts. Picker insertion currently appends to the draft.
+- The picker contains 56 common emoji with name/shortcode filtering, plus Unicode paste input. It is not a complete Unicode catalog, custom-emote browser, or skin-tone selector. Glyph appearance depends on system fonts.
 - Threads are opened from a loaded message or its thread summary. The pane supports relation pagination and the existing live-detail refresh. A global thread inbox, independent per-thread unread navigation, and persistent per-thread drafts are not implemented.
 - Search, security and administration retain the existing operation models and acceptance limitations. Rich-text editing, calls and complete Matrix media rendering are separate work.
 - Application chrome has English/German catalogs. Some CUI-rendered chat strings and emoji search aliases remain English; RTL and live language switching are still pending.
@@ -94,6 +111,7 @@ Build first, then on Linux with Xvfb, libXtst and ImageMagick:
 ```sh
 xvfb-run -a -s '-screen 0 1600x1050x24' python3 tools/test_daylight_ui.py
 xvfb-run -a -s '-screen 0 1600x1050x24' python3 tools/test_daylight_ui.py --navigation
+xvfb-run -a -s '-screen 0 1600x1050x24' python3 tools/test_daylight_ui.py --images --theme dark
 ```
 
 The test starts a private loopback Matrix fixture and the real desktop executable with a temporary in-memory SDK session. It asserts server requests from native sign-in, ordinary sending, inline reply, thread reply, emoji sending, reaction selection/removal and message deletion confirmation; it also exercises search, organization, security and account dialogs. It verifies that an ordinary draft survives sending an inline reply. It never accesses a real homeserver or the desktop credential vault. Screenshots and a runtime log are written to `target/daylight-ui`.
@@ -123,3 +141,38 @@ test also runs with `LC_ALL=de_AT.UTF-8` to cover decimal-comma GTK styling,
 opaque modal surfaces, outside dismissal, reaction popup expansion/search and
 reopening after Escape. Linux popup window shapes cover X11 displays without a
 compositor; native Windows/macOS behavior still requires platform verification.
+
+See [local history and appearance](LOCAL-HISTORY.md) for cached startup, background
+indexing, profile interactions, the redesigned settings and message layout modes.
+
+### Appearance refresh
+
+The current native settings, compact timeline and member sidebar are shown below
+using a private test homeserver (green avatars are fixture image bytes).
+
+![Appearance in dark mode](images/daylight/appearance-dark.png)
+![Appearance in light mode](images/daylight/appearance-light.png)
+![Compact messages](images/daylight/compact-dark.png)
+![Member profile](images/daylight/profile-dark.png)
+
+## Accessibility and adaptive layout
+
+Settings → Appearance includes a 100%, 125%, 150%, 175% or 200% text-size
+preference. Normal launches persist it in `desktop.json`; temporary and fixture
+sessions keep it in memory. It affects native controls and the shared CUI chat
+renderer. At narrow widths the sidebar starts as a room rail; its toggle and
+Ctrl/Cmd+K reopen room search. Space navigation becomes a native picker when the
+tabs would not fit. Enlarged Settings uses icon navigation with translated
+accessible names and tooltips. Settings → Advanced → Keyboard shortcuts opens
+native help with the platform's primary modifier.
+
+English and German catalogs now supply CUI's composer help, reply/edit context,
+thread/vote plurals, poll status and delivery labels. Closing application dialogs
+restores the previously focused control when it remains available. Reaction
+popups restore their message action; inserting an emoji returns to its editor.
+
+Linux verification includes the 900×650 fixture at 100% and 200%, English/light
+and German/dark, complete CUI native UX contracts, and workspace unit/protocol
+tests. The same shared implementation is used on macOS and Windows, with native
+accessibility adapters and native CI regression coverage. This Linux workspace
+cannot verify VoiceOver, Narrator or those platforms' native runtime behavior.

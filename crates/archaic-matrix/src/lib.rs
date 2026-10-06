@@ -1,20 +1,26 @@
 #![recursion_limit = "256"]
 //! Matrix-only application service. No GUI handles or callbacks cross this boundary.
+mod archive;
+mod archive_sync;
 mod attachments;
 mod avatars;
+mod composer_extras;
 mod connection;
 mod conversations;
 mod details;
 mod history;
 pub mod links;
 mod local_data;
+mod member_profile;
 mod membership;
+pub mod mentions;
 mod message_actions;
 mod oauth;
 pub mod organization;
 pub mod outbox;
 mod paging;
 mod reauthorize;
+mod receipts;
 pub mod room_settings;
 mod room_threads;
 mod room_tools;
@@ -37,6 +43,10 @@ pub const CHANNEL_CAPACITY: usize = 32;
 
 // Deliberately not Debug: login commands contain a password.
 pub enum Command {
+    MemberProfile {
+        room: String,
+        user: String,
+    },
     Barrier(tokio::sync::oneshot::Sender<()>),
     Shutdown {
         epoch: u64,
@@ -82,6 +92,13 @@ pub enum Command {
         room_id: String,
         body: String,
         transaction: TransactionId,
+    },
+    EnqueueThread {
+        room_id: String,
+        root: String,
+        latest: String,
+        body: String,
+        transaction: String,
     },
     OutboxAction {
         room_id: String,
@@ -170,6 +187,7 @@ pub struct RoomSummary {
 }
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct RoomInfo {
+    pub preview: Option<RoomPreview>,
     pub children: Vec<String>,
     pub favourite: bool,
     pub recent: u64,
@@ -180,13 +198,29 @@ pub struct RoomInfo {
     pub encrypted: Option<bool>,
     pub space: bool,
 }
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct RoomPreview {
+    pub event: String,
+    pub sender: String,
+    pub body: String,
+    pub encrypted: bool,
+}
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Message {
+    pub transaction_id: Option<String>,
+    /// Hidden events following this message, used to place public read positions.
+    #[doc(hidden)]
+    pub receipt_events: Vec<String>,
+    #[doc(hidden)]
+    pub thread_receipt_events: Vec<String>,
+    pub read_by: Vec<String>,
+    pub thread_read_by: Vec<String>,
     pub timestamp: u64,
     pub thread_root: Option<String>,
     pub id: String,
     pub sender: String,
     pub body: Option<String>,
+    pub formatted_body: Option<String>,
     pub undecrypted: bool,
     pub editable: bool,
     pub deleted: bool,
@@ -209,6 +243,17 @@ pub enum SearchMode {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ToolAction {
+    Sticker {
+        path: std::path::PathBuf,
+    },
+    Voice {
+        path: std::path::PathBuf,
+        duration_ms: u64,
+    },
+    Poll {
+        question: String,
+        answers: Vec<String>,
+    },
     QueueUpload {
         path: std::path::PathBuf,
     },
@@ -268,6 +313,12 @@ pub struct MessageDetails {
     pub loaded: usize,
 }
 #[derive(Clone, Debug)]
+pub struct ImagePreview {
+    pub pixels: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
+}
+#[derive(Clone, Debug)]
 pub enum ToolData {
     QueuedUpload,
     Preview {
@@ -325,8 +376,27 @@ pub struct HistoryInfo {
     pub gap: bool,
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct HistorySyncStatus {
+    pub rooms: usize,
+    pub complete: usize,
+    pub events: u64,
+    pub encrypted: u64,
+    pub retrying: usize,
+}
 #[derive(Debug)]
 pub enum EventKind {
+    HistorySync(HistorySyncStatus),
+    MemberProfile(MemberProfile),
+    DisplayName {
+        key: String,
+        name: String,
+    },
+    ImagePreview {
+        room_id: String,
+        event_id: String,
+        result: Result<ImagePreview, &'static str>,
+    },
     Avatar {
         key: String,
         pixels: Option<Vec<u8>>,
@@ -368,6 +438,7 @@ pub enum EventKind {
     Activity {
         room_id: String,
         unread: u64,
+        latest: Option<String>,
         typing: Option<Vec<String>>,
     },
     BrowserUrl(String),
@@ -375,6 +446,15 @@ pub enum EventKind {
         transaction: TransactionId,
     },
     Outbox(Vec<outbox::Item>),
+    ThreadQueued {
+        transaction: String,
+        result: Result<(), &'static str>,
+    },
+    Delivery {
+        room_id: String,
+        transaction: String,
+        event_id: Option<String>,
+    },
     SecuritySnapshot(security::Snapshot),
     SecurityResult {
         id: TransactionId,
@@ -489,4 +569,15 @@ mod tests {
             assert!(homeserver_url(url).is_ok());
         }
     }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct MemberProfile {
+    pub room: String,
+    pub user: String,
+    pub name: String,
+    pub role: String,
+    pub verified: bool,
+    pub receipt: Option<String>,
+    pub loaded: bool,
 }

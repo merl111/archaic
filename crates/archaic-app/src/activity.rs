@@ -8,6 +8,10 @@ use std::{
 #[derive(Default)]
 pub struct State {
     pub unread: HashMap<String, u64>,
+    pub opened: Option<String>,
+    pub acknowledge: Option<String>,
+    pub latest: HashMap<String, String>,
+    pub viewed: HashMap<String, Option<String>>,
     pub typing: HashMap<String, (Vec<String>, Instant)>,
     edited_room: Option<String>,
     last_change: Option<Instant>,
@@ -26,6 +30,7 @@ impl Controller {
     }
 
     pub fn activity_tick(&self) -> Result<()> {
+        self.extras_tick()?;
         self.flush_drafts();
         if self.desktop_ready() && !self.drafts_dirty() {
             let pending = self.pending_profile.borrow_mut().take();
@@ -47,7 +52,11 @@ impl Controller {
                 m.phase == Phase::Connected,
                 m.selected.clone(),
                 !m.security.show && !m.organization.show && !m.tools.show && !m.show_new,
-                m.messages.last().map(|m| m.id.clone()),
+                m.messages
+                    .iter()
+                    .rev()
+                    .find(|m| m.thread_root.is_none())
+                    .map(|m| m.id.clone()),
             )
         };
         let focused = connected && visible && self.view.composer.has_focus()?;
@@ -85,7 +94,7 @@ impl Controller {
                 a.announced = Some(id.clone());
                 a.last_sent = Some(now);
             }
-            if focused
+            if (focused || a.acknowledge == room)
                 && a.last_read_attempt
                     .is_none_or(|t| now.duration_since(t) >= Duration::from_secs(10))
                 && self.view.read_opt.get_checked()?
@@ -102,6 +111,8 @@ impl Controller {
                     },
                 }));
                 a.read.insert(id.clone(), event);
+                a.unread.insert(id.clone(), 0);
+                a.acknowledge = None;
                 a.last_read_attempt = Some(now);
             }
         }
@@ -124,7 +135,9 @@ impl Controller {
         };
         crate::view::set_text(
             &self.view.typing_status,
-            &if typing.is_empty() {
+            &if let Some(key) = self.model.borrow().tools.error {
+                self.tr.text(key)
+            } else if typing.is_empty() {
                 String::new()
             } else {
                 format!("{} · {}", typing, self.tr.text("activity-typing"))

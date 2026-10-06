@@ -5,6 +5,8 @@ use cui::{Result, Widget, sys};
 
 pub struct Login {
     pub card: Widget,
+    pub form: Widget,
+    pub notes: Widget,
     pub browser: Widget,
     pub oauth: Widget,
     pub cancel: Widget,
@@ -48,23 +50,23 @@ impl Login {
         let title = brand.label("Archaic")?;
         title.set_font("sans", 24., 800)?;
         label(&brand, &tr.text("app-tagline"), sys::CUI_ROLE_CAPTION)?;
-        let welcome = card.label(&tr.text("welcome"))?;
+        let form = card.box_layout(sys::CUI_VERTICAL, 12)?;
+        let welcome = form.label(&tr.text("welcome"))?;
         welcome.set_font("sans", 15., 650)?;
-        let server = field(&card, tr, "homeserver", false)?;
+        let server = field(&form, tr, "homeserver", false)?;
         server.set_placeholder("https://matrix.example.org")?;
-        let username = field(&card, tr, "username", false)?;
+        let username = field(&form, tr, "username", false)?;
         username.set_placeholder("@name:example.org")?;
-        let password = field(&card, tr, "password", true)?;
-        let submit = card.button(&tr.text("sign-in"))?;
+        let password = field(&form, tr, "password", true)?;
+        let submit = form.button(&tr.text("sign-in"))?;
         submit.set_role(sys::CUI_ROLE_PRIMARY)?;
-        let browser = card.button(&tr.text("sso-login"))?;
-        let oauth = card.button(&tr.text("oauth-login"))?;
-        let cancel = card.button(&tr.text("cancel"))?;
-        let temporary = card.button(&tr.text("temporary-session"))?;
+        let browser = form.button(&tr.text("sso-login"))?;
+        let oauth = form.button(&tr.text("oauth-login"))?;
+        let cancel = form.button(&tr.text("cancel"))?;
+        let temporary = form.button(&tr.text("temporary-session"))?;
         let error = card.label("")?;
         error.set_role(sys::CUI_ROLE_DANGER)?;
         let status = label(&card, "", sys::CUI_ROLE_CAPTION)?;
-        card.separator()?;
         let notes = card.box_layout(sys::CUI_VERTICAL, 6)?;
         label(&notes, &tr.text("login-preview"), sys::CUI_ROLE_CAPTION)?;
         label(&notes, &tr.text("login-safety"), sys::CUI_ROLE_CAPTION)?;
@@ -72,6 +74,8 @@ impl Login {
         background.box_layout(sys::CUI_VERTICAL, 0)?.expand(true)?;
         Ok(Self {
             card,
+            form,
+            notes,
             browser,
             oauth,
             cancel,

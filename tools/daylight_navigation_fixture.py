@@ -13,13 +13,13 @@ def state_event(kind, key, content, suffix):
                 origin_server_ts=1790884900000, content=content)
 
 def sync(sequence):
-    members = [state_event('m.room.member', user, {'membership':'join','displayname':user[1:].split(':')[0], 'avatar_url':'mxc://local/user'}, user) for user in ['@alice:local','@bob:local','@carol:local']]
+    members = [state_event('m.room.member', user, {'membership':'join','displayname':user[1:].split(':')[0].title(), 'avatar_url':'mxc://local/user'}, user) for user in ['@alice:local','@bob:local','@carol:local']]
     rooms = {}
     for i, (rid, name) in enumerate([(ROOM,'Native integration test'), ('!direct:local','Bob'), ('!space:local','AxLabs')] + [(f'!room{i}:local',f'Room {i:02}') for i in range(40)]):
         content = {'creator':'@alice:local','room_version':'10'}
         if rid == '!space:local': content['type']='m.space'
         state = [state_event('m.room.create','',content,rid+'create'),state_event('m.room.name','',{'name':name},rid+'name')] + copy.deepcopy(members[:2] if rid == "!direct:local" else members)
-        if rid in [ROOM,'!direct:local']: state.append(state_event('m.room.avatar','',{'url':'mxc://local/room'},rid+'avatar'))
+        if rid in (ROOM, '!space:local'): state.append(state_event('m.room.avatar','',{'url':'mxc://local/room'},rid+'avatar'))
         if rid == '!space:local':
             state += [state_event('m.space.child',f'!room{j}:local',{'via':['local']},f'child{j}') for j in range(3)]
         tags = {'m.favourite': {'order':0.5}} if favorite and rid == ROOM else {}
@@ -40,8 +40,9 @@ def get(handler, path):
         handler.send_response(200);handler.send_header('Content-Type','image/png');handler.send_header('Content-Length',str(len(data)));handler.end_headers();handler.wfile.write(data)
         return True
     if path.endswith('/members'):
-        events = sync(0)['rooms']['join'][ROOM]['state']['events']
-        handler.reply({'chunk':[dict(e,room_id=ROOM) for e in events if e['type']=='m.room.member']})
+        rid = path.split('/rooms/')[1].split('/')[0]
+        events = sync(0)['rooms']['join'].get(rid, sync(0)['rooms']['join'][ROOM])['state']['events']
+        handler.reply({'chunk':[dict(e,room_id=rid) for e in events if e['type']=='m.room.member']})
         return True
     return False
 
@@ -95,12 +96,14 @@ def checks(ui):
     click(335,28);capture('navigation-direct')
     old = len(ui['requests']);click(140,234)
     ui['wait_for'](lambda:any('/rooms/!direct:local/messages' in p for _,p,_ in ui['requests'][old:]))
-    click(224,28);capture('navigation-home')
-    click(485,28);capture('navigation-space')
+    capture('navigation-dm-avatar')
+    assert pixel('navigation-dm-avatar',45,230) in ('srgb(30,180,120)','srgba(30,180,120,1)'), 'direct room must use peer avatar without room art'
+    click(180,28);capture('navigation-home')
+    click(430,28);capture('navigation-space')
     old = len(ui['requests']);click(140,234)
     ui['wait_for'](lambda:any('/rooms/!room2:local/messages' in p for _,p,_ in ui['requests'][old:]))
-    click(224,28)
-    click(24,28);capture('navigation-sidebar-hidden');click(24,28)
+    click(180,28)
+    click(45,88);capture('navigation-avatar-rail');click(45,80)
     move(364,460);xt.XTestFakeButtonEvent(display,1,1,0);move(280,460);xt.XTestFakeButtonEvent(display,1,0,0);x.XFlush(display);time.sleep(.5)
     capture('navigation-resized')
     click(968,90);capture('navigation-info-hidden')

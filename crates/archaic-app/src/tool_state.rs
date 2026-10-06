@@ -2,6 +2,7 @@ use crate::model::{Model, Phase};
 use archaic_matrix::{Membership, MessageDetails, SearchPage, ToolAction, ToolData, ToolRequest};
 #[derive(Default)]
 pub struct ToolState {
+    pub sticker: bool,
     pub show: bool,
     pub preview: Option<Preview>,
     pub mode: i32,
