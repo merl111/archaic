@@ -18,6 +18,8 @@ class Installers(unittest.TestCase):
         for name in ["bin/archaic","archaic.exe","Archaic.app/Contents/MacOS/archaic","share/applications/org.archaic.desktop.desktop","README.txt","build.json","licenses/NOTICE"]:
             file=root/name; file.parent.mkdir(parents=True,exist_ok=True); file.write_text("fixture")
         (root/"bin/archaic").chmod(0o755)
+        icon=root/"share/icons/hicolor/256x256/apps/org.archaic.desktop.png"
+        icon.parent.mkdir(parents=True); icon.write_bytes(b"icon fixture")
         return root
     def test_debian_format_ownership_permissions_and_metadata(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -37,6 +39,7 @@ class Installers(unittest.TestCase):
                 for entry in archive.getmembers(): self.assertEqual((entry.uid,entry.gid),(0,0))
                 self.assertEqual(archive.getmember("./usr/bin/archaic").mode,0o755)
                 self.assertEqual(archive.extractfile("./usr/share/doc/archaic/licenses/NOTICE").read(),b"fixture")
+                self.assertEqual(archive.extractfile("./usr/share/icons/hicolor/256x256/apps/org.archaic.desktop.png").read(),b"icon fixture")
             with self.assertRaises(FileExistsError): installer.deb(stage,out,"0.1.0","amd64","libgtk-4-1","maintainer")
             with self.assertRaises(ValueError): installer.deb(stage,root/"bad.deb","0.1.0","amd64","libgtk\nInjected: bad","maintainer")
     def test_apple_sign_verify_package_notarize_staple_order(self):

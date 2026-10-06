@@ -16,6 +16,21 @@ spec.loader.exec_module(packaging)
 
 
 class Packages(unittest.TestCase):
+    def assert_platform_icons(self, files, prefix, system):
+        if system == "Windows":
+            self.assertEqual(files[prefix + "archaic.ico"][:4], b"\0\0\1\0")
+        elif system == "Darwin":
+            info = plistlib.loads(files[prefix + "Archaic.app/Contents/Info.plist"])
+            self.assertEqual(info["CFBundleIconFile"], "archaic.icns")
+            self.assertEqual(files[prefix + "Archaic.app/Contents/Resources/archaic.icns"][:4], b"icns")
+        else:
+            desktop = files[prefix + "share/applications/org.archaic.desktop.desktop"].decode()
+            self.assertIn("Icon=org.archaic.desktop", desktop)
+            self.assertIn("StartupWMClass=org.archaic.desktop", desktop)
+            for size in (16, 24, 32, 48, 64, 128, 256, 512, 1024):
+                icon = files[prefix + f"share/icons/hicolor/{size}x{size}/apps/org.archaic.desktop.png"]
+                self.assertTrue(icon.startswith(b"\x89PNG"))
+
     def test_windows_rejects_an_archive_without_runtime_libraries(self):
         with tempfile.TemporaryDirectory() as root:
             root = Path(root)
@@ -63,6 +78,7 @@ class Packages(unittest.TestCase):
                         desktop = files[prefix + "share/applications/org.archaic.desktop.desktop"].decode()
                         self.assertIn("x-scheme-handler/matrix", desktop)
                         self.assertIn("Exec=archaic %u", desktop)
+                    self.assert_platform_icons(files, prefix, system)
                     with self.assertRaisesRegex(ValueError, "refusing to overwrite"):
                         packaging.package(binary, root / "dist", system, "test-arch", "0.1.0", "test-revision")
 

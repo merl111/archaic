@@ -47,7 +47,11 @@ impl Login {
         card.box_set_padding(32)?;
         crate::daylight::style(&card, &theme, theme.surface, 24., 32)?;
         let brand = card.box_layout(sys::CUI_VERTICAL, 6)?;
-        let title = brand.label("Archaic")?;
+        let identity = brand.box_layout(sys::CUI_HORIZONTAL, 10)?;
+        let logo = identity.icon(Some(&crate::branding::mark()?))?;
+        logo.set_icon_size(44)?;
+        logo.accessibility("Archaic", "")?;
+        let title = identity.label("archaic")?;
         title.set_font("sans", 24., 800)?;
         label(&brand, &tr.text("app-tagline"), sys::CUI_ROLE_CAPTION)?;
         let form = card.box_layout(sys::CUI_VERTICAL, 12)?;

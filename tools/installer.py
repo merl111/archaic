@@ -57,6 +57,7 @@ def deb(stage, output, version, architecture, depends, maintainer):
         doc.mkdir(parents=True)
         shutil.copy2(stage / "bin/archaic", data / "usr/bin/archaic")
         shutil.copy2(stage / "share/applications/org.archaic.desktop.desktop", data / "usr/share/applications/org.archaic.desktop.desktop")
+        shutil.copytree(stage / "share/icons", data / "usr/share/icons")
         for name in ("README.txt", "build.json"):
             shutil.copy2(stage / name, doc / name)
         shutil.copytree(stage / "licenses", doc / "licenses")

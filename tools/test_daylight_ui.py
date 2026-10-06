@@ -306,6 +306,10 @@ def wait_for(predicate):
     raise AssertionError('UI command did not reach test server')
 try:
     time.sleep(2)
+    window, _, _ = geometry()
+    properties = subprocess.check_output(['xprop', '-id', str(window), 'WM_CLASS', '_NET_WM_ICON'], text=True)
+    assert 'org.archaic.desktop' in properties, 'Wrong Linux application identity'
+    assert '_NET_WM_ICON(CARDINAL)' in properties, 'Missing native window icon'
     capture('login')
     type_text(f'http://127.0.0.1:{server.server_port}')
     press('Tab')

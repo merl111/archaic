@@ -1,6 +1,8 @@
 [Desktop Entry]
 Type=Application
 Name=Archaic
+Icon=org.archaic.desktop
+StartupWMClass=org.archaic.desktop
 Comment=Native Matrix desktop client
 Exec=archaic %u
 TryExec=archaic

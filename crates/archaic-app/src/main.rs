@@ -3,6 +3,7 @@ mod activity;
 mod appearance;
 #[cfg(target_os = "macos")]
 mod apple_links;
+mod branding;
 mod chat_labels;
 mod composer_extras;
 mod daylight;
@@ -905,7 +906,10 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             .map(appearance::Appearance::load)
             .unwrap_or_default()
     });
+    branding::prepare();
+    let _native_branding; // Drop its temporary assets after CUI has shut down.
     let app = Rc::new(App::new()?);
+    _native_branding = branding::NativeBranding::install()?;
     app.theme(appearance.theme());
     app.focus_indicators(true);
     let window = app.window(options.window_title(), 1440, 900)?;

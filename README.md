@@ -1,10 +1,18 @@
 # Archaic
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/branding/icon-master.png">
+  <img src="assets/branding/logo.png" alt="Archaic logo" width="280">
+</picture>
+
 Archaic foundations, modern conversations. The name is a nod to building a modern desktop app on a C GUI library.
 
 A native Matrix desktop client built with Rust and CUI, targeting Linux, Windows and macOS.
 
 **Early development build.** Archaic connects to real Matrix homeservers with password, classic browser SSO or delegated OAuth, restores saved devices, and supports security/recovery controls, persistent outgoing text, incremental history, message actions, attachments and search. It is not yet an Element replacement. Use a test account while acceptance work continues. Closing the window keeps a saved session; **Sign out** revokes it. See [security and messaging workflows](docs/SECURITY-MESSAGING.md) for the current behavior and remaining work in priorities 1–3.
+
+Manual native builds are available under **Actions → Build release → Run workflow**.
+See [release instructions](docs/RELEASE.md) for prerequisites, icons and packaging.
 
 ## Build and run
 

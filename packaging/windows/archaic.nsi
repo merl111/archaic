@@ -1,5 +1,7 @@
 Unicode true
 !include "MUI2.nsh"
+!define MUI_ICON "${STAGE}\archaic.ico"
+!define MUI_UNICON "${STAGE}\archaic.ico"
 Name "Archaic"
 OutFile "${OUTPUT}"
 InstallDir "$LOCALAPPDATA\Programs\Archaic"
@@ -17,6 +19,7 @@ Section "Archaic"
   CreateDirectory "$SMPROGRAMS\Archaic"
   CreateShortcut "$SMPROGRAMS\Archaic\Archaic.lnk" "$INSTDIR\archaic.exe"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Archaic" "DisplayName" "Archaic"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Archaic" "DisplayIcon" '$"$INSTDIR\archaic.exe$",0'
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Archaic" "DisplayVersion" "${VERSION}"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Archaic" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Archaic" "UninstallString" '$"$INSTDIR\Uninstall.exe$"'
@@ -39,6 +42,7 @@ Section "Uninstall"
   Delete "$SMPROGRAMS\Archaic\Archaic.lnk"
   RMDir "$SMPROGRAMS\Archaic"
   Delete "$INSTDIR\archaic.exe"
+  Delete "$INSTDIR\archaic.ico"
   Delete "$INSTDIR\cui.dll"
   Delete "$INSTDIR\Microsoft.WindowsAppRuntime.Bootstrap.dll"
   Delete "$INSTDIR\README.txt"

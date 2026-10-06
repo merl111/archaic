@@ -44,17 +44,26 @@ def package(binary, destination, system, machine, version, revision):
             with (content / "Info.plist").open("wb") as handle:
                 plistlib.dump({"CFBundleExecutable": "archaic", "CFBundleIdentifier": "org.archaic.desktop",
                               "CFBundleName": "Archaic", "CFBundleDisplayName": "Archaic",
+                              "CFBundleIconFile": "archaic.icns",
                               "CFBundlePackageType": "APPL", "CFBundleShortVersionString": version,
                               "CFBundleVersion": version, "NSHighResolutionCapable": True,
                               "NSMicrophoneUsageDescription": "Record voice messages when you press Record.",
                               "CFBundleURLTypes": [{"CFBundleURLName": "Matrix", "CFBundleURLSchemes": ["matrix"]}]}, handle)
+            resources = content / "Resources"
+            resources.mkdir()
+            shutil.copy2(ROOT / "assets/branding/archaic.icns", resources / "archaic.icns")
         elif system == "Windows":
             executable = stage / "archaic.exe"
+            shutil.copy2(ROOT / "assets/branding/archaic.ico", stage / "archaic.ico")
         else:
             executable = stage / "bin" / "archaic"
             desktop = stage / "share" / "applications"
             desktop.mkdir(parents=True)
             shutil.copyfile(ROOT / "packaging" / "org.archaic.desktop.desktop", desktop / "org.archaic.desktop.desktop")
+            for size in (16, 24, 32, 48, 64, 128, 256, 512, 1024):
+                icons = stage / f"share/icons/hicolor/{size}x{size}/apps"
+                icons.mkdir(parents=True)
+                shutil.copy2(ROOT / f"assets/branding/icon-{size}.png", icons / "org.archaic.desktop.png")
         executable.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(binary, executable)
         executable.chmod(0o755)

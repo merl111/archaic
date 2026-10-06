@@ -56,25 +56,15 @@ impl StatusItem {
     }
 }
 fn badge_icon(unread: bool) -> std::result::Result<Icon, tray_icon::BadIcon> {
-    let mut pixels = vec![0u8; 32 * 32 * 4];
-    for y in 0i32..32 {
-        for x in 0i32..32 {
-            let d = (x - 16) * (x - 16) + (y - 16) * (y - 16);
-            let a = (7..=24).contains(&y)
-                && ((x - (16 - (y - 7) / 3)).abs() <= 1
-                    || (x - (16 + (y - 7) / 3)).abs() <= 1
-                    || (y == 19 && (12..=20).contains(&x)));
-            let color = if unread && (x - 25) * (x - 25) + (y - 7) * (y - 7) <= 36 {
-                [243, 74, 101, 255]
-            } else if a {
-                [255, 255, 255, 255]
-            } else if d <= 225 {
-                [99, 89, 222, 255]
-            } else {
-                [0, 0, 0, 0]
-            };
-            let index = ((y * 32 + x) * 4) as usize;
-            pixels[index..index + 4].copy_from_slice(&color);
+    let mut pixels = crate::branding::TRAY_RGBA.to_vec();
+    if unread {
+        for y in 1i32..14 {
+            for x in 19i32..32 {
+                if (x - 25).pow(2) + (y - 7).pow(2) <= 36 {
+                    let index = ((y * 32 + x) * 4) as usize;
+                    pixels[index..index + 4].copy_from_slice(&[243, 74, 101, 255]);
+                }
+            }
         }
     }
     Icon::from_rgba(pixels, 32, 32)

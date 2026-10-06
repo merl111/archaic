@@ -1,4 +1,46 @@
-# Native installers
+# Releases and native installers
+
+## Manual GitHub releases
+
+Use **Actions → Build release → Run workflow** on the desired source revision.
+Enter a new tag matching `workspace.package.version`, currently `v0.1.0`.
+Increment that version (and update Cargo.lock) before making another version.
+The workflow rejects existing tags, builds native Linux, macOS and Windows
+archives, checks their packaging, and creates a release with SHA-256 sidecars
+only when all three builds succeed. Prerelease is enabled by default; a draft
+checkbox is available. Pushes and tags never trigger this workflow automatically.
+
+The workflow checks out the exact commit in `cui-revision` from `merl111/cui`.
+`CUI_DEPLOY_KEY` is an encrypted Actions secret on Archaic with the private half
+of a dedicated **read-only** CUI deploy key. It is already configured. The
+checkout does not persist the key. If rotating it, replace the CUI repository's
+“Archaic release builds (read only)” deploy key and update that secret together.
+Do not use an account-wide token. The ordinary `GITHUB_TOKEN` publishes only to
+this repository.
+
+These are unsigned development archives, not signed installers. Native Windows
+and macOS runtime verification remains separate from successful compilation.
+Windows users still need Windows App Runtime 1.8 and the Microsoft VC++ runtime.
+The Linux build uses Ubuntu 24.04 system libraries; it is not a universal binary
+for older distributions. The archive names and build.json record the actual
+runner architecture. This workflow does not change repository visibility.
+
+## Application icons
+
+The approved mark is embedded in the application and tray, and the README uses
+the full logo. Packaging adds Linux hicolor PNGs and the desktop entry, a macOS
+ICNS resource and Info.plist declaration, and the Windows ICO resource compiled
+into the EXE. NSIS also uses the icon for setup/uninstall. See
+[branding assets](../assets/branding/README.md) for regeneration and desktop
+integration details. All assets ship in the checkout; builds need no graphics
+generation service.
+
+A Linux tar archive contains `bin/` and `share/`; install both under the same
+prefix (for example `~/.local`), with its `bin` on PATH, so the desktop can find
+`org.archaic.desktop.desktop` and its matching hicolor icons. Refresh the desktop's
+icon cache if necessary. A bare ELF file has no portable embedded launcher icon.
+macOS Finder uses the packaged `Archaic.app`; Windows Explorer reads the EXE's
+embedded icon.
 
 `tools/package.py` still creates unsigned portable archives. `tools/installer.py` adds native installers, a required license bundle, and signing commands. Run it **on the target OS**, against a native release binary built with the pinned CUI revision. Neither script installs the app or changes the developer machine's URL handlers.
 

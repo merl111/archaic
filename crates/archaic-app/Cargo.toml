@@ -25,5 +25,5 @@ cpal = "0.18.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
-objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSDockTile"] }
-objc2-foundation = { version = "0.3", features = ["NSString", "NSObject", "NSAppleEventManager", "NSAppleEventDescriptor", "objc2-core-services"] }
+objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSDockTile", "NSImage"] }
+objc2-foundation = { version = "0.3", features = ["NSData", "NSString", "NSObject", "NSAppleEventManager", "NSAppleEventDescriptor", "objc2-core-services"] }
