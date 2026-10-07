@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Concept A · Nebula — Matrix desktop client</title>
+<style>
+:root {
+  --bg:      oklch(17% 0.02 265);
+  --surface: oklch(21% 0.022 265);
+  --fg:      oklch(96% 0.008 265);
+  --muted:   oklch(72% 0.02 265);
+  --border:  oklch(29% 0.022 265);
+  --accent:  oklch(84% 0.17 165);
+  --rail:    oklch(13.5% 0.018 265);
+  --raise:   oklch(25% 0.024 265);
+  --hover:   oklch(28% 0.024 265);
+  --accent-soft: color-mix(in oklch, var(--accent) 16%, transparent);
+  --on-accent: oklch(20% 0.05 165);
+  --danger:  oklch(64% 0.21 22);
+  --ink:     oklch(18% 0.03 265);
+  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI Variable Display', system-ui, sans-serif;
+  --font-body:    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  --font-mono:    ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.5 var(--font-body); -webkit-font-smoothing: antialiased; overflow: hidden; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+svg { width: 18px; height: 18px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.mono { font-family: var(--font-mono); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+
+.app { display: grid; grid-template-rows: 38px 1fr; height: 100vh; min-width: 1100px; }
+.titlebar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding-left: 14px; background: var(--rail); border-bottom: 1px solid var(--border); }
+.brand { font: 650 13px var(--font-display); display: flex; align-items: center; gap: 8px; }
+.brand-dot { width: 10px; height: 10px; border-radius: 3px; background: var(--accent); transform: rotate(45deg); }
+.search-pill { width: 440px; height: 26px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-radius: 7px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+.search-pill:hover { background: var(--raise); color: var(--fg); }
+.search-pill svg { width: 14px; height: 14px; }
+.search-pill kbd { margin-left: auto; font: 10.5px var(--font-mono); padding: 1px 5px; border: 1px solid var(--border); border-radius: 4px; }
+.winctl { display: flex; height: 100%; justify-self: end; }
+.winctl button { width: 46px; display: grid; place-items: center; color: var(--muted); }
+.winctl button:hover { background: var(--hover); color: var(--fg); }
+.winctl button.close:hover { background: var(--danger); color: var(--fg); }
+.winctl svg { width: 13px; height: 13px; }
+
+.body { display: grid; grid-template-columns: 72px 280px 1fr auto; min-height: 0; }
+.rail { background: var(--rail); display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px 0; border-right: 1px solid var(--border); }
+.space { position: relative; width: 46px; height: 46px; border-radius: 15px; display: grid; place-items: center; font: 750 16px var(--font-display); color: var(--ink); transition: border-radius .18s, transform .1s; }
+.space:hover { border-radius: 11px; }
+.space:active { transform: scale(.95); }
+.space.on::before { content: ''; position: absolute; left: -13px; width: 4px; height: 28px; border-radius: 0 4px 4px 0; background: var(--fg); }
+.space .ub { position: absolute; right: -5px; bottom: -5px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 10px; background: var(--danger); color: var(--fg); font: 700 10px/15px var(--font-body); border: 2px solid var(--rail); }
+.space.home { background: var(--raise); color: var(--fg); }
+.rail .sep { width: 28px; height: 1px; background: var(--border); }
+.rail .add { width: 46px; height: 46px; border-radius: 15px; border: 1.5px dashed var(--border); color: var(--muted); display: grid; place-items: center; }
+.rail .add:hover { color: var(--fg); border-color: var(--muted); }
+.rail .me { margin-top: auto; border-radius: 50%; }
+
+.rooms { background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+.rooms-head { padding: 16px 12px 10px 16px; display: flex; align-items: center; justify-content: space-between; }
+.rooms-head h2 { font: 700 18px var(--font-display); letter-spacing: -0.02em; margin: 0; }
+.icon-btn { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 8px; color: var(--muted); }
+.icon-btn:hover { background: var(--hover); color: var(--fg); }
+.icon-btn.on { background: var(--raise); color: var(--fg); }
+.filters { display: flex; gap: 6px; padding: 0 16px 10px; flex-wrap: wrap; }
+.chip { height: 28px; padding: 0 11px; border-radius: 14px; border: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+.chip:hover { background: var(--hover); color: var(--fg); }
+.chip.on { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.room-scroll { overflow-y: auto; padding: 0 8px 12px; flex: 1; }
+.group-label { font: 650 11px var(--font-body); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); padding: 14px 8px 6px; }
+.room { width: 100%; display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 9px; text-align: left; }
+.room:hover { background: var(--hover); }
+.room.on { background: var(--raise); box-shadow: inset 0 0 0 1px var(--border); }
+.room .nm { flex: 1; min-width: 0; }
+.room .nm b { display: block; font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room .nm small { display: block; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room.unread .nm b { font-weight: 700; }
+.badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--hover); color: var(--fg); font: 650 11px/20px var(--font-body); text-align: center; }
+.badge.hl { background: var(--danger); }
+.av { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font: 750 13px var(--font-display); color: var(--ink); position: relative; }
+.av.sq { border-radius: 10px; }
+.av.sm { width: 22px; height: 22px; font-size: 10px; }
+.av.lg { width: 38px; height: 38px; font-size: 15px; }
+.presence { position: absolute; right: -2px; bottom: -2px; width: 11px; height: 11px; border-radius: 50%; background: var(--accent); border: 2px solid var(--surface); }
+
+.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.room-head { height: 62px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 14px 0 20px; border-bottom: 1px solid var(--border); }
+.room-head h1 { font: 700 16px var(--font-display); letter-spacing: -0.015em; margin: 0; display: flex; align-items: center; gap: 8px; }
+.room-head .topic { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.room-head .tt { flex: 1; min-width: 0; }
+.e2ee { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 8px; border-radius: 10px; background: var(--raise); color: var(--muted); font: 550 11px var(--font-body); }
+.e2ee svg { width: 12px; height: 12px; }
+.head-actions { display: flex; gap: 2px; }
+.timeline { flex: 1; overflow-y: auto; padding: 16px 0 8px; }
+.day { display: flex; align-items: center; gap: 12px; margin: 12px 20px; color: var(--muted); font: 550 11.5px var(--font-body); }
+.day::before, .day::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.msg { position: relative; display: grid; grid-template-columns: 38px 1fr; gap: 12px; padding: 6px 20px; }
+.msg:hover, .msg:focus-within { background: color-mix(in oklch, var(--fg) 4%, transparent); }
+.msg.cont { padding-top: 0; }
+.msg.cont > .av { visibility: hidden; height: 0; }
+.msg.hlmsg { background: color-mix(in oklch, var(--accent) 7%, transparent); box-shadow: inset 2px 0 0 var(--accent); }
+.who { display: flex; align-items: baseline; gap: 8px; }
+.who b { font-weight: 650; }
+.who .mono { color: var(--muted); }
+.txt { margin: 1px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 72ch; }
+.pill-mention { background: var(--raise); padding: 0 6px; border-radius: 6px; font-weight: 650; }
+.reply-q { display: flex; gap: 6px; align-items: center; font-size: 12.5px; color: var(--muted); margin-bottom: 4px; padding: 3px 10px; border-radius: 8px; background: var(--surface); width: fit-content; }
+.reply-q b { color: var(--fg); font-weight: 600; }
+.reacts { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.react { height: 26px; padding: 0 9px; border-radius: 13px; border: 1px solid var(--border); background: var(--surface); display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.react:hover { background: var(--hover); }
+.react.mine { border-color: var(--fg); background: var(--raise); }
+.react span { font: 650 11.5px var(--font-body); }
+.thread-sum { margin-top: 8px; display: flex; align-items: center; gap: 10px; padding: 7px 14px 7px 8px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); text-align: left; }
+.thread-sum:hover { background: var(--hover); }
+.stack-av { display: flex; }
+.stack-av .av { margin-left: -6px; border: 2px solid var(--surface); }
+.stack-av .av:first-child { margin-left: 0; }
+.thread-sum b { font-weight: 650; font-size: 13px; }
+.thread-sum small { display: block; color: var(--muted); font-size: 12px; }
+.file-card { margin-top: 6px; display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); width: 340px; }
+.file-ic { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: oklch(78% 0.13 250); color: var(--ink); }
+.file-card b { display: block; font-weight: 600; font-size: 13px; }
+.file-card small { color: var(--muted); }
+.poll { margin-top: 6px; width: 380px; padding: 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); }
+.poll h4 { margin: 0 0 4px; font: 650 14px var(--font-display); }
+.poll-opt { position: relative; width: 100%; display: flex; justify-content: space-between; padding: 8px 12px; margin-top: 6px; border-radius: 8px; border: 1px solid var(--border); text-align: left; overflow: hidden; }
+.poll-opt i { position: absolute; inset: 0 auto 0 0; background: oklch(78% 0.13 250 / .22); transition: width .35s; }
+.poll-opt:hover { background: var(--hover); }
+.poll-opt.voted { border-color: oklch(78% 0.13 250); }
+.poll-opt span { position: relative; }
+.poll small { display: block; margin-top: 8px; color: var(--muted); font-size: 12px; }
+.hover-bar { position: absolute; top: -14px; right: 20px; display: none; background: var(--raise); border: 1px solid var(--border); border-radius: 9px; padding: 2px; box-shadow: 0 8px 20px oklch(0% 0 0 / .35); z-index: 2; }
+.msg:hover .hover-bar, .msg:focus-within .hover-bar { display: flex; }
+.hover-bar button { width: 30px; height: 28px; border-radius: 7px; display: grid; place-items: center; color: var(--muted); font-size: 14px; }
+.hover-bar button:hover { background: var(--hover); color: var(--fg); }
+.hover-bar svg { width: 16px; height: 16px; }
+.typing { height: 22px; padding: 0 20px; color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 6px; }
+.dots { display: inline-flex; gap: 3px; }
+.dots i { width: 4px; height: 4px; border-radius: 50%; background: var(--muted); animation: blink 1.2s infinite; }
+.dots i:nth-child(2) { animation-delay: .15s; } .dots i:nth-child(3) { animation-delay: .3s; }
+@keyframes blink { 0%,60%,100% { opacity: .3 } 30% { opacity: 1 } }
+
+.composer-wrap { padding: 0 20px 18px; }
+.replying { display: none; align-items: center; gap: 8px; padding: 7px 8px 7px 12px; font-size: 12.5px; color: var(--muted); background: var(--raise); border: 1px solid var(--border); border-bottom: 0; border-radius: 12px 12px 0 0; }
+.replying.show { display: flex; }
+.replying b { color: var(--fg); }
+.replying .icon-btn { margin-left: auto; width: 26px; height: 26px; }
+.composer { display: flex; align-items: flex-end; gap: 4px; padding: 7px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); }
+.replying.show + .composer { border-radius: 0 0 14px 14px; }
+.composer:focus-within { border-color: color-mix(in oklch, var(--fg) 30%, var(--border)); }
+.composer textarea { flex: 1; resize: none; border: 0; outline: 0; background: transparent; padding: 6px 6px; max-height: 140px; height: 32px; line-height: 1.45; }
+.composer textarea::placeholder { color: var(--muted); }
+.send { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); }
+.send:hover:not(:disabled) { background: oklch(90% 0.15 165); }
+.send:disabled { opacity: .35; cursor: default; }
+
+.panel { width: 340px; border-left: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; min-height: 0; }
+.panel.hide { display: none; }
+.panel-head { height: 62px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 18px; border-bottom: 1px solid var(--border); }
+.panel-head h3 { margin: 0; font: 700 15px var(--font-display); flex: 1; }
+.panel-body { overflow-y: auto; flex: 1; padding: 6px 0; }
+.panel .msg { grid-template-columns: 30px 1fr; padding: 8px 18px; }
+.panel .msg .av { width: 30px; height: 30px; font-size: 12px; }
+.thread-root { border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 4px; }
+.member { display: flex; align-items: center; gap: 10px; padding: 7px 18px; width: 100%; text-align: left; }
+.member:hover { background: var(--hover); }
+.member .nm { flex: 1; min-width: 0; }
+.member .nm b { display: block; font-weight: 550; }
+.member .nm small { display: block; color: var(--muted); font: 11px var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl { font: 650 10.5px var(--font-body); padding: 2px 7px; border-radius: 6px; background: var(--raise); color: var(--muted); }
+.info-hero { text-align: center; padding: 22px 18px 18px; border-bottom: 1px solid var(--border); }
+.info-hero .av { margin: 0 auto 12px; width: 72px; height: 72px; font-size: 26px; border-radius: 22px; }
+.info-hero h4 { margin: 0; font: 700 18px var(--font-display); letter-spacing: -0.02em; }
+.info-hero p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+.info-row { width: 100%; display: flex; align-items: center; gap: 12px; padding: 11px 18px; text-align: left; }
+.info-row:hover { background: var(--hover); }
+.info-row span { flex: 1; }
+.info-row small { color: var(--muted); }
+.panel .composer { margin: 10px 14px 14px; }
+
+.call { position: fixed; right: 24px; bottom: 100px; width: 310px; border-radius: 16px; background: var(--rail); border: 1px solid var(--border); box-shadow: 0 24px 60px oklch(0% 0 0 / .5); padding: 14px; display: none; z-index: 20; }
+.call.show { display: block; }
+.call-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 12.5px; }
+.call-top b { font-weight: 650; }
+.call-top .mono { color: var(--muted); }
+.call-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tile { aspect-ratio: 4/3; border-radius: 10px; display: grid; place-items: center; position: relative; }
+.tile .av { width: 40px; height: 40px; background: oklch(100% 0 0 / .55); }
+.tile small { position: absolute; left: 8px; bottom: 5px; font-size: 11px; font-weight: 650; color: var(--ink); }
+.tile.speaking { box-shadow: 0 0 0 2px var(--rail), 0 0 0 4px var(--accent); }
+.call-bar { display: flex; justify-content: center; gap: 8px; margin-top: 12px; }
+.call-bar button { width: 44px; height: 44px; border-radius: 50%; background: var(--raise); display: grid; place-items: center; }
+.call-bar button:hover { background: var(--hover); }
+.call-bar button.off { background: var(--fg); color: var(--bg); }
+.call-bar .hang { background: var(--danger); color: var(--fg); }
+.call-bar .hang:hover { background: oklch(56% 0.21 22); }
+
+.toast { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 16px); opacity: 0; background: var(--fg); color: var(--bg); padding: 9px 16px; border-radius: 10px; font-weight: 600; font-size: 13px; transition: .2s; pointer-events: none; z-index: 30; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+::-webkit-scrollbar { width: 10px; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; border: 3px solid transparent; background-clip: padding-box; }
+</style>
+</head>
+<body>
+<div class="app" data-od-id="nebula-app">
+  <header class="titlebar" data-od-id="titlebar">
+    <div class="brand"><span class="brand-dot"></span>Nebula</div>
+    <button class="search-pill" data-od-id="global-search" onclick="toast('Search rooms, people and messages')">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      Search rooms, people, messages<kbd>Ctrl K</kbd>
+    </button>
+    <div class="winctl">
+      <button aria-label="Minimize"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+      <button aria-label="Maximize"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1"/></svg></button>
+      <button class="close" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+  </header>
+
+  <div class="body">
+    <nav class="rail" id="rail" data-od-id="spaces-rail" aria-label="Spaces"></nav>
+
+    <aside class="rooms" data-od-id="room-list">
+      <div class="rooms-head">
+        <h2 id="spaceName">Home</h2>
+        <button class="icon-btn" aria-label="Start chat" onclick="toast('Start a chat, create or join a room')"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
+      <div class="filters" id="filters" data-od-id="room-filters"></div>
+      <div class="room-scroll" id="roomList"></div>
+    </aside>
+
+    <main class="main" data-od-id="timeline-pane">
+      <div class="room-head" data-od-id="room-header">
+        <div id="headAv"></div>
+        <div class="tt"><h1 id="headName"></h1><div class="topic" id="headTopic"></div></div>
+        <div class="head-actions">
+          <button class="icon-btn" aria-label="Voice call" onclick="startCall()"><svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg></button>
+          <button class="icon-btn" aria-label="Video call" onclick="startCall()"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/></svg></button>
+          <button class="icon-btn" id="btn-threads" aria-label="Threads" onclick="setPanel('threads')"><svg viewBox="0 0 24 24"><path d="M4 5h16v10H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg></button>
+          <button class="icon-btn" id="btn-members" aria-label="Members" onclick="setPanel('members')"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg></button>
+          <button class="icon-btn" id="btn-info" aria-label="Room info" onclick="setPanel('info')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></svg></button>
+        </div>
+      </div>
+      <div class="timeline" id="timeline" data-od-id="timeline"></div>
+      <div class="typing" id="typing"></div>
+      <div class="composer-wrap" data-od-id="composer">
+        <div class="replying" id="replying"></div>
+        <div class="composer">
+          <button class="icon-btn" aria-label="Attach file" onclick="toast('Files are encrypted before upload')"><svg viewBox="0 0 24 24"><path d="M21 11.5 12.5 20a5 5 0 0 1-7-7L14 4.5a3.3 3.3 0 0 1 4.7 4.7L10.2 17.7a1.7 1.7 0 0 1-2.4-2.4L15.5 7.6"/></svg></button>
+          <textarea id="input" rows="1" placeholder="Send an encrypted message…" aria-label="Message"></textarea>
+          <button class="icon-btn" aria-label="Create poll" onclick="toast('Create a poll')"><svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg></button>
+          <button class="icon-btn" aria-label="Emoji" onclick="toast('Emoji and sticker picker')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 14a4 4 0 0 0 7 0M9 9.5v.01M15 9.5v.01"/></svg></button>
+          <button class="send" id="sendBtn" aria-label="Send" disabled onclick="send()"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        </div>
+      </div>
+    </main>
+
+    <aside class="panel" id="panel" data-od-id="right-panel">
+      <div class="panel-head"><h3 id="panelTitle"></h3>
+        <button class="icon-btn" aria-label="Close panel" onclick="setPanel(null)"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+      <div class="panel-body" id="panelBody"></div>
+      <div id="panelFoot"></div>
+    </aside>
+  </div>
+</div>
+
+<div class="call" id="call" data-od-id="call-pip">
+  <div class="call-top"><b id="callRoom"></b><span class="mono" id="callTime">00:00</span></div>
+  <div class="call-grid" id="callGrid"></div>
+  <div class="call-bar">
+    <button aria-label="Mute" onclick="this.classList.toggle('off')"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+    <button aria-label="Camera" onclick="this.classList.toggle('off')"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/></svg></button>
+    <button aria-label="Share screen" onclick="this.classList.toggle('off')"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></button>
+    <button class="hang" aria-label="Leave call" onclick="endCall()"><svg viewBox="0 0 24 24"><path d="M3 14c5-5 13-5 18 0l-2 3-4-1.5v-2.5a9 9 0 0 0-6 0v2.5L5 17z"/></svg></button>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>// Shared demo data for all three concept prototypes.
+// Fictional people & rooms on illustrative homeservers — sample content only.
+window.MX = (() => {
+  const hue = s => [...s].reduce((a, c) => a + c.charCodeAt(0) * 7, 0) % 360;
+  const avc = (s, l = 80, c = 0.14) => `oklch(${l}% ${c} ${hue(s)})`;
+  const ini = s => s.replace(/^[#@!]/, '').slice(0, 1).toUpperCase();
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  const spaces = [
+    { id: 'home', name: 'Home' },
+    { id: 'work', name: 'Lumen Labs', hue: 40, glyph: 'L', unread: 12 },
+    { id: 'matrix', name: 'Matrix Community', hue: 165, glyph: 'M', unread: 3 },
+    { id: 'fosdem', name: 'FOSDEM Devroom', hue: 300, glyph: 'F' },
+    { id: 'games', name: 'Game night', hue: 95, glyph: 'G' },
+  ];
+
+  const rooms = [
+    { id: 'design', space: 'work', name: 'design-crit', kind: 'room', unread: 4, hl: true, fav: true, members: 14, topic: 'Weekly critique · Fridays 15:00 · bring WIP, not finals', last: 'Kai: lead with the emoji compare' },
+    { id: 'eng', space: 'work', name: 'engineering', kind: 'room', unread: 8, members: 42, topic: 'Builds, deploys and on-call handoffs', last: 'Lia: cold start feels much faster' },
+    { id: 'rand', space: 'work', name: 'random', kind: 'room', members: 58, topic: 'Off-topic, pets, lunch spots', last: 'Ben: it is on a sabbatical' },
+    { id: 'mhq', space: 'matrix', name: 'Matrix HQ', kind: 'room', unread: 3, members: 9120, topic: 'Chat about Matrix, the open standard', last: 'Lia: anyone tracking extensible events?' },
+    { id: 'ew', space: 'matrix', name: 'Client dev', kind: 'room', members: 1840, topic: 'Building Matrix clients', last: 'Kai: sliding sync notes are up' },
+    { id: 'talks', space: 'fosdem', name: 'speakers', kind: 'room', members: 31, topic: 'Devroom logistics', last: 'Noor: schedule is final' },
+    { id: 'ana', space: null, name: 'Ana Ribeiro', kind: 'dm', online: true, unread: 1, hl: true, fav: true, last: 'Can you look at the call tile?' },
+    { id: 'kai', space: null, name: 'Kai Tanaka', kind: 'dm', online: true, last: 'Merged, thanks!' },
+    { id: 'noor', space: null, name: 'Noor Haddad', kind: 'dm', last: 'Shared whiteboard.png' },
+  ];
+
+  const people = {
+    ana: { name: 'Ana Ribeiro', id: '@ana:lumen.chat', pl: 'Admin', online: true },
+    kai: { name: 'Kai Tanaka', id: '@kai:lumen.chat', pl: 'Moderator', online: true },
+    noor: { name: 'Noor Haddad', id: '@noor:matrix.org' },
+    ben: { name: 'Ben Okafor', id: '@ben:lumen.chat', online: true },
+    lia: { name: 'Lia Novak', id: '@lia:fosdem.org' },
+    you: { name: 'Mathias', id: '@mathias:lumen.chat', pl: 'Admin', online: true },
+  };
+
+  const timelines = {
+    design: [
+      { day: 'Yesterday' },
+      { by: 'kai', t: '17:42', txt: 'Pushed room list density options to staging. Compact mode drops the preview line.' },
+      { by: 'noor', t: '17:44', txt: 'Compact looks great on a 13" screen. Can we keep unread rooms bold though?', reacts: [['💯', 3, false], ['👀', 1, false]] },
+      { day: 'Today' },
+      { by: 'ana', t: '09:12', txt: 'Morning! Three things for crit today:\n1. Composer states — idle, replying, editing\n2. Call tile picture-in-picture\n3. Verification flow copy', thread: { n: 3, who: ['kai', 'noor', 'ben'], last: 'Ben: will pick up the call tile' } },
+      { by: 'ben', t: '09:20', txt: 'Mocked the PiP tile, export attached.', file: { name: 'call-pip-v3.fig', size: '4.2 MB' } },
+      { by: 'ben', t: '09:21', cont: true, txt: 'Quick vote before we start:', poll: { q: 'Default call layout?', opts: [['Speaker focus', 4], ['Grid', 6], ['Spotlight + filmstrip', 2]], v: null } },
+      { by: 'kai', t: '09:34', reply: { by: 'ana', txt: '3. Verification flow copy' }, txt: 'For verification I would lead with the emoji compare — it is the one people actually finish. @mathias can you take a pass?', mention: true, reacts: [['🙌', 2, true]] },
+    ],
+    eng: [{ day: 'Today' }, { by: 'kai', t: '08:01', txt: 'matrix-rust-sdk bump merged. Sliding sync is on by default for new logins.' }, { by: 'lia', t: '08:15', txt: 'Cold start feels much faster on my test account.', reacts: [['🚀', 4, false]] }],
+    rand: [{ day: 'Today' }, { by: 'noor', t: '12:30', txt: 'Who took the good kettle from the 3rd floor' }, { by: 'ben', t: '12:31', txt: 'it is on a sabbatical' }],
+    mhq: [{ day: 'Today' }, { by: 'lia', t: '10:02', txt: 'Is anyone tracking the extensible events proposal?' }],
+    ew: [{ day: 'Today' }, { by: 'kai', t: '11:00', txt: 'Sliding sync notes are up in the room topic.' }],
+    talks: [{ day: 'Mon' }, { by: 'noor', t: '16:10', txt: 'Schedule is final. Slides due the day before.' }],
+    ana: [{ day: 'Today' }, { by: 'ana', t: '09:40', txt: 'Can you look at the call tile? The speaking ring feels too thin at 1×.' }],
+    kai: [{ day: 'Today' }, { by: 'you', t: '08:20', txt: 'Merged, thanks!' }],
+    noor: [{ day: 'Yesterday' }, { by: 'noor', t: '19:02', txt: 'Shared whiteboard.png from today’s session.', file: { name: 'whiteboard.png', size: '1.1 MB' } }],
+  };
+
+  const threadReplies = [
+    { by: 'kai', t: '09:15', txt: 'Editing needs a clearer escape hint — show “Esc to cancel” inline.' },
+    { by: 'noor', t: '09:17', txt: 'Agreed. The reply bar should show the original sender too.' },
+    { by: 'ben', t: '09:22', txt: 'Will pick up the call tile.' },
+  ];
+
+  const roomMembers = ['ana', 'kai', 'ben', 'noor', 'lia', 'you'];
+
+  return { hue, avc, ini, esc, spaces, rooms, people, timelines, threadReplies, roomMembers };
+})();
+</script>
+<script>const { avc, ini, esc, spaces, rooms, people, timelines, threadReplies, roomMembers } = window.MX;
+const $ = id => document.getElementById(id);
+const I = {
+  reply: '<svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v6"/></svg>',
+  thread: '<svg viewBox="0 0 24 24"><path d="M4 5h16v10H9l-5 4z"/></svg>',
+  more: '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>',
+  lock: '<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+  x: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  file: '<svg viewBox="0 0 24 24"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/></svg>',
+  dl: '<svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
+  chev: '<svg viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--muted)"><path d="m9 6 6 6-6 6"/></svg>',
+};
+const state = JSON.parse(localStorage.getItem('nebula-state') || 'null') || { space: 'work', room: 'design', filter: 'all', panel: 'threads' };
+state.reply = null;
+const save = () => localStorage.setItem('nebula-state', JSON.stringify({ space: state.space, room: state.room, filter: state.filter, panel: state.panel }));
+const room = () => rooms.find(r => r.id === state.room);
+const avatar = (name, cls = '', online) => `<span class="av ${cls}" style="background:${avc(name)}">${ini(name)}${online ? '<span class="presence"></span>' : ''}</span>`;
+
+function toast(t) { const el = $('toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('show'), 1800); }
+
+function renderRail() {
+  $('rail').innerHTML = spaces.map(s => s.id === 'home'
+    ? `<button class="space home ${state.space === 'home' ? 'on' : ''}" aria-label="Home" title="Home" onclick="pickSpace('home')"><svg viewBox="0 0 24 24"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z"/></svg></button><div class="sep"></div>`
+    : `<button class="space ${state.space === s.id ? 'on' : ''}" style="background:oklch(80% 0.15 ${s.hue})" title="${s.name}" aria-label="${s.name}" data-od-id="space-${s.id}" onclick="pickSpace('${s.id}')">${s.glyph}${s.unread ? `<span class="ub">${s.unread}</span>` : ''}</button>`
+  ).join('') + `<button class="add" aria-label="Create a space" onclick="toast('Create or join a space')"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+  <button class="space me" style="background:${avc(people.you.name)}" aria-label="Settings" onclick="toast('Settings · Sessions · Security & privacy')">M</button>`;
+}
+function pickSpace(id) {
+  state.space = id; state.filter = 'all';
+  const first = rooms.find(r => id === 'home' || r.space === id); if (first) state.room = first.id;
+  renderAll();
+}
+function renderFilters() {
+  const f = [['all', 'All'], ['unread', 'Unread'], ['people', 'People'], ['fav', 'Favourites']];
+  $('filters').innerHTML = f.map(([v, l]) => `<button class="chip ${state.filter === v ? 'on' : ''}" onclick="setFilter('${v}')">${l}</button>`).join('');
+}
+function setFilter(v) { state.filter = v; renderFilters(); renderRooms(); save(); }
+function roomRow(r) {
+  const av = r.kind === 'dm' ? avatar(r.name, '', r.online) : avatar(r.name, 'sq');
+  return `<button class="room ${state.room === r.id ? 'on' : ''} ${r.unread ? 'unread' : ''}" data-od-id="room-${r.id}" onclick="pickRoom('${r.id}')">${av}
+    <span class="nm"><b>${r.kind === 'room' ? '# ' : ''}${esc(r.name)}</b><small>${esc(r.last || '')}</small></span>${r.unread ? `<span class="badge ${r.hl ? 'hl' : ''}">${r.unread}</span>` : ''}</button>`;
+}
+function renderRooms() {
+  $('spaceName').textContent = spaces.find(s => s.id === state.space).name;
+  let list = rooms.filter(r => state.space === 'home' || r.space === state.space || r.kind === 'dm');
+  if (state.filter === 'unread') list = list.filter(r => r.unread);
+  if (state.filter === 'people') list = list.filter(r => r.kind === 'dm');
+  if (state.filter === 'fav') list = list.filter(r => r.fav);
+  const g = (label, arr) => arr.length ? `<div class="group-label">${label}</div>${arr.map(roomRow).join('')}` : '';
+  $('roomList').innerHTML = (g('Rooms', list.filter(r => r.kind === 'room')) + g('Direct messages', list.filter(r => r.kind === 'dm')))
+    || `<p style="color:var(--muted);padding:16px 8px;margin:0">You’re all caught up.</p>`;
+}
+function pickRoom(id) { state.room = id; state.reply = null; room().unread = 0; renderAll(); $('input').focus(); }
+
+function body(m) {
+  let t = esc(m.txt).replace(/@mathias/g, '<span class="pill-mention">@mathias</span>');
+  return t;
+}
+function msgHTML(m, i, inPanel) {
+  if (m.day) return `<div class="day">${m.day}</div>`;
+  const p = people[m.by];
+  let x = '';
+  if (m.file) x += `<div class="file-card"><span class="file-ic">${I.file}</span><span style="flex:1;min-width:0"><b>${esc(m.file.name)}</b><small class="mono">${m.file.size} · encrypted</small></span><button class="icon-btn" aria-label="Download" onclick="toast('Downloading ${esc(m.file.name)}')">${I.dl}</button></div>`;
+  if (m.poll) {
+    const tot = m.poll.opts.reduce((a, o) => a + o[1], 0), v = m.poll.v != null;
+    x += `<div class="poll" data-od-id="poll"><h4>${esc(m.poll.q)}</h4>${m.poll.opts.map((o, k) => `<button class="poll-opt ${m.poll.v === k ? 'voted' : ''}" onclick="vote(${i},${k})"><i style="width:${v ? Math.round(o[1] / tot * 100) : 0}%"></i><span>${esc(o[0])}</span><span class="mono">${v ? Math.round(o[1] / tot * 100) + '%' : ''}</span></button>`).join('')}<small>${v ? tot + ' votes · results visible to all' : 'Vote to see results'}</small></div>`;
+  }
+  if (m.reacts) x += `<div class="reacts">${m.reacts.map((r, k) => `<button class="react ${r[2] ? 'mine' : ''}" onclick="react(${i},${k})">${r[0]}<span>${r[1]}</span></button>`).join('')}</div>`;
+  if (m.thread && !inPanel) x += `<button class="thread-sum" onclick="setPanel('threads')"><span class="stack-av">${m.thread.who.map(w => avatar(people[w].name, 'sm')).join('')}</span><span><b>${m.thread.n} replies</b><small>${esc(m.thread.last)}</small></span></button>`;
+  const rq = m.reply ? `<div class="reply-q">${I.reply.replace('<svg', '<svg style="width:13px;height:13px"')}<b>${people[m.reply.by].name}</b>${esc(m.reply.txt)}</div>` : '';
+  const bar = inPanel ? '' : `<div class="hover-bar"><button aria-label="React with thumbs up" onclick="quickReact(${i})">👍</button><button aria-label="Reply" onclick="startReply(${i})">${I.reply}</button><button aria-label="Reply in thread" onclick="setPanel('threads')">${I.thread}</button><button aria-label="More options" onclick="toast('Edit · Pin · Forward · View source · Report')">${I.more}</button></div>`;
+  return `<div class="msg ${m.cont ? 'cont' : ''} ${m.mention ? 'hlmsg' : ''}" data-od-id="${inPanel ? 'thread' : 'msg'}-${i}">${avatar(p.name)}<div>${m.cont ? '' : `<div class="who"><b style="color:${avc(p.name, 82, .12)}">${p.name}</b><span class="mono">${m.t}</span></div>`}${rq}<p class="txt">${body(m)}</p>${x}</div>${bar}</div>`;
+}
+function renderTimeline() {
+  const r = room();
+  $('headAv').innerHTML = r.kind === 'dm' ? avatar(r.name, 'lg', r.online) : avatar(r.name, 'sq lg');
+  $('headName').innerHTML = `${r.kind === 'room' ? '# ' : ''}${esc(r.name)}<span class="e2ee">${I.lock}Encrypted</span>`;
+  $('headTopic').textContent = r.kind === 'dm' ? (people[r.id]?.id || '') : `${r.members.toLocaleString()} members · ${r.topic}`;
+  const tl = timelines[r.id] || [];
+  $('timeline').innerHTML = tl.map((m, i) => msgHTML(m, i)).join('');
+  $('timeline').scrollTop = 1e6;
+  $('typing').innerHTML = r.id === 'design' ? `<span class="dots"><i></i><i></i><i></i></span> Noor is typing…` : '';
+  $('input').placeholder = `Message ${r.kind === 'room' ? '#' : ''}${r.name}`;
+}
+function vote(i, k) { const p = timelines[state.room][i].poll; if (p.v != null) p.opts[p.v][1]--; p.v = k; p.opts[k][1]++; renderTimeline(); }
+function react(i, k) { const r = timelines[state.room][i].reacts[k]; r[2] = !r[2]; r[1] += r[2] ? 1 : -1; timelines[state.room][i].reacts = timelines[state.room][i].reacts.filter(x => x[1] > 0); renderTimeline(); }
+function quickReact(i) { const m = timelines[state.room][i]; m.reacts = m.reacts || []; const e = m.reacts.find(r => r[0] === '👍'); if (e) { if (!e[2]) { e[2] = true; e[1]++; } } else m.reacts.push(['👍', 1, true]); renderTimeline(); }
+function startReply(i) { const m = timelines[state.room][i]; state.reply = { by: m.by, txt: m.txt.split('\n')[0] }; renderReply(); $('input').focus(); }
+function renderReply() {
+  const el = $('replying');
+  el.classList.toggle('show', !!state.reply);
+  el.innerHTML = state.reply ? `${I.reply.replace('<svg', '<svg style="width:14px;height:14px"')}Replying to <b>${people[state.reply.by].name}</b><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${esc(state.reply.txt)}</span><button class="icon-btn" aria-label="Cancel reply" onclick="state.reply=null;renderReply()">${I.x}</button>` : '';
+}
+function send() {
+  const v = $('input').value.trim(); if (!v) return;
+  const tl = timelines[state.room];
+  tl.push({ by: 'you', t: new Date().toTimeString().slice(0, 5), txt: v, reply: state.reply || undefined });
+  room().last = 'You: ' + v;
+  $('input').value = ''; state.reply = null; autosize(); renderReply(); renderTimeline(); renderRooms();
+}
+
+function setPanel(p) {
+  state.panel = state.panel === p ? null : p; save(); renderPanel();
+}
+function renderPanel() {
+  const el = $('panel'), p = state.panel, r = room();
+  el.classList.toggle('hide', !p);
+  ['threads', 'members', 'info'].forEach(k => $('btn-' + k).classList.toggle('on', p === k));
+  $('panelFoot').innerHTML = '';
+  if (!p) return;
+  if (p === 'threads') {
+    $('panelTitle').textContent = 'Thread';
+    const root = (timelines.design || []).find(m => m.thread);
+    if (r.id !== 'design' || !root) { $('panelBody').innerHTML = `<p style="color:var(--muted);padding:18px;margin:0">No threads in this room yet. Hover a message and choose “Reply in thread”.</p>`; return; }
+    $('panelBody').innerHTML = `<div class="thread-root">${msgHTML(root, 0, true)}</div>` + threadReplies.map((m, i) => msgHTML(m, i, true)).join('');
+    $('panelFoot').innerHTML = `<div class="composer"><textarea id="tinput" rows="1" placeholder="Reply in thread…" aria-label="Thread reply"></textarea><button class="send" aria-label="Send reply" onclick="sendThread()"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>`;
+    $('tinput').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendThread(); } });
+  }
+  if (p === 'members') {
+    $('panelTitle').textContent = `Members · ${r.kind === 'dm' ? 2 : r.members.toLocaleString()}`;
+    const list = r.kind === 'dm' ? [r.id, 'you'] : roomMembers;
+    $('panelBody').innerHTML = `<div class="group-label" style="padding:10px 18px 6px">Joined</div>` + list.map(k => { const u = people[k]; return `<button class="member" onclick="toast('${u.name} · verified session')">${avatar(u.name, '', u.online)}<span class="nm"><b>${u.name}</b><small>${u.id}</small></span>${u.pl ? `<span class="pl">${u.pl}</span>` : ''}</button>`; }).join('');
+  }
+  if (p === 'info') {
+    $('panelTitle').textContent = 'Room info';
+    $('panelBody').innerHTML = `<div class="info-hero">${avatar(r.name, 'sq')}<h4>${r.kind === 'room' ? '#' : ''}${esc(r.name)}</h4><p>${esc(r.topic || people[r.id]?.id || '')}</p></div>
+      ${[['Files', '12'], ['Pinned messages', '2'], ['Notifications', 'Mentions'], ['Export chat', ''], ['Settings', '']].map(([a, b]) => `<button class="info-row" onclick="toast('${a}')"><span>${a}</span><small>${b}</small>${I.chev}</button>`).join('')}
+      <div style="padding:14px 18px"><span class="e2ee">${I.lock}Messages are end-to-end encrypted</span></div>`;
+  }
+}
+function sendThread() {
+  const v = $('tinput').value.trim(); if (!v) return;
+  threadReplies.push({ by: 'you', t: new Date().toTimeString().slice(0, 5), txt: v });
+  const root = timelines.design.find(m => m.thread); root.thread.n++; root.thread.last = 'You: ' + v;
+  if (!root.thread.who.includes('you')) root.thread.who.push('you');
+  renderPanel(); renderTimeline();
+}
+
+let callT = null;
+function startCall() {
+  const r = room(); $('callRoom').textContent = (r.kind === 'room' ? '#' : '') + r.name;
+  const who = r.kind === 'dm' ? [r.id, 'you'] : ['ana', 'kai', 'ben', 'you'];
+  $('callGrid').innerHTML = who.map((k, i) => `<div class="tile ${i === 0 ? 'speaking' : ''}" style="background:${avc(people[k].name, 72, .13)}">${avatar(people[k].name)}<small>${k === 'you' ? 'You' : people[k].name.split(' ')[0]}</small></div>`).join('');
+  $('call').classList.add('show');
+  let s = 0; clearInterval(callT);
+  callT = setInterval(() => { s++; $('callTime').textContent = String(s / 60 | 0).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+    const tiles = $('callGrid').children; [...tiles].forEach((t, i) => t.classList.toggle('speaking', i === (s >> 1) % tiles.length)); }, 1000);
+}
+function endCall() { clearInterval(callT); $('call').classList.remove('show'); $('callTime').textContent = '00:00'; toast('Call ended'); }
+
+function autosize() { const t = $('input'); t.style.height = '32px'; t.style.height = Math.min(t.scrollHeight, 140) + 'px'; $('sendBtn').disabled = !t.value.trim(); }
+$('input').addEventListener('input', autosize);
+$('input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  if (e.key === 'Escape') { state.reply = null; renderReply(); }
+});
+document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); toast('Search rooms, people and messages'); } });
+
+function renderAll() { renderRail(); renderFilters(); renderRooms(); renderTimeline(); renderReply(); renderPanel(); save(); }
+renderAll();
+</script>
+</body>
+</html>

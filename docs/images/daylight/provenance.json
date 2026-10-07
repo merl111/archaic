@@ -1,0 +1,80 @@
+{
+  "date": "2026-10-02",
+  "backend": "Native CUI GTK/X11 under Xvfb, cairo renderer",
+  "scale": 1,
+  "captures": {
+    "light.png": {
+      "source": "offline --fixture preview",
+      "sha256": "d8787b9fd2df674489a7b1f9482f46b2c53791a12c231e4c3b094c957d77c064"
+    },
+    "dark.png": {
+      "source": "offline --fixture preview",
+      "sha256": "6e7e9f366acb31291799ca7ddea9d768c29990ed853954a8151565861a3f0d2b"
+    },
+    "narrow.png": {
+      "source": "offline --fixture preview",
+      "sha256": "84a0ea990cd6d2a05b106bf3de8c4954ef3d9ed6b996dbf90e4c53aa425e9741"
+    },
+    "account.png": {
+      "source": "tools/test_daylight_ui.py private loopback Matrix fixture",
+      "date": "2026-10-02",
+      "sha256": "7902bae5fcb08945ab256ce4f03bb033e4fdebcc9709050b2cb0aeea51163e82"
+    },
+    "emoji.png": {
+      "source": "tools/test_daylight_ui.py private loopback Matrix fixture",
+      "date": "2026-10-02",
+      "sha256": "12f191a93d866909eb45f71855b08c1f9013524a4926127da56a5e3c62c4454c"
+    },
+    "thread.png": {
+      "source": "tools/test_daylight_ui.py private loopback Matrix fixture",
+      "date": "2026-10-02",
+      "sha256": "8889fe029ce3f8d5eb27bb04271d34f7aa1be329fa28963fa19ddd5da8d1bc15"
+    },
+    "message-more.png": {
+      "source": "tools/test_daylight_ui.py private loopback Matrix fixture",
+      "date": "2026-10-02",
+      "sha256": "c28274277c2238b7c597a7c4e814fa68b0a57b46bc507f7da7fae90e25e20db8"
+    },
+    "reaction-quick.png": {
+      "source": "tools/test_daylight_ui.py private loopback Matrix fixture",
+      "date": "2026-10-02",
+      "sha256": "e5d1116b37953077b6e35c6af148149dbcc7f791d7e135d394b37832c53b901b"
+    },
+    "reaction-expanded.png": {
+      "source": "tools/test_daylight_ui.py private loopback Matrix fixture",
+      "date": "2026-10-02",
+      "sha256": "43e9b4f2035deac2aa6625ad0bfeedd6d1710e492e2a586449762c57095e4b5f"
+    },
+    "reaction-search.png": {
+      "source": "tools/test_daylight_ui.py private loopback Matrix fixture",
+      "date": "2026-10-02",
+      "sha256": "51611b0152a1271f319cbddd385f5227e42e09367fc27ef0c7aa7d21489ecb6f"
+    },
+    "security.png": {
+      "source": "tools/test_daylight_ui.py private loopback Matrix fixture",
+      "date": "2026-10-02",
+      "sha256": "f643aa4b6235b51ff2eb2ed63f6074e553864dd3113c4b4319fc07cfb06a4e67"
+    },
+    "navigation-avatars.png": {
+      "source": "tools/test_daylight_ui.py --navigation private loopback Matrix fixture",
+      "date": "2026-10-02",
+      "sha256": "13bee9375c0a82570815ce8832273ce9f8747b460883d94df7658fb083920141"
+    },
+    "navigation-list-scrolled.png": {
+      "source": "tools/test_daylight_ui.py --navigation private loopback Matrix fixture",
+      "date": "2026-10-02",
+      "sha256": "47df45d15760c34c0a75dc82b18f2a77f92c8d5e66633fd3ee6421750f451764"
+    },
+    "navigation-settings.png": {
+      "source": "tools/test_daylight_ui.py --navigation private loopback Matrix fixture",
+      "date": "2026-10-02",
+      "sha256": "22416693a9bc83697f85ff0afa9cbc7219dfc579091fd5a345c54b0289e0ecaf"
+    },
+    "navigation-space.png": {
+      "source": "tools/test_daylight_ui.py --navigation private loopback Matrix fixture",
+      "date": "2026-10-02",
+      "sha256": "804b7bfecee8e9b55760fa2570443688ca2920857c28f12c1e3dddfdfc557e6a"
+    }
+  },
+  "popup_note": "Reaction popup captures validate native X11 corner clipping without a compositor. Other captures are retained from their earlier validation run."
+}

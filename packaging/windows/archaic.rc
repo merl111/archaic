@@ -1,0 +1,2 @@
+// Resource 1 is used by CUI's native window class as well as Windows Explorer.
+1 ICON "assets/branding/archaic.ico"

@@ -1,0 +1,163 @@
+name: Build release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'New release tag matching Cargo.toml (for example v0.1.0)'
+        required: true
+        type: string
+      publish:
+        description: Create a GitHub release after building (uncheck for validation only)
+        type: boolean
+        default: true
+      prerelease:
+        description: Mark as a prerelease
+        type: boolean
+        default: true
+      draft:
+        description: Keep the release as a draft
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  metadata:
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      cui: ${{ steps.meta.outputs.cui }}
+      rust: ${{ steps.meta.outputs.rust }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - id: meta
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: python tools/release_metadata.py
+      - name: Refuse to reuse an existing release tag
+        if: inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          set -euo pipefail
+          refs=$(gh api "repos/$GH_REPO/git/matching-refs/tags/$RELEASE_TAG" --jq '.[].ref')
+          if printf '%s\n' "$refs" | grep -Fxq "refs/tags/$RELEASE_TAG"; then
+            echo 'This tag already exists. Bump the workspace version and choose a new tag.' >&2
+            exit 1
+          fi
+
+  build:
+    needs: metadata
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: archaic
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: archaic
+          persist-credentials: false
+      - name: Check out the exact private CUI revision
+        uses: actions/checkout@v4
+        with:
+          repository: merl111/cui
+          ref: ${{ needs.metadata.outputs.cui }}
+          path: cui
+          ssh-key: ${{ secrets.CUI_DEPLOY_KEY }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify packaging contracts
+        run: |
+          python tools/test_package.py
+          python tools/test_installer.py
+          python tools/test_dev.py
+          python tools/test_branding.py
+          python tools/test_release.py
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake pkg-config libgtk-4-dev libxext-dev libdbus-1-dev libasound2-dev libssl-dev clang xvfb
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+      - uses: microsoft/setup-msbuild@v2
+        if: runner.os == 'Windows'
+      - uses: NuGet/setup-nuget@v2
+        if: runner.os == 'Windows'
+      - name: Install the repository Rust toolchain
+        env:
+          RUST_TOOLCHAIN: ${{ needs.metadata.outputs.rust }}
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+          rustup override set "$RUST_TOOLCHAIN"
+      - name: Build native release (Linux and macOS)
+        if: runner.os != 'Windows'
+        run: python tools/dev.py build --release
+      - name: Build native release (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: python tools/dev.py build --release
+      - name: Linux native smoke test
+        if: runner.os == 'Linux'
+        run: xvfb-run -a env GSK_RENDERER=cairo GTK_A11Y=none target/release/archaic --fixture --smoke-test
+      - name: Package native binary and icons
+        shell: python
+        run: |
+          import os, subprocess, sys
+          binary = 'target/release/archaic' + ('.exe' if os.name == 'nt' else '')
+          subprocess.run([sys.executable, 'tools/package.py', '--binary', binary], check=True)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.os }}
+          path: archaic/dist/*
+          if-no-files-found: error
+
+  publish:
+    if: inputs.publish
+    needs: [metadata, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+      - name: Create release only after every native build succeeds
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
+          RELEASE_COMMIT: ${{ github.sha }}
+          RELEASE_DRAFT: ${{ inputs.draft }}
+          RELEASE_PRERELEASE: ${{ inputs.prerelease }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          flags=()
+          if [[ "$RELEASE_DRAFT" == true ]]; then flags+=(--draft); fi
+          if [[ "$RELEASE_PRERELEASE" == true ]]; then flags+=(--prerelease); fi
+          printf '%s\n' 'Native development archives for Linux, macOS and Windows.' '' 'macOS and Windows builds are unsigned. Windows requires Windows App Runtime 1.8 and the Microsoft VC++ runtime; Linux requires GTK 4.6+, libdbus and ALSA. See the repository README for setup and current verification limits.' > release-notes.md
+          gh release create "$RELEASE_TAG" dist/* --target "$RELEASE_COMMIT" --title "Archaic $RELEASE_TAG" --notes-file release-notes.md "${flags[@]}"

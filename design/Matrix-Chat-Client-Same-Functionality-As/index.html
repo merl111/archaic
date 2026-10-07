@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Matrix desktop client — three UI concepts</title>
+<style>
+:root {
+  --bg: oklch(98% 0.006 260); --surface: oklch(100% 0 0); --fg: oklch(20% 0.02 265); --muted: oklch(48% 0.02 265);
+  --border: oklch(90% 0.01 265); --accent: oklch(52% 0.2 265);
+  --font-display: 'Space Grotesk', 'Segoe UI Variable Display', system-ui, sans-serif;
+  --font-body: -apple-system, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 var(--font-body); -webkit-font-smoothing: antialiased; }
+:focus-visible { outline: 2.5px solid var(--accent); outline-offset: 3px; border-radius: 10px; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 64px 32px 80px; }
+.eyebrow { font: 600 12px var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+h1 { font: 700 44px/1.08 var(--font-display); letter-spacing: -0.03em; margin: 12px 0 14px; max-width: 760px; }
+.lede { color: var(--muted); max-width: 640px; margin: 0 0 44px; font-size: 16.5px; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.c { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; overflow: hidden; color: inherit; text-decoration: none; transition: transform .15s, box-shadow .15s; }
+.c:hover { transform: translateY(-3px); box-shadow: 0 14px 34px oklch(30% 0.04 265 / .12); }
+.pv { height: 190px; position: relative; padding: 14px; display: grid; gap: 6px; }
+.pv i { display: block; border-radius: 6px; }
+.body { padding: 20px 22px 22px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.body h2 { margin: 0; font: 700 21px var(--font-display); letter-spacing: -0.02em; }
+.body p { margin: 0; color: var(--muted); font-size: 14px; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.tags span { font: 600 11px var(--font-mono); padding: 3px 8px; border-radius: 6px; background: var(--bg); border: 1px solid var(--border); }
+.go { margin-top: auto; padding-top: 8px; font-weight: 700; font-size: 14px; color: var(--fg); }
+/* mini previews */
+.pa { background: oklch(19% 0.03 265); grid-template-columns: 22px 70px 1fr 56px; }
+.pa i:nth-child(1) { background: oklch(26% 0.03 265); }
+.pa i:nth-child(2) { background: oklch(24% 0.03 265); }
+.pa i:nth-child(3) { background: linear-gradient(oklch(23% 0.03 265) 70%, oklch(84% 0.17 165) 70% 74%, oklch(23% 0.03 265) 74%); }
+.pa i:nth-child(4) { background: oklch(25% 0.03 265); }
+.pb { background: oklch(94% 0.035 235); grid-template-columns: 70px 1fr 60px; padding-top: 30px; }
+.pb::before { content: ''; position: absolute; left: 14px; right: 14px; top: 10px; height: 12px; border-radius: 6px; background: oklch(99% 0.003 235 / .7); }
+.pb i { background: oklch(99.5% 0.003 235); border-radius: 12px; box-shadow: 0 2px 8px oklch(30% 0.05 250 / .08); }
+.pb i:nth-child(2) { background: linear-gradient(oklch(99.5% 0.003 235) 62%, transparent 62%), radial-gradient(circle at 80% 80%, oklch(56% 0.21 22) 0 14px, oklch(99.5% 0.003 235) 15px); }
+.pc { background: oklch(95.5% 0.022 85); grid-template-columns: 1.3fr 1fr; grid-template-rows: 1fr 1fr; }
+.pc i { background: oklch(99% 0.008 85); border: 1.5px solid oklch(20% 0.02 280); box-shadow: 3px 3px 0 oklch(20% 0.02 280); }
+.pc i:first-child { grid-row: span 2; border-color: oklch(54% 0.25 292); box-shadow: 3px 3px 0 oklch(54% 0.25 292); }
+.cmp { margin-top: 52px; }
+.cmp h3 { font: 700 20px var(--font-display); margin: 0 0 14px; }
+table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; font-size: 14px; }
+th, td { text-align: left; padding: 11px 16px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { font: 600 11.5px var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); background: var(--bg); }
+tr:last-child td { border-bottom: 0; }
+td:first-child { font-weight: 600; white-space: nowrap; }
+.note { color: var(--muted); font-size: 13px; margin-top: 18px; }
+</style>
+</head>
+<body>
+<main class="wrap" data-od-id="launcher">
+  <div class="eyebrow">Matrix desktop client · UI exploration</div>
+  <h1>Three directions for a chat client with element-web parity.</h1>
+  <p class="lede">Each concept is a clickable prototype using the same rooms, people and messages, so you can compare them directly. Spaces, threads, replies, reactions, polls, files, members, E2EE verification and calls are present in all three, each presented differently.</p>
+
+  <div class="grid" data-od-id="concept-cards">
+    <a class="c" href="nebula-concept.html" data-od-id="card-nebula">
+      <div class="pv pa" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <div class="body"><h2>A · Nebula</h2>
+        <p>Dark and dense, closest to Element's mental model. A spaces rail, filtered room list, threaded timeline and a docked right panel. A picture-in-picture call tile floats over the chat.</p>
+        <div class="tags"><span>dark</span><span>power users</span><span>threads panel</span><span>PiP call</span></div>
+        <span class="go">Open prototype →</span></div>
+    </a>
+    <a class="c" href="daylight-concept.html" data-od-id="card-daylight">
+      <div class="pv pb" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="body"><h2>B · Daylight</h2>
+        <p>Friendly and airy, built from floating cards with spaces as top tabs and bubble chat. A context panel holds About, People and Media. Session verification lives in the top bar.</p>
+        <div class="tags"><span>light</span><span>approachable</span><span>bubbles</span><span>emoji verify</span></div>
+        <span class="go">Open prototype →</span></div>
+    </a>
+    <a class="c" href="tiles-concept.html" data-od-id="card-tiles">
+      <div class="pv pc" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="body"><h2>C · Tiles</h2>
+        <p>A multi-room tiling workspace: watch up to four rooms at once, each with its own composer. Navigation is keyboard-first through a Ctrl K command palette.</p>
+        <div class="tags"><span>tiling</span><span>keyboard-first</span><span>command palette</span><span>multi-room</span></div>
+        <span class="go">Open prototype →</span></div>
+    </a>
+  </div>
+
+  <section class="cmp" data-od-id="comparison">
+    <h3>How each concept maps element-web features</h3>
+    <table>
+      <thead><tr><th>Feature</th><th>Nebula</th><th>Daylight</th><th>Tiles</th></tr></thead>
+      <tbody>
+        <tr><td>Spaces</td><td>Left rail with unread badges</td><td>Top tabs</td><td>Filter chips in sidebar</td></tr>
+        <tr><td>Room list</td><td>Filter chips (unread, people, favourites)</td><td>Pinned / Rooms / People groups + filter</td><td>Shows which tile each room is open in</td></tr>
+        <tr><td>Threads</td><td>Right panel with reply composer</td><td>Inline thread summary</td><td>Thread summary chip</td></tr>
+        <tr><td>Replies &amp; reactions</td><td>Hover toolbar</td><td>Quick-react on bubbles</td><td>Hover toolbar per tile</td></tr>
+        <tr><td>Polls &amp; files</td><td>Inline, live results</td><td>Poll bubble</td><td>Inline, per tile</td></tr>
+        <tr><td>Members &amp; info</td><td>Members / Info panel tabs</td><td>About / People / Media tabs</td><td>Tile header + palette</td></tr>
+        <tr><td>E2EE verification</td><td>Verified badges in member list</td><td>Top-bar chip + emoji compare</td><td>Palette command</td></tr>
+        <tr><td>Calls</td><td>Floating PiP with timer</td><td>Header action</td><td>Per-tile call button</td></tr>
+      </tbody>
+    </table>
+    <p class="note">All people, rooms and homeservers are fictional sample content. UI state (selected room, layout, panel) is saved in localStorage per concept.</p>
+  </section>
+</main>
+</body>
+</html>

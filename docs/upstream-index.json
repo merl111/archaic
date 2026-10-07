@@ -1,0 +1,2227 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-10-01",
+  "reference": {
+    "repository": "element-hq/element-web",
+    "release": "v1.12.30",
+    "commit": "f19cfd9030429240a4209bf5175b372175cf0464"
+  },
+  "sdk_reference": {
+    "release": "matrix-sdk-0.19.1",
+    "commit": "b18166c68bb958a21f0bca8b2d8320cb53583362",
+    "minimum_rust": "1.96"
+  },
+  "settings_extraction": "Top-level Settings.tsx entries and literal default expressions, not an evaluation of controller/config/server-dependent effective state. Some computed keys remain symbolic.",
+  "settings": [
+    {
+      "key": "test_setting",
+      "is_feature": false,
+      "default_expression": "\"\"",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L391",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_video_rooms",
+      "is_feature": true,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L396",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "[Features.NotificationSettings2]",
+      "is_feature": true,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L434",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_msc3531_hide_messages_pending_moderation",
+      "is_feature": true,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L451",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "mediaPreviewConfig",
+      "is_feature": false,
+      "default_expression": "MediaPreviewConfigController.default",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L461",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "inviteRules",
+      "is_feature": false,
+      "default_expression": "InviteRulesConfigController.default",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L466",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "blockInvites",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L473",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_latex_maths",
+      "is_feature": true,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L478",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_wysiwyg_composer",
+      "is_feature": true,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L486",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_mjolnir",
+      "is_feature": true,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L495",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_exclude_insecure_devices",
+      "is_feature": true,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L504",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "useOnlyCurrentProfiles",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L517",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "mjolnirRooms",
+      "is_feature": false,
+      "default_expression": "[]",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L522",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "mjolnirPersonalRoom",
+      "is_feature": false,
+      "default_expression": "null",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L528",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_bridge_state",
+      "is_feature": true,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L534",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_jump_to_date",
+      "is_feature": true,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L542",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "RoomList.backgroundImage",
+      "is_feature": false,
+      "default_expression": "null",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L557",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "sendReadReceipts",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L561",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_sliding_sync",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L575",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_simplified_sliding_sync",
+      "is_feature": true,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L581",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_element_call_video_rooms",
+      "is_feature": true,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L592",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_disable_call_per_sender_encryption",
+      "is_feature": true,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L601",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_location_share_live",
+      "is_feature": true,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L609",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_dynamic_room_predecessors",
+      "is_feature": true,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L619",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_render_reaction_images",
+      "is_feature": true,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L629",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_new_timeline",
+      "is_feature": true,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L638",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_pdf_viewer",
+      "is_feature": true,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L647",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_login_with_qr",
+      "is_feature": true,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L656",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_msc4095_url_preview_bundle",
+      "is_feature": true,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L664",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "fontSizeDelta",
+      "is_feature": false,
+      "default_expression": "FontWatcher.DEFAULT_DELTA",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L676",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "useCustomFontSize",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L682",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "MessageComposerInput.suggestEmoji",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L687",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "MessageComposerInput.showStickersButton",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L693",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "MessageComposerInput.showPollsButton",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L699",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "MessageComposerInput.insertTrailingColon",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L704",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_hidebold",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L710",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "Notifications.showbold",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L715",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "Notifications.activityIsUnread",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L722",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "Notifications.tac_only_notifications",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L731",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_ask_to_join",
+      "is_feature": true,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L737",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_notifications",
+      "is_feature": true,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L745",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_msc4362_encrypted_state_events",
+      "is_feature": true,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L754",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_user_status",
+      "is_feature": true,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L764",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "feature_retention",
+      "is_feature": true,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L788",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "useCompactLayout",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L804",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "showRedactions",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L810",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "showJoinLeaves",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L816",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "showAvatarChanges",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L822",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "showDisplaynameChanges",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L828",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "showReadReceipts",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L834",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "showTwelveHourTimestamps",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L840",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "alwaysShowTimestamps",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L845",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "userTimezone",
+      "is_feature": false,
+      "default_expression": "\"\"",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L850",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "userTimezonePublish",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L857",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "autoplayGifs",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L870",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "autoplayVideo",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L875",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "enableSyntaxHighlightLanguageDetection",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L880",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "expandCodeByDefault",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L885",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "showCodeLineNumbers",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L890",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "scrollToBottomOnMessageSent",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L895",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "Pill.shouldShowPillAvatar",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L900",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "TextualBody.enableBigEmoji",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L906",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "sendTypingNotifications",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L912",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "showTypingNotifications",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L918",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "ctrlFForSearch",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L923",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "MessageComposerInput.ctrlEnterToSend",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L928",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "MessageComposerInput.surroundWith",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L935",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "MessageComposerInput.autoReplaceEmoji",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L940",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "MessageComposerInput.useMarkdown",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L945",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "VideoView.flipVideoHorizontally",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L951",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "theme",
+      "is_feature": false,
+      "default_expression": "\"light\"",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L956",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "custom_themes",
+      "is_feature": false,
+      "default_expression": "[]",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L961",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "use_system_theme",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L967",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "useBundledEmojiFont",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L972",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "useSystemFont",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L978",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "systemFont",
+      "is_feature": false,
+      "default_expression": "\"\"",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L988",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "enableLegacyCallsVoip",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L994",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "webRtcAllowPeerToPeer",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1000",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "webrtc_audiooutput",
+      "is_feature": false,
+      "default_expression": "\"default\"",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1007",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "webrtc_audioinput",
+      "is_feature": false,
+      "default_expression": "\"default\"",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1011",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "webrtc_videoinput",
+      "is_feature": false,
+      "default_expression": "\"default\"",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1015",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "webrtc_audio_autoGainControl",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1019",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "webrtc_audio_echoCancellation",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1024",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "webrtc_audio_noiseSuppression",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1029",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "language",
+      "is_feature": false,
+      "default_expression": "\"en\"",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1034",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "breadcrumb_rooms",
+      "is_feature": false,
+      "default_expression": "[]",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1040",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "recent_emoji",
+      "is_feature": false,
+      "default_expression": "[]",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1047",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "SpotlightSearch.recentSearches",
+      "is_feature": false,
+      "default_expression": "[], // list of room IDs, most recent first",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1054",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "showMediaEventIds",
+      "is_feature": false,
+      "default_expression": "{}, // List of events => is visible",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1061",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "pdfViewerState",
+      "is_feature": false,
+      "default_expression": "{}, // MXC URI => where the reader had got to in that PDF",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1068",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "SpotlightSearch.showNsfwPublicRooms",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1075",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "room_directory_servers",
+      "is_feature": false,
+      "default_expression": "[]",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1080",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "integrationProvisioning",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1086",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "allowedWidgets",
+      "is_feature": false,
+      "default_expression": "{}, // none allowed",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1090",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "analyticsOptIn",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1097",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "pseudonymousAnalyticsOptIn",
+      "is_feature": false,
+      "default_expression": "null",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1101",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "deviceClientInformationOptIn",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1106",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "Registration.mobileRegistrationHelper",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1111",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "autocompleteDelay",
+      "is_feature": false,
+      "default_expression": "200",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1115",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "readMarkerInViewThresholdMs",
+      "is_feature": false,
+      "default_expression": "3000",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1119",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "readMarkerOutOfViewThresholdMs",
+      "is_feature": false,
+      "default_expression": "30000",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1123",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "blacklistUnverifiedDevices",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1127",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "urlPreviewsEnabled",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1139",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "urlPreviewsEnabled_e2ee",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1154",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "urlPreviewsEnabled_e2ee_bundled_only",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1163",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "notificationsEnabled",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1176",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "deviceNotificationsEnabled",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1182",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "notificationSound",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1187",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "notificationBodyEnabled",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1193",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "audioNotificationsEnabled",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1199",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "enableWidgetScreenshots",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1204",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "promptBeforeInviteUnknownUsers",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1209",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "widgetOpenIDPermissions",
+      "is_feature": false,
+      "default_expression": "{",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1214",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "breadcrumbs",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1223",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "showHiddenEventsInTimeline",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1228",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "lowBandwidth",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1233",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "fallbackICEServerAllowed",
+      "is_feature": false,
+      "default_expression": "null",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1241",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "RoomList.preferredSorting",
+      "is_feature": false,
+      "default_expression": "SortingAlgorithm.Recency",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1248",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "RoomList.panelSize",
+      "is_feature": false,
+      "default_expression": "null",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1252",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "RoomList.isPanelCollapsed",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1256",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "RoomList.showMessagePreview",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1260",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "RoomList.showSections",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1265",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "RoomList.showPeopleSection",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1271",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "composerUrlPreviewCollapsed",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1280",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "RightPanel.phasesGlobal",
+      "is_feature": false,
+      "default_expression": "null",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1284",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "RightPanel.phases",
+      "is_feature": false,
+      "default_expression": "null",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1288",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "enableEventIndexing",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1292",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "crawlerSleepTime",
+      "is_feature": false,
+      "default_expression": "3000",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1297",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "tokenizerMode",
+      "is_feature": false,
+      "default_expression": "TokenizerMode.Language",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1302",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "ircDisplayNameWidth",
+      "is_feature": false,
+      "default_expression": "80",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1307",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "layout",
+      "is_feature": false,
+      "default_expression": "Layout.Group",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1314",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "Images.size",
+      "is_feature": false,
+      "default_expression": "ImageSize.Normal",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1318",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "showChatEffects",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1322",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "Performance.addSendMessageTimingMetadata",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1328",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "Widgets.pinned",
+      "is_feature": false,
+      "default_expression": "{}",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1332",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "Widgets.layout",
+      "is_feature": false,
+      "default_expression": "{}",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1339",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "Spaces.allRoomsInHome",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1343",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "Spaces.enabledMetaSpaces",
+      "is_feature": false,
+      "default_expression": "{",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1349",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "Spaces.showPeopleInSpace",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1355",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "developerMode",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1359",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "debug_scroll_panel",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1364",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "debug_timeline_panel",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1368",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "debug_registration",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1372",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "debug_animation",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1376",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "audioInputMuted",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1380",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "videoInputMuted",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1384",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "activeCallRoomIds",
+      "is_feature": false,
+      "default_expression": "[]",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1388",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "releaseAnnouncementData",
+      "is_feature": false,
+      "default_expression": "{}",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1398",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "RoomList.CustomSectionData",
+      "is_feature": false,
+      "default_expression": "{}",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1406",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "RoomList.OrderedCustomSections",
+      "is_feature": false,
+      "default_expression": "[]",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1414",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "RoomList.SectionExpansionState",
+      "is_feature": false,
+      "default_expression": "{}",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1422",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "[UIFeature.RoomHistorySettings]",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1426",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "[UIFeature.AdvancedEncryption]",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1430",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "[UIFeature.URLPreviews]",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1434",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "[UIFeature.Widgets]",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1438",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "[UIFeature.LocationSharing]",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1442",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "[UIFeature.Voip]",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1446",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "[UIFeature.Feedback]",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1450",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "[UIFeature.Registration]",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1454",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "[UIFeature.PasswordReset]",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1458",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "[UIFeature.Deactivate]",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1462",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "[UIFeature.ShareQRCode]",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1466",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "[UIFeature.ShareSocial]",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1470",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "[UIFeature.IdentityServer]",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1474",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "[UIFeature.ThirdPartyID]",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1480",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "[UIFeature.AdvancedSettings]",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1484",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "[UIFeature.TimelineEnableRelativeDates]",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1488",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "[UIFeature.AllowCreatingPublicSpaces]",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1492",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "[UIFeature.AllowCreatingPublicRooms]",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1496",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "Electron.autoLaunch",
+      "is_feature": false,
+      "default_expression": "\"disabled\"",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1503",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "Electron.warnBeforeExit",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1513",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "Electron.alwaysShowMenuBar",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1518",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "Electron.showTrayIcon",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1523",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "Electron.enableHardwareAcceleration",
+      "is_feature": false,
+      "default_expression": "true",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1528",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "Electron.enableContentProtection",
+      "is_feature": false,
+      "default_expression": "false",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1533",
+      "audit_status": "not yet scenario-audited"
+    },
+    {
+      "key": "Developer.elementCallUrl",
+      "is_feature": false,
+      "default_expression": "\"\"",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx#L1538",
+      "audit_status": "not yet scenario-audited"
+    }
+  ],
+  "release_configs": {
+    "apps/web/element.io/app/config.json": {
+      "features": {
+        "feature_video_rooms": true,
+        "feature_element_call_video_rooms": true
+      },
+      "setting_defaults": {
+        "RustCrypto.staged_rollout_percent": 60
+      },
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/element.io/app/config.json"
+    },
+    "apps/desktop/element.io/release/config.json": {
+      "features": {
+        "feature_video_rooms": true,
+        "feature_element_call_video_rooms": true
+      },
+      "setting_defaults": {
+        "RustCrypto.staged_rollout_percent": 60
+      },
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/desktop/element.io/release/config.json"
+    }
+  },
+  "reference_test_files": [
+    {
+      "path": "apps/desktop/playwright/e2e/launch/config-options.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/desktop/playwright/e2e/launch/config-options.spec.ts"
+    },
+    {
+      "path": "apps/desktop/playwright/e2e/launch/launch.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/desktop/playwright/e2e/launch/launch.spec.ts"
+    },
+    {
+      "path": "apps/desktop/playwright/e2e/launch/oidc.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/desktop/playwright/e2e/launch/oidc.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/accessibility/keyboard-navigation.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/accessibility/keyboard-navigation.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/app-loading/feature-detection.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/app-loading/feature-detection.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/app-loading/guest-registration.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/app-loading/guest-registration.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/app-loading/stored-credentials.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/app-loading/stored-credentials.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/audio-player/audio-player.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/audio-player/audio-player.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/chat-export/html-export.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/chat-export/html-export.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/composer/CIDER.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/composer/CIDER.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/composer/RTE.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/composer/RTE.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/crypto/backups-mas.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/crypto/backups-mas.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/crypto/complete-security.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/crypto/complete-security.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/crypto/crypto.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/crypto/crypto.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/crypto/decryption-failure-messages.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/crypto/decryption-failure-messages.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/crypto/dehydration-mas.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/crypto/dehydration-mas.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/crypto/dehydration.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/crypto/dehydration.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/crypto/device-verification.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/crypto/device-verification.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/crypto/event-shields.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/crypto/event-shields.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/crypto/history-sharing.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/crypto/history-sharing.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/crypto/invisible-crypto.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/crypto/invisible-crypto.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/crypto/logout.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/crypto/logout.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/crypto/migration.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/crypto/migration.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/crypto/toasts.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/crypto/toasts.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/crypto/user-verification.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/crypto/user-verification.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/devtools/devtools.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/devtools/devtools.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/devtools/lowbandwidth.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/devtools/lowbandwidth.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/devtools/upgraderoom.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/devtools/upgraderoom.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/editing/editing.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/editing/editing.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/feedback/rageshakes.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/feedback/rageshakes.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/file-upload/image-upload.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/file-upload/image-upload.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/forgot-password/forgot-password.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/forgot-password/forgot-password.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/integration-manager/get-openid-token.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/integration-manager/get-openid-token.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/integration-manager/kick.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/integration-manager/kick.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/integration-manager/read_events.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/integration-manager/read_events.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/integration-manager/send_event.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/integration-manager/send_event.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/invite/decline-and-block-invite-dialog.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/invite/decline-and-block-invite-dialog.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/invite/invite-dialog.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/invite/invite-dialog.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/knock/create-knock-room.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/knock/create-knock-room.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/knock/knock-into-room.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/knock/knock-into-room.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/knock/manage-knocks.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/knock/manage-knocks.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/lazy-loading/lazy-loading.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/lazy-loading/lazy-loading.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/left-panel/left-panel.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/left-panel/left-panel.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/left-panel/room-list-panel/room-list-collapse.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/left-panel/room-list-panel/room-list-collapse.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/left-panel/room-list-panel/room-list-custom-sections.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/left-panel/room-list-panel/room-list-custom-sections.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/left-panel/room-list-panel/room-list-filter-sort.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/left-panel/room-list-panel/room-list-filter-sort.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/left-panel/room-list-panel/room-list-header.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/left-panel/room-list-panel/room-list-header.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/left-panel/room-list-panel/room-list-panel.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/left-panel/room-list-panel/room-list-panel.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/left-panel/room-list-panel/room-list-search.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/left-panel/room-list-panel/room-list-search.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/left-panel/room-list-panel/room-list-sections.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/left-panel/room-list-panel/room-list-sections.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/left-panel/room-list-panel/room-list-unread-toast.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/left-panel/room-list-panel/room-list-unread-toast.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/left-panel/room-list-panel/room-list.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/left-panel/room-list-panel/room-list.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/links/composer-url-preview.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/links/composer-url-preview.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/links/messages.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/links/messages.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/links/permalinks.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/links/permalinks.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/links/topic.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/links/topic.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/location/location.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/location/location.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/login/consent.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/login/consent.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/login/login-consent.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/login/login-consent.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/login/login-sso.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/login/login-sso.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/login/login.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/login/login.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/login/logout_redirect_url.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/login/logout_redirect_url.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/login/overwrite_login.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/login/overwrite_login.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/login/soft_logout.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/login/soft_logout.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/login/soft_logout_oauth.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/login/soft_logout_oauth.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/messages/messages.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/messages/messages.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/mobile-guide/mobile-guide.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/mobile-guide/mobile-guide.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/modules/composer.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/modules/composer.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/modules/custom-component.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/modules/custom-component.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/modules/loader.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/modules/loader.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/modules/settings.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/modules/settings.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/modules/url-preview.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/modules/url-preview.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/oidc/oidc-native.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/oidc/oidc-native.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/one-to-one-chat/one-to-one-chat.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/one-to-one-chat/one-to-one-chat.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/pinned-messages/pinned-messages.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/pinned-messages/pinned-messages.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/polls/pollHistory.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/polls/pollHistory.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/polls/polls.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/polls/polls.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/presence/presence.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/presence/presence.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/read-receipts/editing-messages-in-threads.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/read-receipts/editing-messages-in-threads.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/read-receipts/editing-messages-main-timeline.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/read-receipts/editing-messages-main-timeline.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/read-receipts/editing-messages-thread-roots.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/read-receipts/editing-messages-thread-roots.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/read-receipts/high-level.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/read-receipts/high-level.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/read-receipts/message-ordering.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/read-receipts/message-ordering.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/read-receipts/missing-referents.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/read-receipts/missing-referents.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/read-receipts/new-messages-in-threads.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/read-receipts/new-messages-in-threads.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/read-receipts/new-messages-main-timeline.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/read-receipts/new-messages-main-timeline.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/read-receipts/new-messages-thread-roots.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/read-receipts/new-messages-thread-roots.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/read-receipts/notifications.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/read-receipts/notifications.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/read-receipts/reactions-in-threads.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/read-receipts/reactions-in-threads.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/read-receipts/reactions-main-timeline.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/read-receipts/reactions-main-timeline.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/read-receipts/reactions-thread-roots.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/read-receipts/reactions-thread-roots.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/read-receipts/read-receipts.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/read-receipts/read-receipts.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/read-receipts/redactions-in-threads.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/read-receipts/redactions-in-threads.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/read-receipts/redactions-main-timeline.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/read-receipts/redactions-main-timeline.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/read-receipts/redactions-thread-roots.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/read-receipts/redactions-thread-roots.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/read-receipts/room-list-order.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/read-receipts/room-list-order.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/register/email.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/register/email.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/register/register.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/register/register.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/regression-tests/pills-click-in-app.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/regression-tests/pills-click-in-app.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/release-announcement/releaseAnnouncement.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/release-announcement/releaseAnnouncement.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/retention/retention-global.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/retention/retention-global.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/retention/retention.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/retention/retention.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/right-panel/file-panel.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/right-panel/file-panel.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/right-panel/memberlist.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/right-panel/memberlist.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/right-panel/notification-panel.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/right-panel/notification-panel.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/right-panel/right-panel.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/right-panel/right-panel.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/room-directory/room-directory.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/room-directory/room-directory.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/room/create-room.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/room/create-room.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/room/invites.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/room/invites.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/room/room-header.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/room/room-header.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/room/room-status-bar.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/room/room-status-bar.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/room/room.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/room/room.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/room_options/marked_unread.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/room_options/marked_unread.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/settings/account-user-settings-tab.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/settings/account-user-settings-tab.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/settings/appearance-user-settings-tab/appearance-user-settings-tab.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/settings/appearance-user-settings-tab/appearance-user-settings-tab.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/settings/appearance-user-settings-tab/message-layout-panel.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/settings/appearance-user-settings-tab/message-layout-panel.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/settings/appearance-user-settings-tab/theme-choice-panel.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/settings/appearance-user-settings-tab/theme-choice-panel.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/settings/device-management.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/settings/device-management.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/settings/encryption-user-tab/advanced.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/settings/encryption-user-tab/advanced.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/settings/encryption-user-tab/encryption-tab.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/settings/encryption-user-tab/encryption-tab.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/settings/encryption-user-tab/other-devices.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/settings/encryption-user-tab/other-devices.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/settings/encryption-user-tab/recovery.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/settings/encryption-user-tab/recovery.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/settings/general-room-settings-tab.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/settings/general-room-settings-tab.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/settings/notifications/mention-rules-legacy-removed.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/settings/notifications/mention-rules-legacy-removed.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/settings/notifications/mention-rules-legacy-served.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/settings/notifications/mention-rules-legacy-served.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/settings/notifications/notifications-settings-2-tab.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/settings/notifications/notifications-settings-2-tab.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/settings/notifications/notifications-settings-tab.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/settings/notifications/notifications-settings-tab.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/settings/preferences-user-settings-tab.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/settings/preferences-user-settings-tab.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/settings/quick-settings-menu.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/settings/quick-settings-menu.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/settings/room-settings/roles-permissions-room-settings-tab.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/settings/room-settings/roles-permissions-room-settings-tab.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/settings/room-settings/room-security-tab.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/settings/room-settings/room-security-tab.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/settings/room-settings/room-video-tab.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/settings/room-settings/room-video-tab.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/settings/security-user-settings-tab.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/settings/security-user-settings-tab.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/share-dialog/share-by-url.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/share-dialog/share-by-url.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/share-dialog/share-dialog.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/share-dialog/share-dialog.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/sliding-sync/sliding-sync.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/sliding-sync/sliding-sync.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/spaces/spaces.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/spaces/spaces.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/spaces/threads-activity-centre/threadsActivityCentre.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/spaces/threads-activity-centre/threadsActivityCentre.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/spotlight/spotlight.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/spotlight/spotlight.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/threads/threads.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/threads/threads.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/timeline/event-list-summary.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/timeline/event-list-summary.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/timeline/event-tile-view.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/timeline/event-tile-view.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/timeline/media-preview-settings.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/timeline/media-preview-settings.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/timeline/new-timeline.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/timeline/new-timeline.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/timeline/timeline.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/timeline/timeline.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/toasts/analytics-toast.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/toasts/analytics-toast.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/update/update.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/update/update.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/user-menu/user-menu.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/user-menu/user-menu.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/user-view/user-view.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/user-view/user-view.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/voip/element-call-full-call.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/voip/element-call-full-call.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/voip/element-call.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/voip/element-call.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/voip/pstn.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/voip/pstn.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/widgets/events.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/widgets/events.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/widgets/jitsi.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/widgets/jitsi.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/widgets/layout.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/widgets/layout.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/widgets/permissions-dialog.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/widgets/permissions-dialog.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/widgets/stickers.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/widgets/stickers.spec.ts"
+    },
+    {
+      "path": "apps/web/playwright/e2e/widgets/widget-pip-close.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/widgets/widget-pip-close.spec.ts"
+    }
+  ],
+  "retrieved_source_files": [
+    {
+      "path": "apps/desktop/README.md",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/desktop/README.md",
+      "sha256": "bf2e5992417c4708dbeaef8bc58c2d352c9304a756c150be08a9094358781a2c"
+    },
+    {
+      "path": "apps/desktop/element.io/release/config.json",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/desktop/element.io/release/config.json",
+      "sha256": "78f9cf33b51d3ac4d58ce59cf51f413367dbd5aaf00a9461bd25c3f48040d830"
+    },
+    {
+      "path": "apps/web/element.io/app/config.json",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/element.io/app/config.json",
+      "sha256": "7acdc24ed75223fb6e9f9a5e01880522922a7e365b9f681605acc5b9d0650187"
+    },
+    {
+      "path": "apps/web/package.json",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/package.json",
+      "sha256": "4949f3f87e6defbb2d692058abeccb8b20e45980972756e25998cf8827386df8"
+    },
+    {
+      "path": "apps/web/playwright/e2e/composer/CIDER.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/composer/CIDER.spec.ts",
+      "sha256": "ea5ca94aa6b970343455f2347f1363eead5711841f236f6f3cedaa53d9515513"
+    },
+    {
+      "path": "apps/web/playwright/e2e/composer/RTE.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/composer/RTE.spec.ts",
+      "sha256": "11db80a59b243bb4328f48b20973abc0841980bdb5caa3ffa7566b183b48d9dd"
+    },
+    {
+      "path": "apps/web/playwright/e2e/crypto/backups-mas.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/crypto/backups-mas.spec.ts",
+      "sha256": "ade8ebb045074408512d80272b7fede863829699a8e5418b1db97347c8a5ea44"
+    },
+    {
+      "path": "apps/web/playwright/e2e/crypto/complete-security.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/crypto/complete-security.spec.ts",
+      "sha256": "6a8f05c6736da17d900758ce1b3b6221bd8e0dee80dd4b783abc8058f9fbbcf6"
+    },
+    {
+      "path": "apps/web/playwright/e2e/file-upload/image-upload.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/file-upload/image-upload.spec.ts",
+      "sha256": "bad283670feb2d7b644bb208d4679af110275d457acbb0b6e474162cdb7ae22c"
+    },
+    {
+      "path": "apps/web/playwright/e2e/location/location.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/location/location.spec.ts",
+      "sha256": "7cc3360d07512494cce212ec7b9a8324094b35d0b7fd005c4764e019120fea5c"
+    },
+    {
+      "path": "apps/web/playwright/e2e/login/consent.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/login/consent.spec.ts",
+      "sha256": "445981cce48698a66f5fd26f8872e4126e2f289c5515849e505639f21447b5d4"
+    },
+    {
+      "path": "apps/web/playwright/e2e/login/login-consent.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/login/login-consent.spec.ts",
+      "sha256": "6708dbd30676abeb01c7ecddab9814184bc3f12baa0352f3a7ada2c87422b5f6"
+    },
+    {
+      "path": "apps/web/playwright/e2e/messages/messages.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/messages/messages.spec.ts",
+      "sha256": "1dfdb117ad07ef8b524357f4f4e6c7e127a37bc927b8ea033a646ae370d1fc9c"
+    },
+    {
+      "path": "apps/web/playwright/e2e/oidc/oidc-native.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/oidc/oidc-native.spec.ts",
+      "sha256": "98bedab4507506514f0735a59df5249e80b27bfbcfbe14a6bfd7ceadc54910fb"
+    },
+    {
+      "path": "apps/web/playwright/e2e/polls/pollHistory.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/polls/pollHistory.spec.ts",
+      "sha256": "a0750ae388fd92171ba46a72f9c935c5cae8654af37e3cc23ee6264e91409b12"
+    },
+    {
+      "path": "apps/web/playwright/e2e/polls/polls.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/polls/polls.spec.ts",
+      "sha256": "b5fd326cdaea7313ece3f1950003869188eb1d52f15479aee8715a3d19df5b84"
+    },
+    {
+      "path": "apps/web/playwright/e2e/room/create-room.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/room/create-room.spec.ts",
+      "sha256": "5613d7386cba030fc0f441c4231ea24c9c834cff3473e20aa6ee481564e748bc"
+    },
+    {
+      "path": "apps/web/playwright/e2e/room/invites.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/room/invites.spec.ts",
+      "sha256": "e5a0c39b37e0866134847186e05541024789ba3aa8d727ce860c7a0b5fc95231"
+    },
+    {
+      "path": "apps/web/playwright/e2e/settings/account-user-settings-tab.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/settings/account-user-settings-tab.spec.ts",
+      "sha256": "a0cb4feee89c24752c249260431244ca572b8acac171c35c9e56a48bb26bb9df"
+    },
+    {
+      "path": "apps/web/playwright/e2e/settings/appearance-user-settings-tab/appearance-user-settings-tab.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/settings/appearance-user-settings-tab/appearance-user-settings-tab.spec.ts",
+      "sha256": "ff06e1642d7c873301ad354f6046f2c1301aedbc52cb8e63f19628354a4e4ec9"
+    },
+    {
+      "path": "apps/web/playwright/e2e/spaces/spaces.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/spaces/spaces.spec.ts",
+      "sha256": "c2f356dbb26a88e17ae189d262c74f46d159b9a4b44d9fe91fb0d408a10761f7"
+    },
+    {
+      "path": "apps/web/playwright/e2e/spaces/threads-activity-centre/threadsActivityCentre.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/spaces/threads-activity-centre/threadsActivityCentre.spec.ts",
+      "sha256": "2370d96f1c81e4a962debb8eb80f34b8cb24c32acef5da9fb3fbc80ee33545b3"
+    },
+    {
+      "path": "apps/web/playwright/e2e/threads/threads.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/threads/threads.spec.ts",
+      "sha256": "cc68009b7e20a3d3b961be2493ae30f64e76ed5699692932c31666032f50523f"
+    },
+    {
+      "path": "apps/web/playwright/e2e/voip/element-call-full-call.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/voip/element-call-full-call.spec.ts",
+      "sha256": "35b148a7d84247cb93c59eba51539406e372cadf77d93d96ac4203fd7cc92d1d"
+    },
+    {
+      "path": "apps/web/playwright/e2e/voip/element-call.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/voip/element-call.spec.ts",
+      "sha256": "ecbade547765180230db40842b2209e0194ab20447e02e93083c21ef0583540b"
+    },
+    {
+      "path": "apps/web/playwright/e2e/widgets/events.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/widgets/events.spec.ts",
+      "sha256": "9a3cb62d40331d6d3d0ced3accfb2c1c7b8a3d0a9f45dd97ae4fa89bafbc2768"
+    },
+    {
+      "path": "apps/web/playwright/e2e/widgets/jitsi.spec.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/playwright/e2e/widgets/jitsi.spec.ts",
+      "sha256": "13167a1c0e2e8723abc25920457d5ba633830bb9337b8ed308606b00e8fb2dca"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/SettingsTab.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/SettingsTab.tsx",
+      "sha256": "7184048c1bfdfb908502422adadd573ea9741f35adc6773dd36c1142bdaabf39"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/room/AdvancedRoomSettingsTab.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/room/AdvancedRoomSettingsTab.tsx",
+      "sha256": "1a6c22e8e1618345ae61ae085110685d0026461bc980efcf2a116c98654266d9"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/room/BridgeSettingsTab.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/room/BridgeSettingsTab.tsx",
+      "sha256": "9119bed690bd1ed17117b645ffda5fcf76f92c3a4a055c677061cf16970eb4a5"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/room/GeneralRoomSettingsTab.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/room/GeneralRoomSettingsTab.tsx",
+      "sha256": "224fbb6d424058049823474a7746c2a0ac36229360746e24a5bb7aed486dfebe"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/room/NotificationSettingsTab.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/room/NotificationSettingsTab.tsx",
+      "sha256": "f2e6a5eccd47122a06e1d5908f5619423feca691fb6f5b5a42b1b232976440e2"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/room/PeopleRoomSettingsTab.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/room/PeopleRoomSettingsTab.tsx",
+      "sha256": "eb6a175b80bf2280b249961c19474588eb029f3ab2a9c525b4197959908340b5"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/room/PollHistoryTab.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/room/PollHistoryTab.tsx",
+      "sha256": "a1e573a421c9c956d10fe07a621f11452e98488f5f474bec4cac021f7f991910"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/room/RolesRoomSettingsTab.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/room/RolesRoomSettingsTab.tsx",
+      "sha256": "d37ba2f91d5b2da5d602934a2d063daceb8d7f75da47eaf70533a6950cd7c8b6"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/room/SecurityRoomSettingsTab.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/room/SecurityRoomSettingsTab.tsx",
+      "sha256": "fd658e4d827205a711e6af5392d9c161772bad655d703e6b38441e114243a4f4"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/room/VoipRoomSettingsTab.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/room/VoipRoomSettingsTab.tsx",
+      "sha256": "942b9e2c0a9dac2897ada6f3f47a753d4053b8bdbbf081de1e3a62491d03e4b5"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/user/AccountUserSettingsTab.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/user/AccountUserSettingsTab.tsx",
+      "sha256": "a23b93fe97016e109c0af614af6dc0adb22b19a7324624d9c85a67eab9a905dc"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/user/AppearanceUserSettingsTab.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/user/AppearanceUserSettingsTab.tsx",
+      "sha256": "e1f056b1c34e438580ee3d149beaa5c3573c0664e2de83fa2802ccb7437f6154"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/user/EncryptionUserSettingsTab.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/user/EncryptionUserSettingsTab.tsx",
+      "sha256": "6944406289c8b1948260871fca8bbd583e0d8a6f2222aca0b9bd869fc8cb6113"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/user/HelpUserSettingsTab.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/user/HelpUserSettingsTab.tsx",
+      "sha256": "a38c5a77355dacb8fbbc217eb23cce715881b0cffa948bea1bd66e580fac5b6a"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/user/InviteRulesAccountSettings.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/user/InviteRulesAccountSettings.tsx",
+      "sha256": "319e7bdfc6bae5431d49c0cc04115100965142e5f69bd9ddf5401638029d5831"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/user/KeyboardUserSettingsTab.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/user/KeyboardUserSettingsTab.tsx",
+      "sha256": "f44e951884959f59efaf65d02d61caefb8ac34bd8c2a446b0ae28b1b18e4e5b5"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/user/LabsUserSettingsTab.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/user/LabsUserSettingsTab.tsx",
+      "sha256": "e8ae26cf04c0cd251c90fd1c5dbf2c6090917e1702d23f4cfd608bbb65152fd3"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/user/MediaPreviewAccountSettings.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/user/MediaPreviewAccountSettings.tsx",
+      "sha256": "e85bdcf4937fc780efc127c19d4decc1317a2abf8fe0965a1fd96eb523fd611c"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/user/MjolnirUserSettingsTab.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/user/MjolnirUserSettingsTab.tsx",
+      "sha256": "d420b63aaf02963b153eb45e70d2640cee45f99fcfb16e7213c06351661e6901"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/user/NotificationUserSettingsTab.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/user/NotificationUserSettingsTab.tsx",
+      "sha256": "99633d5eee4e2f9f692f8a9607a50c889e5632014425f31118b93d645462b0cd"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/user/PreferencesUserSettingsTab.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/user/PreferencesUserSettingsTab.tsx",
+      "sha256": "8b95aaeec596353f9457c1d75a9e0f5c68e3210cb7e1d03e68204b0b5f92fce6"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/user/SecurityUserSettingsTab.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/user/SecurityUserSettingsTab.tsx",
+      "sha256": "409b77b673c6e571160201edbbea26ede8181d4ec1c85e7b2517f69d823f413c"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/user/SessionManagerTab.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/user/SessionManagerTab.tsx",
+      "sha256": "a837958211364d76153d61bd533b2cd88d651e0abb2246daa23b946ec59912ba"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/user/SidebarUserSettingsTab.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/user/SidebarUserSettingsTab.tsx",
+      "sha256": "40adb9ba6469247ecf70c8ceb89fe55e8b7e2103a464be6ddb342371970cd23c"
+    },
+    {
+      "path": "apps/web/src/components/views/settings/tabs/user/VoiceUserSettingsTab.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/components/views/settings/tabs/user/VoiceUserSettingsTab.tsx",
+      "sha256": "20d8f1056b3360295fb0872d61ae672b1e763a0d24759d4894b23975393ce15c"
+    },
+    {
+      "path": "apps/web/src/settings/Settings.tsx",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/Settings.tsx",
+      "sha256": "809e747d45f7df242547663702cfc968d4c04fd3312de2ba1f094c55d1cb28a7"
+    },
+    {
+      "path": "apps/web/src/settings/SettingsStore.ts",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/apps/web/src/settings/SettingsStore.ts",
+      "sha256": "22e8abdfc6e3a671a5513e3d9b637be00723c59b917b75f26f12f89b07e26583"
+    },
+    {
+      "path": "docs/betas.md",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/docs/betas.md",
+      "sha256": "92bf0fd6e7bb17a764ecd238680740840e731d08295c7e910434b4e269ba5c8b"
+    },
+    {
+      "path": "docs/config.md",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/docs/config.md",
+      "sha256": "ab9101bed152e7a6ac0547c959a25ae6961c85c0ffd75f687a530c20c87020f5"
+    },
+    {
+      "path": "docs/e2ee.md",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/docs/e2ee.md",
+      "sha256": "a5dc3698e7ebed40e4718408bce4378cd706c3bb287cef387e037fd94e3de281"
+    },
+    {
+      "path": "docs/feature-flags.md",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/docs/feature-flags.md",
+      "sha256": "767d97a9b86e806101d57de8bf8ce3f5b4e608371d34f5832f6a786a1cb841b4"
+    },
+    {
+      "path": "docs/labs.md",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/docs/labs.md",
+      "sha256": "f1b58ccc24ab5c8ac50625eebb0140737d38bd6bebfe57b4dc0d752928035bc6"
+    },
+    {
+      "path": "docs/media-handling.md",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/docs/media-handling.md",
+      "sha256": "e328dacd56b7f7330e9114d6771e3c86baadab135e82b093c15025e903dd2c46"
+    },
+    {
+      "path": "docs/oauth.md",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/docs/oauth.md",
+      "sha256": "d7519c7e96ac0b9496609ef318e57ff284c6161b2c6c6e5fda7fc4495f55514d"
+    },
+    {
+      "path": "docs/readme-element-desktop.md",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/docs/readme-element-desktop.md",
+      "sha256": "5b48d0642db06d6c3d6cb2a9b919d606010ecc58bafb945070f6a41b230a41c0"
+    },
+    {
+      "path": "docs/translating-dev.md",
+      "source": "https://github.com/element-hq/element-web/blob/f19cfd9030429240a4209bf5175b372175cf0464/docs/translating-dev.md",
+      "sha256": "a00fb4b445caece5348955f635be5d0beef457701b102b78574dd7f0d63a750e"
+    }
+  ],
+  "cui_reference": {
+    "commit": "6249092b59edda6a18eebbbb6a7adbdc465ed069",
+    "repository": "../cui",
+    "note": "Independent local repository; public library boundary only."
+  }
+}

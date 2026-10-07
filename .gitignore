@@ -1,0 +1,12 @@
+/target/
+/build/
+/dist/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+
+__pycache__/
+*.pyc
+.ripwire*/
