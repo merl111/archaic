@@ -31,7 +31,7 @@ workspace/
   archaic/
 ```
 
-Requirements: Rust 1.96 or newer, Cargo, Python 3.10+, CMake, a native C compiler and Git. The first build downloads Rust dependencies, including the Matrix SDK and its TLS/cryptography implementation. Linux additionally needs GTK 4.6+ development files, Xext, D-Bus development files and pkg-config; runtime GTK and libdbus remain system dependencies. Saved sign-in also requires a running Secret Service provider (such as GNOME Keyring or a compatible KWallet configuration). SQLite is compiled into the app through the Matrix SDK. macOS uses the Xcode command-line tools/AppKit. Windows uses a Visual Studio 2022 MSVC developer terminal, the Windows SDK, NuGet, and the Windows App SDK 1.8 runtime. Windows/macOS build and runtime verification are still pending.
+Requirements: Rust 1.96 or newer, Cargo, Python 3.10+, CMake, a native C compiler and Git. The first build downloads Rust dependencies, including the Matrix SDK and its TLS/cryptography implementation. Linux additionally needs GTK 4.6+ development files, Xext, D-Bus development files and pkg-config; runtime GTK and libdbus remain system dependencies. Saved sign-in also requires a running Secret Service provider (such as GNOME Keyring or a compatible KWallet configuration). SQLite is compiled into the app through the Matrix SDK. macOS uses the Xcode command-line tools/AppKit. Windows uses a Visual Studio 2022 MSVC developer terminal, the Windows SDK, NuGet, and the Windows App SDK 1.8 runtime. Native compilation has been verified on Linux, Windows and macOS. Broader Windows/macOS runtime verification remains pending.
 
 From this directory:
 
@@ -74,7 +74,7 @@ Appearance preferences are stored separately from credentials: `$XDG_CONFIG_HOME
 
 **Rooms & organization** exposes directory/space discovery, space creation/children, room name/topic/access/history settings, member lists, power levels, invitation/kick/ban/unban, favorites and blocking. See the [operation/input guide](docs/ORGANIZATION.md).
 
-The [desktop guide](docs/DESKTOP.md) covers isolated account profiles, account switching, opt-in native notifications, tray controls, macOS dock badges, shortcuts, Matrix links, existing-instance routing and release archives. Run `python3 tools/package.py` on each target OS to create an unsigned native development archive. GTK remains a Linux system dependency. Native Windows/macOS verification and production signing/installers are deferred.
+The [desktop guide](docs/DESKTOP.md) covers isolated account profiles, account switching, opt-in native notifications, tray controls, macOS dock badges, shortcuts, Matrix links, existing-instance routing and release archives. Run `python3 tools/package.py` on each target OS to create an unsigned native development archive. GTK remains a Linux system dependency. Broader native Windows/macOS desktop integration testing and production signing/installers remain deferred.
 
 ## Saved and temporary sessions
 

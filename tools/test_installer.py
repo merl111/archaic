@@ -2,6 +2,7 @@
 """Native installer format and command contracts; no platform signing credentials required."""
 import io
 import json
+import os
 from pathlib import Path
 import tarfile
 import tempfile
@@ -24,6 +25,7 @@ class Installers(unittest.TestCase):
     def test_debian_format_ownership_permissions_and_metadata(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp); stage=self.stage(root/"stage"); out=root/"app.deb"
+            (stage/"bin/archaic").chmod(0o600)  # Archive must supply target permissions.
             installer.deb(stage,out,"0.1.0","amd64","libgtk-4-1 (>= 4.6)","Maintainer <test@example.org>")
             raw=out.read_bytes(); self.assertEqual(raw[:8],b"!<arch>\n"); offset=8; members={}
             while offset<len(raw):
@@ -45,11 +47,14 @@ class Installers(unittest.TestCase):
     def test_apple_sign_verify_package_notarize_staple_order(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp); stage=self.stage(root/"stage"); calls=[]
-            with patch.object(installer,"run",side_effect=lambda args:calls.append([str(a) for a in args])),patch.object(installer.subprocess,"check_output",return_value=b'{"status":"Accepted"}'):
+            with patch.object(Path,"chmod",autospec=True,side_effect=Path.chmod) as chmod,patch.object(installer,"run",side_effect=lambda args:calls.append([str(a) for a in args])),patch.object(installer.subprocess,"check_output",return_value=b'{"status":"Accepted"}'):
                 installer.native(stage,root/"app.pkg",self.options(),"Darwin")
             self.assertEqual([c[0] for c in calls],["codesign","codesign","pkgbuild","xcrun","xcrun"])
             self.assertIn("runtime",calls[0]); self.assertIn("--sign",calls[2]); self.assertIn("staple",calls[3])
-            self.assertEqual((stage/"Archaic.app/Contents/MacOS/archaic").stat().st_mode&0o777,0o755)
+            executable=stage/"Archaic.app/Contents/MacOS/archaic"
+            chmod.assert_called_once_with(executable,0o755)
+            if os.name != "nt":
+                self.assertEqual(executable.stat().st_mode&0o777,0o755)
             with patch.object(installer,"run"),patch.object(installer.subprocess,"check_output",return_value=b'{"status":"Invalid"}'):
                 with self.assertRaises(RuntimeError): installer.native(stage,root/"bad.pkg",self.options(),"Darwin")
     def test_windows_sign_both_binary_and_installer(self):

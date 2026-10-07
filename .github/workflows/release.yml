@@ -87,6 +87,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Verify packaging contracts
+        run: |
+          python tools/test_package.py
+          python tools/test_installer.py
+          python tools/test_dev.py
+          python tools/test_branding.py
+          python tools/test_release.py
       - name: Linux dependencies
         if: runner.os == 'Linux'
         run: |
@@ -111,13 +118,6 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: python tools/dev.py build --release
-      - name: Verify packaging contracts
-        run: |
-          python tools/test_package.py
-          python tools/test_installer.py
-          python tools/test_dev.py
-          python tools/test_branding.py
-          python tools/test_release.py
       - name: Linux native smoke test
         if: runner.os == 'Linux'
         run: xvfb-run -a env GSK_RENDERER=cairo GTK_A11Y=none target/release/archaic --fixture --smoke-test

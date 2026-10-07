@@ -36,8 +36,11 @@ def tar_bytes(root):
             def owner(info):
                 info.uid = info.gid = 0
                 info.uname = info.gname = "root"
+                # Package permissions are target metadata, independent of the
+                # host filesystem (Windows does not preserve POSIX chmod bits).
+                info.mode = 0o755 if info.isdir() or info.name == "./usr/bin/archaic" else 0o644
                 return info
-            archive.add(path, arcname="./" + str(path.relative_to(root)), recursive=False, filter=owner)
+            archive.add(path, arcname="./" + path.relative_to(root).as_posix(), recursive=False, filter=owner)
     return output.getvalue()
 
 
