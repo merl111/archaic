@@ -7,6 +7,10 @@ on:
         description: 'New release tag matching Cargo.toml (for example v0.1.0)'
         required: true
         type: string
+      publish:
+        description: Create a GitHub release after building (uncheck for validation only)
+        type: boolean
+        default: true
       prerelease:
         description: Mark as a prerelease
         type: boolean
@@ -42,6 +46,7 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
         run: python tools/release_metadata.py
       - name: Refuse to reuse an existing release tag
+        if: inputs.publish
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -124,6 +129,7 @@ jobs:
           if-no-files-found: error
 
   publish:
+    if: inputs.publish
     needs: [metadata, build]
     runs-on: ubuntu-24.04
     permissions:

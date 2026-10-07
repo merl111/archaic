@@ -8,7 +8,9 @@ Increment that version (and update Cargo.lock) before making another version.
 The workflow rejects existing tags, builds native Linux, macOS and Windows
 archives, checks their packaging, and creates a release with SHA-256 sidecars
 only when all three builds succeed. Prerelease is enabled by default; a draft
-checkbox is available. Pushes and tags never trigger this workflow automatically.
+checkbox is available. Uncheck **Create a GitHub release after building** to
+validate all three platforms and download artifacts without creating a tag or
+release. Pushes and tags never trigger this workflow automatically.
 
 The workflow checks out the exact commit in `cui-revision` from `merl111/cui`.
 `CUI_DEPLOY_KEY` is an encrypted Actions secret on Archaic with the private half
