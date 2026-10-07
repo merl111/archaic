@@ -1,5 +1,5 @@
 //! AppKit URL-open events feed the same bounded activation queue as command-line links.
-use objc2::{ClassType, DefinedClass, define_class, msg_send, rc::Retained, sel};
+use objc2::{AnyThread, DefinedClass, define_class, msg_send, rc::Retained, sel};
 use objc2_foundation::{NSAppleEventDescriptor, NSAppleEventManager, NSObject};
 use std::sync::mpsc::SyncSender;
 struct HandlerIvars {
