@@ -105,7 +105,7 @@ jobs:
           rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
           rustup override set "$RUST_TOOLCHAIN"
       - name: Build native release
-        shell: ${{ runner.os == 'Windows' && 'pwsh' || 'bash' }}
+        shell: ${{ matrix.os == 'windows-2022' && 'pwsh' || 'bash' }}
         run: python tools/dev.py build --release
       - name: Verify packaging contracts
         run: |
