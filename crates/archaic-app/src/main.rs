@@ -508,7 +508,7 @@ impl Controller {
         let appearance = appearance::Appearance::from_index(self.view.appearance.get_selected()?);
         if let Some(app) = self.app.upgrade() {
             app.theme(appearance.theme());
-            app.focus_indicators(true);
+            app.focus_indicators(false);
         }
         let failed = self
             .preference_path
@@ -911,7 +911,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let app = Rc::new(App::new()?);
     _native_branding = branding::NativeBranding::install()?;
     app.theme(appearance.theme());
-    app.focus_indicators(true);
+    app.focus_indicators(false);
     let window = app.window(options.window_title(), 1440, 900)?;
     let root = window.root()?;
     let runtime = tokio::runtime::Builder::new_multi_thread()
