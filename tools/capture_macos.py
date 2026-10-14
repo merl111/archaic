@@ -8,6 +8,7 @@ helper = Path(sys.argv[3]).resolve()
 results = []
 for name, flags in [('login', ['--theme', 'light']), ('chat-light', ['--fixture', '--theme', 'light']), ('chat-dark', ['--fixture', '--theme', 'dark'])]:
     with (out / (name + '.log')).open('w') as log:
+        started = time.monotonic()
         process = subprocess.Popen([str(binary), '--temporary-session', *flags], stdout=log, stderr=log)
         try:
             deadline = time.monotonic() + 60
@@ -27,7 +28,7 @@ for name, flags in [('login', ['--theme', 'light']), ('chat-light', ['--fixture'
             time.sleep(2)
             wid = str(window['kCGWindowNumber'])
             subprocess.run(['screencapture', '-x', '-o', '-l', wid, str(out / (name + '.png'))], check=True, timeout=20)
-            results.append({'scenario': name, 'window': window})
+            results.append({'scenario': name, 'window': window, 'startup_seconds': round(time.monotonic() - started - 2, 2)})
         finally:
             process.terminate()
             process.wait(timeout=20)
