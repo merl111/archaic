@@ -133,6 +133,11 @@ jobs:
           & ../cui/tests/windows_idle_capture.ps1 -Directory "$PWD/target/release" -Prefix "$PWD/evidence/login"
           & ../cui/tests/windows_idle_capture.ps1 -Directory "$PWD/target/release" -Prefix "$PWD/evidence/chat-light" -Fixture
           & ../cui/tests/windows_idle_capture.ps1 -Directory "$PWD/target/release" -Prefix "$PWD/evidence/chat-dark" -Fixture -Theme dark
+          & tools/capture_windows_ui.ps1 -Directory "$PWD/target/release" -Prefix "$PWD/evidence/settings-light"
+          & tools/capture_windows_ui.ps1 -Directory "$PWD/target/release" -Prefix "$PWD/evidence/settings-dark" -Theme dark
+          $smoke = Start-Process "$PWD/target/release/archaic.exe" -ArgumentList '--temporary-session', '--fixture', '--smoke-test' -PassThru -NoNewWindow
+          if (-not $smoke.WaitForExit(40000)) { Stop-Process -Id $smoke.Id -Force; throw 'Application smoke test timed out' }
+          if ($smoke.ExitCode -ne 0) { throw "Application smoke test exited with $($smoke.ExitCode)" }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
