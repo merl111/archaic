@@ -18,6 +18,8 @@ echo Exit code: %ERRORLEVEL%
 
 ## Windows UI correction
 
-The CUI update pinned by this branch skips unchanged layout properties during Archaic's 50 ms UI polling, respects the requested chat canvas sizes, reclaims hidden sidebar space, and suppresses delayed canvas focus callbacks during shutdown. It preserves the public C ABI used by the existing Archaic executable.
+The pinned CUI update skips unchanged layout properties during Archaic's 50 ms UI polling, respects the requested chat canvas sizes, reclaims hidden sidebar space, and suppresses delayed canvas focus callbacks during shutdown. It preserves the public C ABI.
+
+Windows labels now center within their allocated rows. Container padding follows the same style precedence as GTK, and styled text fields retain the selected palette while hovered, focused, or disabled. The composer uses a consistent inner inset. Archaic also styles the organization navigation button with its neighbors and disables focus outlines at startup and after theme changes.
 
 The native Windows validation includes a repeated-layout benchmark, window responsiveness checks, and login/chat screenshots with temporary sessions and synthetic messages. It does not access a real Matrix account.
