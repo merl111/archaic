@@ -15,6 +15,6 @@ Download **archaic-0.1.0-macos.1-arm64.zip**, extract it, and open **Archaic.app
 
 The packaged `.app` passed direct startup/shutdown and LaunchServices startup checks on a native macOS runner. Actual login and light/dark chat and settings screenshots were reviewed. The native regression tests also check rendered text/icon pixels and initial window geometry. The checks use temporary sessions and synthetic conversations, not a real Matrix account or credential vault.
 
-[Application build and native captures](https://github.com/merl111/archaic/actions/runs/38604590441).
+[Application build and native captures](https://github.com/merl111/archaic/actions/runs/38604915778).
 
 `build.json` records the exact source and CUI revisions, target architecture and executable hash. A SHA-256 sidecar accompanies the archive. Source changes: [CUI #1](https://github.com/merl111/cui/pull/1), [Archaic #1](https://github.com/merl111/archaic/pull/1).
