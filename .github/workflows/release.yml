@@ -16,8 +16,8 @@ jobs:
           persist-credentials: false
       - name: Require the verified native application run
         run: |
-          test "$(gh run view 38602631254 --json conclusion --jq .conclusion)" = success
-          gh run download 38602631254 --name release-macos-14 --dir download
+          test "$(gh run view 38604590441 --json conclusion --jq .conclusion)" = success
+          gh run download 38604590441 --name release-macos-14 --dir download
       - name: Verify native package provenance and hashes
         run: |
           python3 - <<'PY'
@@ -26,8 +26,8 @@ jobs:
           package = next(Path('download').glob('*.zip'))
           with zipfile.ZipFile(package) as archive:
               metadata = json.loads(archive.read(next(n for n in archive.namelist() if n.endswith('/build.json'))))
-              assert metadata['source_revision'] == '55c942b826b36d484df5608981127204e8b4e7df'
-              assert metadata['cui_revision'] == '29702309341b7041914394a42b9e1debc110fe89'
+              assert metadata['source_revision'] == '8db7c639d8231fd6fb18934b85c2bb638bd08ab1'
+              assert metadata['cui_revision'] == '0adf62fad5595760c5944e2e1a383890226d109e'
               assert metadata['target_os'] == 'Darwin' and metadata['architecture'] == 'arm64'
               binary = archive.read(next(n for n in archive.namelist() if n.endswith('/Archaic.app/Contents/MacOS/archaic')))
               assert hashlib.sha256(binary).hexdigest() == metadata['binary_sha256']
@@ -41,6 +41,6 @@ jobs:
       - name: Publish the reviewed native build
         run: |
           gh release create v0.1.0-macos.1 archaic-0.1.0-macos.1-arm64.zip archaic-0.1.0-macos.1-arm64.zip.sha256 \
-            --target 55c942b826b36d484df5608981127204e8b4e7df \
+            --target 8db7c639d8231fd6fb18934b85c2bb638bd08ab1 \
             --title 'Archaic 0.1.0 — macOS Apple Silicon preview' \
             --notes-file docs/MACOS-PREVIEW-RELEASE.md --prerelease
