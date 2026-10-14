@@ -1,7 +1,12 @@
 import Foundation
 import CoreGraphics
 let pid = Int(CommandLine.arguments[1])!
-let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+let all = CommandLine.arguments.count > 2
+let windows = CGWindowListCopyWindowInfo(all ? [.optionAll] : [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+if all {
+    FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: windows, options: [.prettyPrinted, .sortedKeys]))
+    exit(0)
+}
 let matches = windows.filter { ($0[kCGWindowOwnerPID as String] as? Int) == pid && ($0[kCGWindowLayer as String] as? Int) == 0 }
 guard let window = matches.max(by: { a, b in
     let aa = a[kCGWindowBounds as String] as? [String: Double] ?? [:]

@@ -10,10 +10,21 @@ for name, flags in [('login', ['--theme', 'light']), ('chat-light', ['--fixture'
     with (out / (name + '.log')).open('w') as log:
         process = subprocess.Popen([str(binary), '--temporary-session', *flags], stdout=log, stderr=log)
         try:
-            time.sleep(6)
-            if process.poll() is not None:
-                raise RuntimeError(f'{name} exited with {process.returncode}; see log')
-            window = json.loads(subprocess.check_output([str(helper), str(process.pid)], text=True))
+            deadline = time.monotonic() + 60
+            while True:
+                if process.poll() is not None:
+                    raise RuntimeError(f'{name} exited with {process.returncode}; see log')
+                found = subprocess.run([str(helper), str(process.pid)], capture_output=True, text=True)
+                if found.returncode == 0:
+                    window = json.loads(found.stdout)
+                    break
+                if time.monotonic() >= deadline:
+                    subprocess.run(['sample', str(process.pid), '2', '1', '-file', str(out / (name + '-sample.txt'))], timeout=15)
+                    subprocess.run([str(helper), str(process.pid), 'all'], stdout=log, stderr=log)
+                    subprocess.run(['screencapture', '-x', str(out / (name + '-desktop.png'))], timeout=20)
+                    raise RuntimeError(f'{name} has no visible window after 60 seconds; see diagnostics')
+                time.sleep(1)
+            time.sleep(2)
             wid = str(window['kCGWindowNumber'])
             subprocess.run(['screencapture', '-x', '-o', '-l', wid, str(out / (name + '.png'))], check=True, timeout=20)
             results.append({'scenario': name, 'window': window})
