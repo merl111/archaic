@@ -20,6 +20,7 @@ impl Controller {
             &self.view.join_toggle,
             &self.view.ui.sidebar_toggle,
             &self.view.ui.favorite_button,
+            &self.view.organization_toggle,
             &self.view.ui.room_button,
             &self.view.ui.history_button,
             &self.view.ui.info_button,

@@ -23,6 +23,8 @@ this repository.
 These are unsigned development archives, not signed installers. Native Windows
 and macOS runtime verification remains separate from successful compilation.
 Windows users still need Windows App Runtime 1.8 and the Microsoft VC++ runtime.
+See the [Windows checks](WINDOWS-TESTING.md) and [macOS checks](MACOS-TESTING.md)
+for native startup and screenshot validation.
 The Linux build uses Ubuntu 24.04 system libraries; it is not a universal binary
 for older distributions. The archive names and build.json record the actual
 runner architecture. This workflow does not change repository visibility.
