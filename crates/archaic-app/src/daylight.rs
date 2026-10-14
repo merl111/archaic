@@ -86,7 +86,6 @@ pub enum Panel {
 }
 pub struct Shell {
     brand: Widget,
-    top_spacer: Widget,
     pub quick_reaction: Cell<bool>,
     pub base: Widget,
     pub body: Widget,
@@ -164,7 +163,7 @@ impl Shell {
         let space_picker = page.select(&[])?;
         space_picker.accessibility(&tr.text("navigation-spaces"), "")?;
         space_picker.set_visible(false)?;
-        spaces.root.expand(true)?;
+        spaces.root.expand(false)?;
         name.set_min_size(90, 1)?;
         spaces.part(0)?.set_min_size(110, 42)?;
         let top_spacer = top.box_layout(sys::CUI_HORIZONTAL, 0)?;
@@ -301,7 +300,6 @@ impl Shell {
         ];
         Ok(Self {
             brand,
-            top_spacer,
             quick_reaction: Cell::new(false),
             base,
             body,
@@ -745,9 +743,10 @@ impl Shell {
         for control in self.sidebar_controls.borrow().iter() {
             control.set_visible(expanded)?;
         }
-        self.spaces
-            .part(0)?
-            .set_min_size(110, (42. * zoom) as i32)?;
+        self.spaces.part(0)?.set_min_size(
+            (self.space_width.get() * zoom).ceil().max(110.) as i32,
+            (42. * zoom) as i32,
+        )?;
         self.header.part(0)?.set_min_size(1, (72. * zoom) as i32)?;
         self.account_button.set_icon_only(!wide)?;
         self.right_pane
@@ -777,8 +776,6 @@ impl Shell {
         }
         self.sidebar_toggle.set_visible(self.connected.get())?;
         let compact_spaces = !wide || (self.space_width.get() + 360.) * zoom > width as f64;
-        self.top_spacer
-            .expand(!self.connected.get() || compact_spaces)?;
         self.spaces
             .root
             .set_visible(self.connected.get() && !compact_spaces)?;
