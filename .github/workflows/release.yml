@@ -24,7 +24,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-${{ inputs.tag }}
+  group: desktop-validation-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -67,6 +67,8 @@ jobs:
         os: [windows-2022]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
+    env:
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 16
     defaults:
       run:
         working-directory: archaic
@@ -104,6 +106,12 @@ jobs:
         run: |
           rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
           rustup override set "$RUST_TOOLCHAIN"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: archaic -> target
+          shared-key: desktop-validation
+          cache-on-failure: true
+          save-if: true
       - name: Build native release (Linux and macOS)
         if: runner.os != 'Windows'
         run: python tools/dev.py build --release
