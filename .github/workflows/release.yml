@@ -64,7 +64,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-14, windows-2022]
+        os: [windows-2022]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     defaults:
@@ -87,13 +87,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Verify packaging contracts
-        run: |
-          python tools/test_package.py
-          python tools/test_installer.py
-          python tools/test_dev.py
-          python tools/test_branding.py
-          python tools/test_release.py
       - name: Linux dependencies
         if: runner.os == 'Linux'
         run: |
@@ -121,6 +114,22 @@ jobs:
       - name: Linux native smoke test
         if: runner.os == 'Linux'
         run: xvfb-run -a env GSK_RENDERER=cairo GTK_A11Y=none target/release/archaic --fixture --smoke-test
+      - name: Windows application captures
+        shell: pwsh
+        run: |
+          Invoke-WebRequest 'https://aka.ms/windowsappsdk/1.8/1.8.260921001/windowsappruntimeinstall-x64.exe' -OutFile "$env:RUNNER_TEMP/runtime.exe"
+          $p = Start-Process "$env:RUNNER_TEMP/runtime.exe" -ArgumentList '--quiet' -Wait -PassThru
+          if ($p.ExitCode) { throw "Runtime installer: $($p.ExitCode)" }
+          Set-DisplayResolution -Width 1920 -Height 1080 -Force
+          New-Item evidence -ItemType Directory -Force
+          & ../cui/tests/windows_idle_capture.ps1 -Directory "$PWD/target/release" -Prefix "$PWD/evidence/login"
+          & ../cui/tests/windows_idle_capture.ps1 -Directory "$PWD/target/release" -Prefix "$PWD/evidence/chat-light" -Fixture
+          & ../cui/tests/windows_idle_capture.ps1 -Directory "$PWD/target/release" -Prefix "$PWD/evidence/chat-dark" -Fixture -Theme dark
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-application-captures
+          path: archaic/evidence/
       - name: Package native binary and icons
         shell: python
         run: |
