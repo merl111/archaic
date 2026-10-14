@@ -29,6 +29,11 @@ for name, flags in [('login', ['--theme', 'light']), ('chat-light', ['--fixture'
             wid = str(window['kCGWindowNumber'])
             subprocess.run(['screencapture', '-x', '-o', '-l', wid, str(out / (name + '.png'))], check=True, timeout=20)
             results.append({'scenario': name, 'window': window, 'startup_seconds': round(time.monotonic() - started - 2, 2)})
+            if name.startswith('chat-'):
+                opened = subprocess.run([str(helper), str(process.pid), 'settings'], stdout=log, stderr=log)
+                if opened.returncode == 0:
+                    time.sleep(2)
+                    subprocess.run(['screencapture', '-x', '-o', '-l', wid, str(out / (name + '-settings.png'))], check=True, timeout=20)
         finally:
             process.terminate()
             process.wait(timeout=20)
