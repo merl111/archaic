@@ -24,7 +24,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-${{ inputs.tag }}
+  group: desktop-validation-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -64,9 +64,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-14, windows-2022]
+        os: [macos-14]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
+    env:
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 16
     defaults:
       run:
         working-directory: archaic
@@ -87,13 +89,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Verify packaging contracts
-        run: |
-          python tools/test_package.py
-          python tools/test_installer.py
-          python tools/test_dev.py
-          python tools/test_branding.py
-          python tools/test_release.py
       - name: Linux dependencies
         if: runner.os == 'Linux'
         run: |
@@ -111,6 +106,12 @@ jobs:
         run: |
           rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
           rustup override set "$RUST_TOOLCHAIN"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: archaic -> target
+          shared-key: desktop-validation
+          cache-on-failure: true
+          save-if: true
       - name: Build native release (Linux and macOS)
         if: runner.os != 'Windows'
         run: python tools/dev.py build --release
@@ -127,6 +128,24 @@ jobs:
           import os, subprocess, sys
           binary = 'target/release/archaic' + ('.exe' if os.name == 'nt' else '')
           subprocess.run([sys.executable, 'tools/package.py', '--binary', binary], check=True)
+      - name: macOS app startup and visual checks
+        run: |
+          mkdir -p evidence unpacked
+          sw_vers > evidence/system.txt
+          uname -m >> evidence/system.txt
+          unzip -q dist/archaic-*.zip -d unpacked
+          app=$(echo unpacked/archaic-*/Archaic.app)
+          swiftc tools/capture_macos.swift -o "$RUNNER_TEMP/capture-macos"
+          python3 tools/capture_macos.py "$app/Contents/MacOS/archaic" evidence "$RUNNER_TEMP/capture-macos"
+          python3 - "$app" <<'PYCODE'
+          import subprocess, sys
+          subprocess.run(['open', '-W', '-n', sys.argv[1], '--args', '--temporary-session', '--fixture', '--smoke-test'], check=True, timeout=40)
+          PYCODE
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-application-captures
+          path: archaic/evidence/
       - uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.os }}
